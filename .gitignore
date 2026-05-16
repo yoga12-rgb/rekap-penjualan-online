@@ -1,0 +1,17 @@
+node_modules
+.next
+out
+.env
+.env.local
+.env*.local
+.DS_Store
+*.log
+
+# build artefak
+*.tsbuildinfo
+next-env.d.ts.bak
+
+# editor
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json

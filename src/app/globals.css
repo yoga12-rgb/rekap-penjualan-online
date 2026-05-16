@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f8fafc;
+  --fg: #0f172a;
+  --card: #ffffff;
+  --border: #e2e8f0;
+  --muted: #64748b;
+  --hover: #f1f5f9;
+}
+
+.dark {
+  --bg: #0b1220;
+  --fg: #e2e8f0;
+  --card: #111827;
+  --border: #1f2937;
+  --muted: #94a3b8;
+  --hover: #1f2937;
+}
+
+html, body { background: var(--bg); color: var(--fg); }
+
+@layer components {
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition disabled:opacity-50 disabled:pointer-events-none; }
+  .btn-primary { @apply btn bg-brand text-white hover:bg-red-700; }
+  .btn-outline { @apply btn border bg-[var(--card)] hover:bg-[var(--hover)]; border-color: var(--border); color: var(--fg); }
+  .btn-ghost   { @apply btn hover:bg-[var(--hover)] text-[color:var(--fg)]; }
+  .btn-danger  { @apply btn bg-red-600 text-white hover:bg-red-700; }
+
+  .input {
+    @apply w-full rounded-md px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900/30;
+    background-color: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--border);
+  }
+  .label { @apply text-sm font-medium; color: var(--fg); }
+
+  .card { @apply rounded-lg shadow-sm; background-color: var(--card); border: 1px solid var(--border); }
+
+  .table { @apply w-full text-sm; }
+  .table th {
+    @apply text-left text-xs font-semibold uppercase tracking-wide px-3 py-2;
+    color: var(--muted);
+    background-color: var(--hover);
+    border-bottom: 1px solid var(--border);
+  }
+  .table td {
+    @apply px-3 py-2 align-top;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
+    background-color: var(--hover);
+    color: var(--fg);
+  }
+}

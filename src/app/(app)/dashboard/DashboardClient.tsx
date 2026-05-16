@@ -8,8 +8,14 @@ import {
 import { getMerchantTheme } from "@/lib/merchantColors";
 import { MerchantBadge } from "@/components/MerchantBadge";
 import { Combobox } from "@/components/ui/Combobox";
+import {
+  isoToWIBDateKey, isoToWIBDisplay, todayWIBKey, daysAgoWIBKey, startOfYearWIBKey, endOfYearWIBKey
+} from "@/lib/date";
+import { AlertCircle } from "lucide-react";
 
 type Option = { id: string; name: string };
+type Merchant = Option & { color?: string | null };
+type Variant = Option & { base_price?: number };
 type Row = {
   id: string;
   transaction_date: string;
@@ -30,8 +36,8 @@ export function DashboardClient({
 }: {
   role: "super_admin" | "kasir";
   outlets: Option[];
-  merchants: Option[];
-  variants: Option[];
+  merchants: Merchant[];
+  variants: Variant[];
   rows: Row[];
   filter: { from: string; to: string; outlet: string; merchant: string; variant: string };
 }) {
@@ -41,6 +47,13 @@ export function DashboardClient({
   function setParam(key: string, value: string) {
     const next = new URLSearchParams(sp.toString());
     if (value) next.set(key, value); else next.delete(key);
+    router.push(`/dashboard?${next.toString()}`);
+  }
+
+  function setRange(from: string, to: string) {
+    const next = new URLSearchParams(sp.toString());
+    next.set("from", from);
+    next.set("to", to);
     router.push(`/dashboard?${next.toString()}`);
   }
 
@@ -55,7 +68,7 @@ export function DashboardClient({
   const daily = useMemo(() => {
     const map = new Map<string, { date: string; gross: number; fee: number; net: number }>();
     for (const r of rows) {
-      const d = r.transaction_date.slice(0, 10);
+      const d = isoToWIBDateKey(r.transaction_date);
       const cur = map.get(d) ?? { date: d, gross: 0, fee: 0, net: 0 };
       cur.gross += r.qty * r.initial_price;
       cur.fee += Number(r.deduction_fee || 0);
@@ -95,7 +108,7 @@ export function DashboardClient({
   function exportXlsx() {
     import("xlsx").then((XLSX) => {
       const data = rows.map((r) => ({
-        Tanggal: r.transaction_date,
+        Tanggal: isoToWIBDisplay(r.transaction_date),
         Outlet: r.outlets?.name ?? "",
         Merchant: r.food_merchants?.name ?? "",
         Produk: r.product_variants?.name ?? "",
@@ -113,26 +126,14 @@ export function DashboardClient({
   }
 
   function setRangePreset(preset: "today" | "7d" | "30d" | "ytd" | "year") {
-    const today = new Date();
-    let from = new Date();
-    if (preset === "today") from = today;
-    if (preset === "7d") from.setDate(today.getDate() - 6);
-    if (preset === "30d") from.setDate(today.getDate() - 29);
-    if (preset === "ytd") from = new Date(today.getFullYear(), 0, 1);
-    if (preset === "year") {
-      from = new Date(today.getFullYear(), 0, 1);
-      const to = new Date(today.getFullYear(), 11, 31);
-      const next = new URLSearchParams(sp.toString());
-      next.set("from", from.toISOString().slice(0, 10));
-      next.set("to", to.toISOString().slice(0, 10));
-      router.push(`/dashboard?${next.toString()}`);
-      return;
-    }
-    const next = new URLSearchParams(sp.toString());
-    next.set("from", from.toISOString().slice(0, 10));
-    next.set("to", today.toISOString().slice(0, 10));
-    router.push(`/dashboard?${next.toString()}`);
+    if (preset === "today") return setRange(todayWIBKey(), todayWIBKey());
+    if (preset === "7d") return setRange(daysAgoWIBKey(6), todayWIBKey());
+    if (preset === "30d") return setRange(daysAgoWIBKey(29), todayWIBKey());
+    if (preset === "ytd") return setRange(startOfYearWIBKey(), todayWIBKey());
+    if (preset === "year") return setRange(startOfYearWIBKey(), endOfYearWIBKey());
   }
+
+  const fromInvalid = filter.from > filter.to;
 
   return (
     <div className="space-y-5">
@@ -148,35 +149,42 @@ export function DashboardClient({
                  onChange={(e) => setParam("to", e.target.value)} />
         </div>
         {role === "super_admin" && (
-          <div>
+          <div className="min-w-[200px]">
             <label className="label">Outlet</label>
-            <select className="input" value={filter.outlet}
-                    onChange={(e) => setParam("outlet", e.target.value)}>
-              <option value="">Semua Outlet</option>
-              {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
+            <Combobox
+              options={outlets.map((o) => ({ value: o.id, label: o.name }))}
+              value={filter.outlet}
+              onChange={(v) => setParam("outlet", v)}
+              placeholder="Semua Outlet"
+              clearable
+            />
           </div>
         )}
-        <div>
+        <div className="min-w-[200px]">
           <label className="label">Merchant</label>
-          <select className="input" value={filter.merchant}
-                  onChange={(e) => setParam("merchant", e.target.value)}>
-            <option value="">Semua Merchant</option>
-            {merchants.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-          </select>
+          <Combobox
+            options={merchants.map((m) => ({ value: m.id, label: m.name }))}
+            value={filter.merchant}
+            onChange={(v) => setParam("merchant", v)}
+            placeholder="Semua Merchant"
+            clearable
+          />
         </div>
-        <div>
+        <div className="min-w-[200px]">
           <label className="label">Varian Produk</label>
           <Combobox
-            options={variants.map((v) => ({ value: v.id, label: v.name }))}
+            options={variants.map((v) => ({
+              value: v.id,
+              label: v.name,
+              hint: v.base_price != null ? formatIDR(v.base_price) : undefined
+            }))}
             value={filter.variant}
             onChange={(v) => setParam("variant", v)}
             placeholder="Semua Varian"
             clearable
-            className="min-w-[180px]"
           />
         </div>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           <button className="btn-outline" onClick={() => setRangePreset("today")}>Hari ini</button>
           <button className="btn-outline" onClick={() => setRangePreset("7d")}>7H</button>
           <button className="btn-outline" onClick={() => setRangePreset("30d")}>30H</button>
@@ -184,9 +192,18 @@ export function DashboardClient({
           <button className="btn-outline" onClick={() => setRangePreset("year")}>Tahun</button>
         </div>
         <div className="ml-auto">
-          <button className="btn-primary" onClick={exportXlsx}>Export Excel</button>
+          <button className="btn-primary" onClick={exportXlsx} disabled={!rows.length}>
+            Export Excel
+          </button>
         </div>
       </div>
+
+      {fromInvalid && (
+        <div className="card p-3 flex items-center gap-2 text-sm" style={{ borderColor: "#f59e0b" }}>
+          <AlertCircle size={16} className="text-amber-600" />
+          <span>Tanggal "Dari" lebih besar dari "Sampai" — sistem otomatis menukar urutan untuk query.</span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         <KPI title="Total Omset" value={formatIDR(totals.gross)} />
@@ -198,21 +215,28 @@ export function DashboardClient({
       <div className="card p-4">
         <h3 className="font-semibold mb-2">Tren Penjualan Harian</h3>
         <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={daily}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="date" stroke="var(--muted)" />
-              <YAxis tickFormatter={(v) => Intl.NumberFormat("id-ID").format(v as number)} stroke="var(--muted)" />
-              <Tooltip
-                contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", color: "var(--fg)" }}
-                formatter={(v: any) => formatIDR(Number(v))}
-              />
-              <Legend />
-              <Line type="monotone" dataKey="gross" name="Omset" stroke="#3b82f6" />
-              <Line type="monotone" dataKey="net" name="Net Profit" stroke="#22c55e" />
-              <Line type="monotone" dataKey="fee" name="Potongan" stroke="#ef4444" />
-            </LineChart>
-          </ResponsiveContainer>
+          {daily.length === 0 ? (
+            <EmptyChart />
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={daily}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="date" stroke="var(--muted)" />
+                <YAxis tickFormatter={(v) => Intl.NumberFormat("id-ID").format(v as number)} stroke="var(--muted)" />
+                <Tooltip
+                  contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", color: "var(--fg)" }}
+                  formatter={(v: any) => formatIDR(Number(v))}
+                />
+                <Legend />
+                <Line type="monotone" dataKey="gross" name="Omset" stroke="#3b82f6"
+                      dot={daily.length === 1} strokeWidth={2} />
+                <Line type="monotone" dataKey="net" name="Net Profit" stroke="#22c55e"
+                      dot={daily.length === 1} strokeWidth={2} />
+                <Line type="monotone" dataKey="fee" name="Potongan" stroke="#ef4444"
+                      dot={daily.length === 1} strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
@@ -220,15 +244,19 @@ export function DashboardClient({
         <div className="card p-4">
           <h3 className="font-semibold mb-2">Produk Terlaris (Qty)</h3>
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={leaderboard}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="name" stroke="var(--muted)" />
-                <YAxis stroke="var(--muted)" />
-                <Tooltip contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", color: "var(--fg)" }} />
-                <Bar dataKey="qty" fill="#b91c1c" />
-              </BarChart>
-            </ResponsiveContainer>
+            {leaderboard.length === 0 ? (
+              <EmptyChart />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={leaderboard}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="name" stroke="var(--muted)" />
+                  <YAxis stroke="var(--muted)" />
+                  <Tooltip contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", color: "var(--fg)" }} />
+                  <Bar dataKey="qty" fill="#b91c1c" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
           <table className="table mt-3">
             <thead><tr><th>Produk</th><th className="text-right">Qty</th><th className="text-right">Net</th></tr></thead>
@@ -240,7 +268,9 @@ export function DashboardClient({
                   <td className="text-right">{formatIDR(p.net)}</td>
                 </tr>
               ))}
-              {!leaderboard.length && <tr><td colSpan={3} className="text-center text-slate-500 py-4">Tidak ada data</td></tr>}
+              {!leaderboard.length && (
+                <tr><td colSpan={3} className="text-center py-4" style={{ color: "var(--muted)" }}>Tidak ada data</td></tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -248,22 +278,26 @@ export function DashboardClient({
         <div className="card p-4">
           <h3 className="font-semibold mb-2">Net Profit per Merchant</h3>
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={merchantBreakdown}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="name" stroke="var(--muted)" />
-                <YAxis tickFormatter={(v) => Intl.NumberFormat("id-ID").format(v as number)} stroke="var(--muted)" />
-                <Tooltip
-                  contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", color: "var(--fg)" }}
-                  formatter={(v: any) => formatIDR(Number(v))}
-                />
-                <Bar dataKey="net">
-                  {merchantBreakdown.map((m) => (
-                    <Cell key={m.name} fill={getMerchantTheme(m.name, m.color).bg} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            {merchantBreakdown.length === 0 ? (
+              <EmptyChart />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={merchantBreakdown}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="name" stroke="var(--muted)" />
+                  <YAxis tickFormatter={(v) => Intl.NumberFormat("id-ID").format(v as number)} stroke="var(--muted)" />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", color: "var(--fg)" }}
+                    formatter={(v: any) => formatIDR(Number(v))}
+                  />
+                  <Bar dataKey="net">
+                    {merchantBreakdown.map((m) => (
+                      <Cell key={m.name} fill={getMerchantTheme(m.name, m.color).bg} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {merchantBreakdown.map((m) => (
@@ -276,7 +310,7 @@ export function DashboardClient({
       <div className="card p-4">
         <div className="flex justify-between items-center mb-2">
           <h3 className="font-semibold">Detail Transaksi</h3>
-          <span className="text-xs text-slate-500">{rows.length} baris</span>
+          <span className="text-xs" style={{ color: "var(--muted)" }}>{rows.length} baris</span>
         </div>
         <div className="overflow-auto">
           <table className="table">
@@ -291,7 +325,7 @@ export function DashboardClient({
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id}>
-                  <td>{new Date(r.transaction_date).toLocaleString("id-ID")}</td>
+                  <td>{isoToWIBDisplay(r.transaction_date)}</td>
                   <td>{r.outlets?.name}</td>
                   <td><MerchantBadge name={r.food_merchants?.name} color={r.food_merchants?.color} /></td>
                   <td>{r.product_variants?.name}</td>
@@ -302,7 +336,13 @@ export function DashboardClient({
                   <td className="text-right font-medium">{formatIDR(r.net_profit)}</td>
                 </tr>
               ))}
-              {!rows.length && <tr><td colSpan={9} className="text-center py-6 text-slate-500">Belum ada transaksi pada rentang ini.</td></tr>}
+              {!rows.length && (
+                <tr>
+                  <td colSpan={9} className="text-center py-6" style={{ color: "var(--muted)" }}>
+                    Belum ada transaksi pada rentang ini.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -313,9 +353,17 @@ export function DashboardClient({
 
 function KPI({ title, value, accent }: { title: string; value: string; accent?: boolean }) {
   return (
-    <div className={`card p-4 ${accent ? "ring-2 ring-red-200" : ""}`}>
-      <div className="text-xs uppercase tracking-wide text-slate-500">{title}</div>
-      <div className={`mt-1 text-xl font-bold ${accent ? "text-red-700" : ""}`}>{value}</div>
+    <div className={`card p-4 ${accent ? "ring-2 ring-red-200 dark:ring-red-900/40" : ""}`}>
+      <div className="text-xs uppercase tracking-wide" style={{ color: "var(--muted)" }}>{title}</div>
+      <div className={`mt-1 text-xl font-bold ${accent ? "text-red-700 dark:text-red-300" : ""}`}>{value}</div>
+    </div>
+  );
+}
+
+function EmptyChart() {
+  return (
+    <div className="h-full flex items-center justify-center text-sm" style={{ color: "var(--muted)" }}>
+      Tidak ada data untuk grafik ini.
     </div>
   );
 }

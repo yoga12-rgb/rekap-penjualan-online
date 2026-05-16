@@ -4,13 +4,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
 import { formatIDR } from "@/lib/utils";
 import { toast } from "@/components/Toast";
-import { Plus, Trash2, Pencil, Filter, X } from "lucide-react";
+import { Plus, Trash2, Pencil, Filter, X, AlertCircle } from "lucide-react";
 import { createOrder, updateTransaction, deleteTransaction, deleteOrder } from "./actions";
 import { MerchantBadge } from "@/components/MerchantBadge";
 import { getMerchantTheme } from "@/lib/merchantColors";
 import { Combobox } from "@/components/ui/Combobox";
+import {
+  isoToWIBDisplay, isoToWIBLocalInput, todayWIBKey, daysAgoWIBKey, startOfYearWIBKey
+} from "@/lib/date";
 
 type Option = { id: string; name: string };
+type Merchant = Option & { color?: string | null };
 type Variant = Option & { base_price: number };
 type Row = {
   id: string;
@@ -46,7 +50,7 @@ export function TransactionsClient({
   role: "super_admin" | "kasir";
   myOutletId: string | null;
   outlets: Option[];
-  merchants: Option[];
+  merchants: Merchant[];
   variants: Variant[];
   rows: Row[];
   filter: { from: string; to: string; outlet: string; merchant: string; variant: string; q: string };
@@ -64,15 +68,16 @@ export function TransactionsClient({
     router.push(`/transactions?${next.toString()}`);
   }
   function setRangePreset(preset: "today" | "7d" | "30d" | "ytd") {
-    const today = new Date();
-    let from = new Date();
-    if (preset === "today") from = today;
-    if (preset === "7d") from.setDate(today.getDate() - 6);
-    if (preset === "30d") from.setDate(today.getDate() - 29);
-    if (preset === "ytd") from = new Date(today.getFullYear(), 0, 1);
     const next = new URLSearchParams(sp.toString());
-    next.set("from", from.toISOString().slice(0, 10));
-    next.set("to", today.toISOString().slice(0, 10));
+    if (preset === "today") {
+      next.set("from", todayWIBKey()); next.set("to", todayWIBKey());
+    } else if (preset === "7d") {
+      next.set("from", daysAgoWIBKey(6)); next.set("to", todayWIBKey());
+    } else if (preset === "30d") {
+      next.set("from", daysAgoWIBKey(29)); next.set("to", todayWIBKey());
+    } else if (preset === "ytd") {
+      next.set("from", startOfYearWIBKey()); next.set("to", todayWIBKey());
+    }
     router.push(`/transactions?${next.toString()}`);
   }
   function clearFilter() {
@@ -82,6 +87,7 @@ export function TransactionsClient({
 
   const hasActiveFilter =
     !!filter.outlet || !!filter.merchant || !!filter.variant || !!filter.q;
+  const fromInvalid = filter.from > filter.to;
 
   const filteredRows = useMemo(() => {
     if (!filter.q) return rows;
@@ -186,20 +192,24 @@ export function TransactionsClient({
           {role === "super_admin" && (
             <div>
               <label className="label">Outlet</label>
-              <select className="input" value={filter.outlet}
-                      onChange={(e) => setParam("outlet", e.target.value)}>
-                <option value="">Semua</option>
-                {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-              </select>
+              <Combobox
+                options={outlets.map((o) => ({ value: o.id, label: o.name }))}
+                value={filter.outlet}
+                onChange={(v) => setParam("outlet", v)}
+                placeholder="Semua"
+                clearable
+              />
             </div>
           )}
           <div>
             <label className="label">Merchant</label>
-            <select className="input" value={filter.merchant}
-                    onChange={(e) => setParam("merchant", e.target.value)}>
-              <option value="">Semua</option>
-              {merchants.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </select>
+            <Combobox
+              options={merchants.map((m) => ({ value: m.id, label: m.name }))}
+              value={filter.merchant}
+              onChange={(v) => setParam("merchant", v)}
+              placeholder="Semua"
+              clearable
+            />
           </div>
           <div>
             <label className="label">Varian</label>
@@ -233,6 +243,12 @@ export function TransactionsClient({
       </div>
 
       {/* SUMMARY */}
+      {fromInvalid && (
+        <div className="card p-3 flex items-center gap-2 text-sm">
+          <AlertCircle size={16} className="text-amber-600" />
+          <span>Tanggal "Dari" lebih besar dari "Sampai" — sistem otomatis menukar untuk query.</span>
+        </div>
+      )}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Stat title="Transaksi" value={`${groups.length} order`} sub={`${filteredRows.length} baris`} />
         <Stat title="Total Omset" value={formatIDR(totals.gross)} />
@@ -253,7 +269,7 @@ export function TransactionsClient({
               <div className="space-y-1">
                 <div className="text-lg font-bold leading-tight">{g.outlet}</div>
                 <div className="text-sm flex flex-wrap items-center gap-2" style={{ color: "var(--muted)" }}>
-                  <span>{new Date(g.date).toLocaleString("id-ID")}</span>
+                  <span>{isoToWIBDisplay(g.date)}</span>
                   <span>·</span>
                   <MerchantBadge name={g.merchant} color={g.merchantColor} solid />
                   {g.rows.length > 1 && <span className="badge ml-1">{g.rows.length} item</span>}
@@ -362,11 +378,7 @@ function CreateOrderForm({
   const [pending, start] = useTransition();
   const [outletId, setOutletId] = useState<string>(role === "kasir" ? (myOutletId ?? "") : "");
   const [merchantId, setMerchantId] = useState<string>("");
-  const [date, setDate] = useState<string>(() => {
-    const d = new Date();
-    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-    return d.toISOString().slice(0, 16);
-  });
+  const [date, setDate] = useState<string>(() => isoToWIBLocalInput(new Date().toISOString()));
   const [fee, setFee] = useState<number>(0);
   const [items, setItems] = useState<Item[]>([
     { key: 1, product_variant_id: "", qty: 1, initial_price: 0 }
@@ -558,7 +570,7 @@ function EditRowForm({
       <div>
         <label className="label">Tanggal/Waktu</label>
         <input className="input" name="transaction_date" type="datetime-local"
-               defaultValue={row.transaction_date.slice(0, 16)} required />
+               defaultValue={isoToWIBLocalInput(row.transaction_date)} required />
       </div>
       <div>
         <label className="label">Varian</label>

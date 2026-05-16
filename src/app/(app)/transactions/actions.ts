@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { wibLocalToIso } from "@/lib/date";
 
 const ItemSchema = z.object({
   product_variant_id: z.string().uuid(),
@@ -53,12 +54,13 @@ export async function createOrder(payload: unknown) {
 
   // Generate satu order_id di sisi DB? Lebih simpel: kirim crypto.randomUUID
   const order_id = crypto.randomUUID();
+  const tx_iso = wibLocalToIso(transaction_date);
 
   const rows = items.map((it, i) => ({
     order_id,
     outlet_id,
     food_merchant_id,
-    transaction_date,
+    transaction_date: tx_iso,
     product_variant_id: it.product_variant_id,
     qty: it.qty,
     initial_price: it.initial_price,
@@ -94,7 +96,7 @@ export async function updateTransaction(id: string, formData: FormData) {
   if (profile.role === "kasir") outlet_id = profile.outlet_id ?? outlet_id;
 
   const { error } = await supabase.from("transactions")
-    .update({ ...parsed.data, outlet_id })
+    .update({ ...parsed.data, outlet_id, transaction_date: wibLocalToIso(parsed.data.transaction_date) })
     .eq("id", id);
   if (error) return { error: error.message };
 

@@ -16,24 +16,26 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen flex">
       <Suspense fallback={null}><NavProgress /></Suspense>
       <Sidebar isAdmin={isAdmin} />
-      <main className="flex-1 min-w-0">
+      <main className="flex-1 min-w-0 w-full">
         <header
-          className="sticky top-0 z-20 flex items-center justify-between border-b backdrop-blur px-6 py-3"
+          className="sticky top-0 z-20 flex items-center justify-between border-b backdrop-blur px-4 sm:px-6 py-3 pl-14 md:pl-6"
           style={{
             borderColor: "var(--border)",
             backgroundColor: "color-mix(in oklab, var(--card) 80%, transparent)"
           }}
         >
-          <div className="text-sm">
-            <span className="font-medium">{profile.full_name ?? "User"}</span>
+          <div className="text-sm min-w-0">
+            <span className="font-medium truncate inline-block max-w-[140px] sm:max-w-none align-bottom">
+              {profile.full_name ?? "User"}
+            </span>
             <span className="badge ml-2">{profile.role}</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle />
             <LogoutButton />
           </div>
         </header>
-        <div className="p-6">{children}</div>
+        <div className="p-4 sm:p-6">{children}</div>
       </main>
       <ToastHost />
     </div>

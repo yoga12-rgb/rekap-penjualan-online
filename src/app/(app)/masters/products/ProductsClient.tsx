@@ -31,7 +31,7 @@ export function ProductsClient({ rows }: { rows: Row[] }) {
   }
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <h1 className="text-xl font-bold">Master Produk & Varian</h1>
         <button className="btn-primary" onClick={openCreate}>+ Tambah Produk</button>
       </div>

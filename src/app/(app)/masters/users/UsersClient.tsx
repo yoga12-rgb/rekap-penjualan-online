@@ -43,7 +43,7 @@ export function UsersClient({ rows, outlets }: { rows: Row[]; outlets: Outlet[] 
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <h1 className="text-xl font-bold">Akun Kasir & Admin</h1>
         <button className="btn-primary" onClick={openCreate}>+ Tambah Akun</button>
       </div>
@@ -69,26 +69,26 @@ export function UsersClient({ rows, outlets }: { rows: Row[]; outlets: Outlet[] 
       </div>
 
       <Modal open={open} onClose={() => setOpen(false)} title={editing ? "Edit Akun" : "Tambah Akun"}>
-        <form onSubmit={(e) => { e.preventDefault(); onSubmit(e.currentTarget); }} className="grid grid-cols-2 gap-3">
+        <form onSubmit={(e) => { e.preventDefault(); onSubmit(e.currentTarget); }} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {!editing && (
             <>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <label className="label">Email</label>
                 <input className="input" name="email" type="email" required />
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <label className="label">Password</label>
                 <input className="input" name="password" type="password" minLength={6} required />
               </div>
             </>
           )}
           {editing && (
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className="label">Password Baru (opsional)</label>
               <input className="input" name="password" type="password" minLength={6} placeholder="Kosongkan jika tidak diubah" />
             </div>
           )}
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <label className="label">Nama Lengkap</label>
             <input className="input" name="full_name" defaultValue={editing?.full_name ?? ""} required />
           </div>
@@ -106,7 +106,7 @@ export function UsersClient({ rows, outlets }: { rows: Row[]; outlets: Outlet[] 
               {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
           </div>
-          <div className="col-span-2 flex justify-end pt-1">
+          <div className="sm:col-span-2 flex justify-end pt-1">
             <button className="btn-primary" disabled={pending}>{pending ? "Menyimpan..." : "Simpan"}</button>
           </div>
         </form>

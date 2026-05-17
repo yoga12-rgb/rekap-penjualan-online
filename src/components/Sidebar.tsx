@@ -1,9 +1,10 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard, ReceiptText, Store, UtensilsCrossed,
-  Package, Users, type LucideIcon
+  Package, Users, Menu, X, type LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,28 +23,79 @@ const MASTERS: Item[] = [
 ];
 
 export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
+  const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+
+  // Tutup drawer saat navigasi
+  useEffect(() => { setOpen(false); }, [pathname]);
+
+  // Cegah scroll body saat drawer terbuka
+  useEffect(() => {
+    document.body.style.overflow = open ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [open]);
+
   return (
-    <aside
-      className="sticky top-0 h-screen w-60 shrink-0 border-r flex flex-col"
-      style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}
-    >
-      <div className="p-4 border-b" style={{ borderColor: "var(--border)" }}>
-        <div className="font-bold text-lg leading-tight">Rajaklana</div>
-        <div className="text-xs" style={{ color: "var(--muted)" }}>Sales Recap</div>
-      </div>
-      <nav className="p-2 text-sm flex-1 overflow-y-auto">
-        {MAIN.map((it) => <NavItem key={it.href} {...it} />)}
-        {isAdmin && (
-          <>
-            <div className="px-3 pt-4 pb-1 text-xs font-semibold uppercase" style={{ color: "var(--muted)" }}>Master Data</div>
-            {MASTERS.map((it) => <NavItem key={it.href} {...it} />)}
-          </>
+    <>
+      {/* Tombol hamburger (mobile only) */}
+      <button
+        onClick={() => setOpen(true)}
+        className="md:hidden btn-ghost fixed left-3 top-3 z-30 rounded-md border"
+        style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}
+        aria-label="Buka menu"
+      >
+        <Menu size={20} />
+      </button>
+
+      {/* Backdrop saat drawer aktif (mobile) */}
+      {open && (
+        <div
+          className="md:hidden fixed inset-0 z-40 bg-black/50"
+          onClick={() => setOpen(false)}
+          aria-hidden
+        />
+      )}
+
+      <aside
+        className={cn(
+          // base
+          "z-50 w-64 md:w-60 shrink-0 border-r flex flex-col h-screen",
+          // mobile: fixed off-canvas drawer
+          "fixed inset-y-0 left-0 transition-transform duration-200",
+          // desktop: sticky to top, override fixed
+          "md:sticky md:inset-y-auto md:top-0 md:transition-none md:translate-x-0",
+          // mobile open state
+          open ? "translate-x-0" : "-translate-x-full"
         )}
-      </nav>
-      <div className="border-t p-3 text-[11px]" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
-        © {new Date().getFullYear()} Rajaklana
-      </div>
-    </aside>
+        style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}
+      >
+        <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
+          <div>
+            <div className="font-bold text-lg leading-tight">Rajaklana</div>
+            <div className="text-xs" style={{ color: "var(--muted)" }}>Sales Recap</div>
+          </div>
+          <button
+            onClick={() => setOpen(false)}
+            className="md:hidden btn-ghost"
+            aria-label="Tutup menu"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <nav className="p-2 text-sm flex-1 overflow-y-auto">
+          {MAIN.map((it) => <NavItem key={it.href} {...it} />)}
+          {isAdmin && (
+            <>
+              <div className="px-3 pt-4 pb-1 text-xs font-semibold uppercase" style={{ color: "var(--muted)" }}>Master Data</div>
+              {MASTERS.map((it) => <NavItem key={it.href} {...it} />)}
+            </>
+          )}
+        </nav>
+        <div className="border-t p-3 text-[11px]" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
+          © {new Date().getFullYear()} Rajaklana
+        </div>
+      </aside>
+    </>
   );
 }
 

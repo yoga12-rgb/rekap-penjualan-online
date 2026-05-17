@@ -33,7 +33,7 @@ export function OutletsClient({ rows }: { rows: Row[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <h1 className="text-xl font-bold">Master Outlet</h1>
         <button className="btn-primary" onClick={openCreate}>+ Tambah Outlet</button>
       </div>

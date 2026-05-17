@@ -137,7 +137,7 @@ export function DashboardClient({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <div>
           <label className="label">Dari</label>
           <input type="date" className="input" value={filter.from}
@@ -149,7 +149,7 @@ export function DashboardClient({
                  onChange={(e) => setParam("to", e.target.value)} />
         </div>
         {role === "super_admin" && (
-          <div className="min-w-[200px]">
+          <div>
             <label className="label">Outlet</label>
             <Combobox
               options={outlets.map((o) => ({ value: o.id, label: o.name }))}
@@ -160,7 +160,7 @@ export function DashboardClient({
             />
           </div>
         )}
-        <div className="min-w-[200px]">
+        <div>
           <label className="label">Merchant</label>
           <Combobox
             options={merchants.map((m) => ({ value: m.id, label: m.name }))}
@@ -170,7 +170,7 @@ export function DashboardClient({
             clearable
           />
         </div>
-        <div className="min-w-[200px]">
+        <div>
           <label className="label">Varian Produk</label>
           <Combobox
             options={variants.map((v) => ({
@@ -184,18 +184,19 @@ export function DashboardClient({
             clearable
           />
         </div>
-        <div className="flex flex-wrap gap-1">
-          <button className="btn-outline" onClick={() => setRangePreset("today")}>Hari ini</button>
-          <button className="btn-outline" onClick={() => setRangePreset("7d")}>7H</button>
-          <button className="btn-outline" onClick={() => setRangePreset("30d")}>30H</button>
-          <button className="btn-outline" onClick={() => setRangePreset("ytd")}>YTD</button>
-          <button className="btn-outline" onClick={() => setRangePreset("year")}>Tahun</button>
-        </div>
-        <div className="ml-auto">
-          <button className="btn-primary" onClick={exportXlsx} disabled={!rows.length}>
+        <div className="col-span-2 sm:col-span-3 lg:col-span-1 flex items-end">
+          <button className="btn-primary w-full" onClick={exportXlsx} disabled={!rows.length}>
             Export Excel
           </button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        <button className="btn-outline" onClick={() => setRangePreset("today")}>Hari ini</button>
+        <button className="btn-outline" onClick={() => setRangePreset("7d")}>7H</button>
+        <button className="btn-outline" onClick={() => setRangePreset("30d")}>30H</button>
+        <button className="btn-outline" onClick={() => setRangePreset("ytd")}>YTD</button>
+        <button className="btn-outline" onClick={() => setRangePreset("year")}>Tahun</button>
       </div>
 
       {fromInvalid && (
@@ -205,7 +206,7 @@ export function DashboardClient({
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <KPI title="Total Omset" value={formatIDR(totals.gross)} />
         <KPI title="Total Potongan Admin" value={formatIDR(totals.fee)} />
         <KPI title="Net Profit" value={formatIDR(totals.net)} accent />
@@ -353,9 +354,9 @@ export function DashboardClient({
 
 function KPI({ title, value, accent }: { title: string; value: string; accent?: boolean }) {
   return (
-    <div className={`card p-4 ${accent ? "ring-2 ring-red-200 dark:ring-red-900/40" : ""}`}>
-      <div className="text-xs uppercase tracking-wide" style={{ color: "var(--muted)" }}>{title}</div>
-      <div className={`mt-1 text-xl font-bold ${accent ? "text-red-700 dark:text-red-300" : ""}`}>{value}</div>
+    <div className={`card p-3 sm:p-4 ${accent ? "ring-2 ring-red-200 dark:ring-red-900/40" : ""}`}>
+      <div className="text-[10px] sm:text-xs uppercase tracking-wide" style={{ color: "var(--muted)" }}>{title}</div>
+      <div className={`mt-1 text-base sm:text-xl font-bold leading-tight break-words ${accent ? "text-red-700 dark:text-red-300" : ""}`}>{value}</div>
     </div>
   );
 }

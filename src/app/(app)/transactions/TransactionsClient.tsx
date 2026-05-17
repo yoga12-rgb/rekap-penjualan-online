@@ -178,7 +178,7 @@ export function TransactionsClient({
             </button>
           )}
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
           <div>
             <label className="label">Dari</label>
             <input type="date" className="input" value={filter.from}
@@ -249,7 +249,7 @@ export function TransactionsClient({
           <span>Tanggal "Dari" lebih besar dari "Sampai" — sistem otomatis menukar untuk query.</span>
         </div>
       )}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Stat title="Transaksi" value={`${groups.length} order`} sub={`${filteredRows.length} baris`} />
         <Stat title="Total Omset" value={formatIDR(totals.gross)} />
         <Stat title="Total Komisi" value={formatIDR(totals.fee)} />
@@ -262,29 +262,57 @@ export function TransactionsClient({
           return (
           <div
             key={g.order_id}
-            className="card p-4 border-l-4"
+            className="card p-3 sm:p-4 border-l-4"
             style={{ borderLeftColor: theme.bg }}
           >
-            <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
-              <div className="space-y-1">
-                <div className="text-lg font-bold leading-tight">{g.outlet}</div>
-                <div className="text-sm flex flex-wrap items-center gap-2" style={{ color: "var(--muted)" }}>
-                  <span>{isoToWIBDisplay(g.date)}</span>
-                  <span>·</span>
-                  <MerchantBadge name={g.merchant} color={g.merchantColor} solid />
-                  {g.rows.length > 1 && <span className="badge ml-1">{g.rows.length} item</span>}
+            <div className="flex flex-col gap-2 mb-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="space-y-1 min-w-0 flex-1">
+                  <div className="text-base sm:text-lg font-bold leading-tight truncate">{g.outlet}</div>
+                  <div className="text-xs sm:text-sm flex flex-wrap items-center gap-x-2 gap-y-1" style={{ color: "var(--muted)" }}>
+                    <span>{isoToWIBDisplay(g.date)}</span>
+                    <MerchantBadge name={g.merchant} color={g.merchantColor} solid />
+                    {g.rows.length > 1 && <span className="badge">{g.rows.length} item</span>}
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-3 text-sm">
-                <span style={{ color: "var(--muted)" }}>Omset: <b>{formatIDR(g.gross)}</b></span>
-                <span style={{ color: "var(--muted)" }}>Komisi: <b>{formatIDR(g.fee)}</b></span>
-                <span className="text-emerald-700 dark:text-emerald-400 font-semibold">Net: {formatIDR(g.net)}</span>
-                <button className="btn-ghost text-red-600" onClick={() => onDeleteOrder(g)} title="Hapus seluruh transaksi">
+                <button className="btn-ghost text-red-600 shrink-0" onClick={() => onDeleteOrder(g)} title="Hapus seluruh transaksi">
                   <Trash2 size={16} />
                 </button>
               </div>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm">
+                <span style={{ color: "var(--muted)" }}>Omset: <b>{formatIDR(g.gross)}</b></span>
+                <span style={{ color: "var(--muted)" }}>Komisi: <b>{formatIDR(g.fee)}</b></span>
+                <span className="text-emerald-700 dark:text-emerald-400 font-semibold">Net: {formatIDR(g.net)}</span>
+              </div>
             </div>
-            <div className="overflow-auto">
+            {/* Mobile: list ringkas */}
+            <div className="sm:hidden space-y-2">
+              {g.rows.map((r) => (
+                <div key={r.id} className="rounded-md border p-2.5 flex items-start justify-between gap-2"
+                     style={{ borderColor: "var(--border)" }}>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium truncate">{r.product_variants?.name}</div>
+                    <div className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
+                      {r.qty} × {formatIDR(r.initial_price)} = <b>{formatIDR(r.qty * r.initial_price)}</b>
+                    </div>
+                    <div className="text-xs" style={{ color: "var(--muted)" }}>
+                      Komisi: {formatIDR(r.deduction_fee)} · Net: <b className="text-emerald-700 dark:text-emerald-400">{formatIDR(r.net_profit)}</b>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1 shrink-0">
+                    <button className="btn-ghost py-1 px-2" onClick={() => setEditing(r)} aria-label="Edit baris">
+                      <Pencil size={14} />
+                    </button>
+                    <button className="btn-ghost text-red-600 py-1 px-2" onClick={() => onDeleteRow(r)} aria-label="Hapus baris">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop: tabel */}
+            <div className="hidden sm:block overflow-auto">
               <table className="table">
                 <thead>
                   <tr>
@@ -431,8 +459,8 @@ function CreateOrderForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="sm:col-span-2">
           <label className="label">Outlet</label>
           {role === "kasir" ? (
             <input className="input" disabled
@@ -470,8 +498,8 @@ function CreateOrderForm({
         <div className="space-y-2">
           {items.map((it, i) => (
             <div key={it.key} className="grid grid-cols-12 gap-2 items-end">
-              <div className="col-span-6">
-                <label className="text-xs text-slate-500">Varian</label>
+              <div className="col-span-12 sm:col-span-6">
+                <label className="text-xs" style={{ color: "var(--muted)" }}>Varian</label>
                 <Combobox
                   options={variants.map((v) => ({ value: v.id, label: v.name, hint: formatIDR(v.base_price) }))}
                   value={it.product_variant_id}
@@ -479,13 +507,13 @@ function CreateOrderForm({
                   placeholder="-- pilih --"
                 />
               </div>
-              <div className="col-span-2">
-                <label className="text-xs text-slate-500">Qty</label>
+              <div className="col-span-4 sm:col-span-2">
+                <label className="text-xs" style={{ color: "var(--muted)" }}>Qty</label>
                 <input className="input" type="number" min={1} step={1} value={it.qty}
                        onChange={(e) => setItem(i, { qty: Number(e.target.value) })} required />
               </div>
-              <div className="col-span-3">
-                <label className="text-xs text-slate-500">Harga</label>
+              <div className="col-span-7 sm:col-span-3">
+                <label className="text-xs" style={{ color: "var(--muted)" }}>Harga</label>
                 <input className="input" type="number" min={0} step={1} value={it.initial_price}
                        onChange={(e) => setItem(i, { initial_price: Number(e.target.value) })} required />
               </div>
@@ -502,20 +530,20 @@ function CreateOrderForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-100">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t" style={{ borderColor: "var(--border)" }}>
         <div>
           <label className="label">Total Komisi (1 transaksi)</label>
           <input className="input" type="number" min={0} step={1} value={fee}
                  onChange={(e) => setFee(Number(e.target.value))} required />
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
             Akan dibagi proporsional ke setiap varian sesuai omset.
           </p>
         </div>
-        <div className="text-right space-y-1">
-          <div className="text-sm text-slate-500">Total Omset</div>
-          <div className="text-lg font-semibold">{formatIDR(totals.gross)}</div>
-          <div className="text-sm text-slate-500">Estimasi Net Profit</div>
-          <div className="text-lg font-bold text-emerald-700">{formatIDR(totals.net)}</div>
+        <div className="text-left sm:text-right space-y-1">
+          <div className="text-sm" style={{ color: "var(--muted)" }}>Total Omset</div>
+          <div className="text-base sm:text-lg font-semibold">{formatIDR(totals.gross)}</div>
+          <div className="text-sm" style={{ color: "var(--muted)" }}>Estimasi Net Profit</div>
+          <div className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{formatIDR(totals.net)}</div>
         </div>
       </div>
 
@@ -544,10 +572,10 @@ function EditRowForm({
   const [variantId, setVariantId] = useState(row.product_variant_id);
   return (
     <form
-      className="grid grid-cols-2 gap-3"
+      className="grid grid-cols-1 sm:grid-cols-2 gap-3"
       onSubmit={(e) => { e.preventDefault(); onSubmit(e.currentTarget); }}
     >
-      <div className="col-span-2">
+      <div className="sm:col-span-2">
         <label className="label">Outlet</label>
         {role === "kasir" ? (
           <>
@@ -597,7 +625,7 @@ function EditRowForm({
         <input className="input" name="deduction_fee" type="number" min={0} step={1}
                defaultValue={row.deduction_fee} required />
       </div>
-      <div className="col-span-2 flex justify-end pt-1">
+      <div className="sm:col-span-2 flex justify-end pt-1">
         <button className="btn-primary" disabled={pending}>
           {pending ? "Menyimpan..." : "Simpan"}
         </button>
@@ -608,10 +636,10 @@ function EditRowForm({
 
 function Stat({ title, value, sub, accent }: { title: string; value: string; sub?: string; accent?: boolean }) {
   return (
-    <div className={`card p-3 ${accent ? "ring-2 ring-red-200" : ""}`}>
-      <div className="text-xs uppercase tracking-wide text-slate-500">{title}</div>
-      <div className={`mt-1 text-lg font-bold ${accent ? "text-red-700" : ""}`}>{value}</div>
-      {sub && <div className="text-xs text-slate-400">{sub}</div>}
+    <div className={`card p-3 ${accent ? "ring-2 ring-red-200 dark:ring-red-900/40" : ""}`}>
+      <div className="text-[10px] sm:text-xs uppercase tracking-wide" style={{ color: "var(--muted)" }}>{title}</div>
+      <div className={`mt-1 text-base sm:text-lg font-bold leading-tight break-words ${accent ? "text-red-700 dark:text-red-300" : ""}`}>{value}</div>
+      {sub && <div className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>{sub}</div>}
     </div>
   );
 }

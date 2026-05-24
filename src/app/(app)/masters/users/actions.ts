@@ -25,7 +25,7 @@ export async function createUser(formData: FormData) {
   });
   if (error || !data.user) return { error: error?.message ?? "Gagal membuat user" };
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error: pErr } = await supabase.from("profiles").upsert({
     id: data.user.id, full_name, role, outlet_id: outlet_id ?? null
   });
@@ -49,7 +49,7 @@ export async function updateUser(id: string, formData: FormData) {
   const { full_name, role, outlet_id, password } = parsed.data;
   if (role === "kasir" && !outlet_id) return { error: "Kasir harus diassign ke outlet" };
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase.from("profiles")
     .update({ full_name, role, outlet_id: outlet_id ?? null }).eq("id", id);
   if (error) return { error: error.message };

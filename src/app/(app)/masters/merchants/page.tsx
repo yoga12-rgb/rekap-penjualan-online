@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export default async function MerchantsPage() {
   await requireAdmin();
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data } = await supabase
     .from("food_merchants")
     .select("id,name,color,created_at")

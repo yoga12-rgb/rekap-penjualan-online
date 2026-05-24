@@ -16,7 +16,7 @@ export async function createMerchant(formData: FormData) {
   await requireAdmin();
   const { name, color } = parsePayload(formData);
   if (!name) return { error: "Nama wajib diisi" };
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase.from("food_merchants").insert({ name, color });
   if (error) return { error: error.message };
   revalidatePath("/masters/merchants");
@@ -27,7 +27,7 @@ export async function updateMerchant(id: string, formData: FormData) {
   await requireAdmin();
   const { name, color } = parsePayload(formData);
   if (!name) return { error: "Nama wajib diisi" };
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase.from("food_merchants").update({ name, color }).eq("id", id);
   if (error) return { error: error.message };
   revalidatePath("/masters/merchants");
@@ -36,7 +36,7 @@ export async function updateMerchant(id: string, formData: FormData) {
 
 export async function deleteMerchant(id: string) {
   await requireAdmin();
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase.from("food_merchants").delete().eq("id", id);
   if (error) return { error: error.message };
   revalidatePath("/masters/merchants");

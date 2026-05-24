@@ -38,6 +38,18 @@ export function endOfYearWIBKey(): string {
   return todayWIBKey().slice(0, 4) + "-12-31";
 }
 
+/** Validasi date key dari query/input agar tidak mengirim range malformed ke DB. */
+export function isValidDateKey(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [y, m, d] = value.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return (
+    dt.getUTCFullYear() === y &&
+    dt.getUTCMonth() === m - 1 &&
+    dt.getUTCDate() === d
+  );
+}
+
 /** Awal hari WIB sebagai timestamptz untuk Postgres `>=` */
 export function wibStartOfDay(dateKey: string): string {
   return `${dateKey}T00:00:00${WIB_OFFSET}`;

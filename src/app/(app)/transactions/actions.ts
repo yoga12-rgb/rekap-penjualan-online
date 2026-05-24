@@ -37,7 +37,7 @@ function splitFeeProportional(items: { gross: number }[], totalFee: number): num
 
 export async function createOrder(payload: unknown) {
   const profile = await requireProfile();
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const parsed = OrderSchema.safeParse(payload);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Data tidak valid" };
@@ -88,7 +88,7 @@ const UpdateRowSchema = z.object({
 
 export async function updateTransaction(id: string, formData: FormData) {
   const profile = await requireProfile();
-  const supabase = createClient();
+  const supabase = await createClient();
   const parsed = UpdateRowSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Data tidak valid" };
 
@@ -106,7 +106,7 @@ export async function updateTransaction(id: string, formData: FormData) {
 }
 
 export async function deleteTransaction(id: string) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase.from("transactions").delete().eq("id", id);
   if (error) return { error: error.message };
   revalidatePath("/transactions");
@@ -115,7 +115,7 @@ export async function deleteTransaction(id: string) {
 }
 
 export async function deleteOrder(orderId: string) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase.from("transactions").delete().eq("order_id", orderId);
   if (error) return { error: error.message };
   revalidatePath("/transactions");

@@ -13,7 +13,7 @@ export async function createProduct(formData: FormData) {
   await requireAdmin();
   const parsed = Schema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "Data tidak valid" };
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase.from("product_variants").insert(parsed.data);
   if (error) return { error: error.message };
   revalidatePath("/masters/products");
@@ -23,7 +23,7 @@ export async function updateProduct(id: string, formData: FormData) {
   await requireAdmin();
   const parsed = Schema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "Data tidak valid" };
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase.from("product_variants").update(parsed.data).eq("id", id);
   if (error) return { error: error.message };
   revalidatePath("/masters/products");
@@ -31,7 +31,7 @@ export async function updateProduct(id: string, formData: FormData) {
 }
 export async function deleteProduct(id: string) {
   await requireAdmin();
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase.from("product_variants").delete().eq("id", id);
   if (error) return { error: error.message };
   revalidatePath("/masters/products");

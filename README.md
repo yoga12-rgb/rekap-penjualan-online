@@ -5,7 +5,7 @@ Sistem rekapitulasi & analisis penjualan multi-outlet (GoFood/GrabFood/ShopeeFoo
 ## Stack
 - Next.js 14 (App Router) + TypeScript + Tailwind
 - Supabase (Postgres + Auth + RLS)
-- Recharts (grafik), xlsx (export Excel)
+- Recharts (grafik), export CSV native browser
 
 ## Cara Setup (urut)
 

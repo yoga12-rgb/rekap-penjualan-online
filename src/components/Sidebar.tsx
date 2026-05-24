@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   LayoutDashboard, ReceiptText, Store, UtensilsCrossed,
-  Package, Users, Menu, X, type LucideIcon
+  Package, Users, Menu, X, PanelLeftClose, PanelLeftOpen, type LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +24,7 @@ const MASTERS: Item[] = [
 
 export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
 
   // Tutup drawer saat navigasi
@@ -34,6 +35,18 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
     document.body.style.overflow = open ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [open]);
+
+  useEffect(() => {
+    setCollapsed(localStorage.getItem("sidebar-collapsed") === "1");
+  }, []);
+
+  function toggleCollapsed() {
+    setCollapsed((current) => {
+      const next = !current;
+      localStorage.setItem("sidebar-collapsed", next ? "1" : "0");
+      return next;
+    });
+  }
 
   return (
     <>
@@ -59,21 +72,30 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
       <aside
         className={cn(
           // base
-          "z-50 w-64 md:w-60 shrink-0 border-r flex flex-col h-screen",
+          "z-50 w-64 shrink-0 border-r flex flex-col h-screen",
           // mobile: fixed off-canvas drawer
-          "fixed inset-y-0 left-0 transition-transform duration-200",
+          "fixed inset-y-0 left-0 transition-[transform,width] duration-200",
           // desktop: sticky to top, override fixed
-          "md:sticky md:inset-y-auto md:top-0 md:transition-none md:translate-x-0",
+          "md:sticky md:inset-y-auto md:top-0 md:translate-x-0",
+          collapsed ? "md:w-20" : "md:w-60",
           // mobile open state
           open ? "translate-x-0" : "-translate-x-full"
         )}
         style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}
       >
-        <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
-          <div>
+        <div className={cn("p-4 border-b flex items-center justify-between gap-2", collapsed && "md:px-3 md:justify-center")} style={{ borderColor: "var(--border)" }}>
+          <div className={cn(collapsed && "md:hidden")}>
             <div className="font-bold text-lg leading-tight">Rajaklana</div>
             <div className="text-xs" style={{ color: "var(--muted)" }}>Sales Recap</div>
           </div>
+          <button
+            onClick={toggleCollapsed}
+            className="hidden md:inline-flex btn-ghost h-9 w-9 p-0"
+            aria-label={collapsed ? "Tampilkan sidebar" : "Sembunyikan sidebar"}
+            title={collapsed ? "Tampilkan sidebar" : "Sembunyikan sidebar"}
+          >
+            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </button>
           <button
             onClick={() => setOpen(false)}
             className="md:hidden btn-ghost"
@@ -83,15 +105,18 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
           </button>
         </div>
         <nav className="p-2 text-sm flex-1 overflow-y-auto">
-          {MAIN.map((it) => <NavItem key={it.href} {...it} />)}
+          {MAIN.map((it) => <NavItem key={it.href} collapsed={collapsed} {...it} />)}
           {isAdmin && (
             <>
-              <div className="px-3 pt-4 pb-1 text-xs font-semibold uppercase" style={{ color: "var(--muted)" }}>Master Data</div>
-              {MASTERS.map((it) => <NavItem key={it.href} {...it} />)}
+              <div className={cn("px-3 pt-4 pb-1 text-xs font-semibold uppercase", collapsed && "md:px-0 md:text-center")} style={{ color: "var(--muted)" }}>
+                <span className={cn(collapsed && "md:hidden")}>Master Data</span>
+                <span className={cn("hidden", collapsed && "md:inline")}>...</span>
+              </div>
+              {MASTERS.map((it) => <NavItem key={it.href} collapsed={collapsed} {...it} />)}
             </>
           )}
         </nav>
-        <div className="border-t p-3 text-[11px]" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
+        <div className={cn("border-t p-3 text-[11px]", collapsed && "md:hidden")} style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
           © {new Date().getFullYear()} Rajaklana
         </div>
       </aside>
@@ -99,14 +124,16 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   );
 }
 
-function NavItem({ href, label, icon: Icon }: Item) {
+function NavItem({ href, label, icon: Icon, collapsed }: Item & { collapsed: boolean }) {
   const pathname = usePathname();
   const active = pathname === href || pathname.startsWith(href + "/");
   return (
     <Link
       href={href}
+      title={collapsed ? label : undefined}
       className={cn(
         "flex items-center gap-2.5 rounded-md px-3 py-2 transition",
+        collapsed && "md:justify-center md:px-2",
         active
           ? "bg-red-50 text-red-700 font-medium dark:bg-red-900/30 dark:text-red-300"
           : "hover:bg-[var(--hover)]"
@@ -115,7 +142,7 @@ function NavItem({ href, label, icon: Icon }: Item) {
     >
       <Icon size={18} className={active ? "text-red-600 dark:text-red-300" : ""}
             style={!active ? { color: "var(--muted)" } : undefined} />
-      <span>{label}</span>
+      <span className={cn(collapsed && "md:hidden")}>{label}</span>
     </Link>
   );
 }

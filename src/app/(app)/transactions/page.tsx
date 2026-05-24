@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { TransactionsClient } from "./TransactionsClient";
 import {
-  daysAgoWIBKey, todayWIBKey, wibStartOfDay, wibEndOfDay, firstParam
+  daysAgoWIBKey, todayWIBKey, wibStartOfDay, wibEndOfDay, firstParam, isValidDateKey
 } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
@@ -16,21 +16,24 @@ type SP = {
   q?: string | string[];
 };
 
-export default async function TransactionsPage({ searchParams }: { searchParams: SP }) {
+export default async function TransactionsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const profile = await requireProfile();
-  const supabase = createClient();
+  const supabase = await createClient();
+  const params = await searchParams;
 
-  let fromStr = firstParam(searchParams.from) || daysAgoWIBKey(29);
-  let toStr = firstParam(searchParams.to) || todayWIBKey();
+  const rawFrom = firstParam(params.from);
+  const rawTo = firstParam(params.to);
+  let fromStr = isValidDateKey(rawFrom) ? rawFrom : daysAgoWIBKey(29);
+  let toStr = isValidDateKey(rawTo) ? rawTo : todayWIBKey();
   if (fromStr > toStr) [fromStr, toStr] = [toStr, fromStr];
 
   const filter = {
     from: fromStr,
     to: toStr,
-    outlet: firstParam(searchParams.outlet),
-    merchant: firstParam(searchParams.merchant),
-    variant: firstParam(searchParams.variant),
-    q: firstParam(searchParams.q)
+    outlet: profile.role === "super_admin" ? firstParam(params.outlet) : "",
+    merchant: firstParam(params.merchant),
+    variant: firstParam(params.variant),
+    q: firstParam(params.q)
   };
 
   const [{ data: outlets }, { data: merchants }, { data: variants }] = await Promise.all([
@@ -47,6 +50,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
     .order("transaction_date", { ascending: false })
     .limit(1000);
 
+  if (profile.role === "kasir") q = profile.outlet_id ? q.eq("outlet_id", profile.outlet_id) : q.is("outlet_id", null);
   if (filter.outlet) q = q.eq("outlet_id", filter.outlet);
   if (filter.merchant) q = q.eq("food_merchant_id", filter.merchant);
   if (filter.variant) q = q.eq("product_variant_id", filter.variant);

@@ -52,7 +52,8 @@ export function Combobox({
   useEffect(() => {
     if (open) {
       setHighlight(0);
-      setTimeout(() => inputRef.current?.focus(), 0);
+      const canAutoFocus = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+      if (canAutoFocus) setTimeout(() => inputRef.current?.focus(), 0);
     } else {
       setQuery("");
     }

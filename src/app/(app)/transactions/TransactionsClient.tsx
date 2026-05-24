@@ -396,7 +396,7 @@ export function TransactionsClient({
         )}
       </div>
 
-      <Modal open={openCreate} onClose={() => setOpenCreate(false)} title="Tambah Transaksi">
+      <Modal open={openCreate} onClose={() => setOpenCreate(false)} title="Tambah Transaksi" size="xl">
         <CreateOrderForm
           role={role}
           myOutletId={myOutletId}
@@ -407,7 +407,7 @@ export function TransactionsClient({
         />
       </Modal>
 
-      <Modal open={!!editing} onClose={() => setEditing(null)} title="Edit Baris Transaksi">
+      <Modal open={!!editing} onClose={() => setEditing(null)} title="Edit Baris Transaksi" size="lg">
         {editing && (
           <EditRowForm
             role={role}
@@ -433,8 +433,50 @@ type Item = {
   key: number;
   product_variant_id: string;
   qty: number;
-  initial_price: number;
+  initial_price: string;
 };
+
+function onlyDigits(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function formatNumberInput(value: string | number) {
+  const digits = onlyDigits(String(value));
+  return digits ? Number(digits).toLocaleString("id-ID") : "";
+}
+
+function parseNumberInput(value: string) {
+  const digits = onlyDigits(value);
+  return digits ? Number(digits) : 0;
+}
+
+function CurrencyInput({
+  value,
+  onChange,
+  required = false
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+}) {
+  return (
+    <div
+      className="flex h-10 w-full overflow-hidden rounded-md border focus-within:border-brand focus-within:ring-2 focus-within:ring-red-100 dark:focus-within:ring-red-900/30"
+      style={{ backgroundColor: "var(--bg)", borderColor: "var(--border)", color: "var(--fg)" }}
+    >
+      <span className="flex items-center border-r px-3 text-sm font-medium shrink-0" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
+        Rp
+      </span>
+      <input
+        className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm tabular-nums outline-none"
+        inputMode="numeric"
+        value={value}
+        onChange={(e) => onChange(formatNumberInput(e.target.value))}
+        required={required}
+      />
+    </div>
+  );
+}
 
 function CreateOrderForm({
   role, myOutletId, outlets, merchants, variants, onDone
@@ -448,28 +490,29 @@ function CreateOrderForm({
   const [outletId, setOutletId] = useState<string>(role === "kasir" ? (myOutletId ?? "") : "");
   const [merchantId, setMerchantId] = useState<string>("");
   const [date, setDate] = useState<string>(() => isoToWIBLocalInput(new Date().toISOString()));
-  const [fee, setFee] = useState<number>(0);
+  const [fee, setFee] = useState<string>("");
   const [items, setItems] = useState<Item[]>([
-    { key: 1, product_variant_id: "", qty: 1, initial_price: 0 }
+    { key: 1, product_variant_id: "", qty: 1, initial_price: "" }
   ]);
 
   function setItem(i: number, patch: Partial<Item>) {
     setItems((prev) => prev.map((it, idx) => idx === i ? { ...it, ...patch } : it));
   }
   function addItem() {
-    setItems((p) => [...p, { key: Date.now(), product_variant_id: "", qty: 1, initial_price: 0 }]);
+    setItems((p) => [...p, { key: Date.now(), product_variant_id: "", qty: 1, initial_price: "" }]);
   }
   function removeItem(i: number) {
     setItems((p) => p.length === 1 ? p : p.filter((_, idx) => idx !== i));
   }
   function onVariantChange(i: number, id: string) {
     const v = variants.find((x) => x.id === id);
-    setItem(i, { product_variant_id: id, initial_price: v?.base_price ?? 0 });
+    setItem(i, { product_variant_id: id, initial_price: v ? formatNumberInput(v.base_price) : "" });
   }
 
   const totals = useMemo(() => {
-    const gross = items.reduce((a, it) => a + it.qty * it.initial_price, 0);
-    return { gross, net: gross - fee };
+    const gross = items.reduce((a, it) => a + it.qty * parseNumberInput(it.initial_price), 0);
+    const feeValue = parseNumberInput(fee);
+    return { gross, net: gross - feeValue };
   }, [items, fee]);
 
   async function onSubmit(e: React.FormEvent) {
@@ -479,18 +522,19 @@ function CreateOrderForm({
     for (const it of items) {
       if (!it.product_variant_id) return toast("Varian wajib diisi pada semua baris", "error");
       if (it.qty < 1) return toast("Qty harus minimal 1", "error");
-      if (it.initial_price < 0) return toast("Harga tidak valid", "error");
+      if (parseNumberInput(it.initial_price) < 0) return toast("Harga tidak valid", "error");
     }
+    const feeValue = parseNumberInput(fee);
     start(async () => {
       const res = await createOrder({
         outlet_id: outletId,
         food_merchant_id: merchantId,
         transaction_date: date,
-        deduction_fee: fee,
+        deduction_fee: feeValue,
         items: items.map((it) => ({
           product_variant_id: it.product_variant_id,
           qty: it.qty,
-          initial_price: it.initial_price
+          initial_price: parseNumberInput(it.initial_price)
         }))
       });
       if ((res as any)?.error) toast((res as any).error, "error");
@@ -499,12 +543,12 @@ function CreateOrderForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3">
+    <form onSubmit={onSubmit} className="space-y-4">
       <div
-        className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-md border p-3"
+        className="grid grid-cols-1 md:grid-cols-3 gap-3 rounded-md border p-3 min-w-0"
         style={{ borderColor: "var(--border)", backgroundColor: "color-mix(in oklab, var(--bg) 55%, var(--card))" }}
       >
-        <div className="sm:col-span-2">
+        <div className="md:col-span-3 min-w-0">
           <label className="label">Outlet</label>
           {role === "kasir" ? (
             <input className="input" disabled
@@ -517,7 +561,7 @@ function CreateOrderForm({
             </select>
           )}
         </div>
-        <div>
+        <div className="min-w-0">
           <label className="label">Food Merchant</label>
           <select className="input" value={merchantId}
                   onChange={(e) => setMerchantId(e.target.value)} required>
@@ -525,7 +569,7 @@ function CreateOrderForm({
             {merchants.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         </div>
-        <div>
+        <div className="min-w-0">
           <label className="label">Tanggal/Waktu</label>
           <input className="input" type="datetime-local" required
                  value={date} onChange={(e) => setDate(e.target.value)} />
@@ -533,20 +577,20 @@ function CreateOrderForm({
       </div>
 
       <div
-        className="rounded-md border p-3"
+        className="rounded-md border p-3 min-w-0"
         style={{ borderColor: "var(--border)", backgroundColor: "color-mix(in oklab, var(--bg) 55%, var(--card))" }}
       >
-        <div className="flex items-center justify-between mb-1">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
           <label className="label">Item Transaksi</label>
-          <button type="button" className="btn-outline" onClick={addItem}>
+          <button type="button" className="btn-outline w-full sm:w-auto" onClick={addItem}>
             <Plus size={14} /> Tambah Varian
           </button>
         </div>
         <div className="space-y-2">
           {items.map((it, i) => (
-            <div key={it.key} className="grid grid-cols-12 gap-2 items-end rounded-md border p-2"
+            <div key={it.key} className="relative grid grid-cols-1 sm:grid-cols-12 gap-2 items-end rounded-md border p-2.5 min-w-0"
                  style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}>
-              <div className="col-span-12 sm:col-span-6">
+              <div className="min-w-0 pr-11 sm:col-span-12 md:col-span-5 md:pr-0">
                 <label className="text-xs" style={{ color: "var(--muted)" }}>Varian</label>
                 <Combobox
                   options={variants.map((v) => ({ value: v.id, label: v.name, hint: formatIDR(v.base_price) }))}
@@ -555,18 +599,21 @@ function CreateOrderForm({
                   placeholder="-- pilih --"
                 />
               </div>
-              <div className="col-span-4 sm:col-span-2">
+              <div className="min-w-0 sm:col-span-4 md:col-span-2">
                 <label className="text-xs" style={{ color: "var(--muted)" }}>Qty</label>
                 <input className="input" type="number" min={1} step={1} value={it.qty}
                        onChange={(e) => setItem(i, { qty: Number(e.target.value) })} required />
               </div>
-              <div className="col-span-7 sm:col-span-3">
+              <div className="min-w-0 sm:col-span-8 md:col-span-4">
                 <label className="text-xs" style={{ color: "var(--muted)" }}>Harga</label>
-                <input className="input" type="number" min={0} step={1} value={it.initial_price}
-                       onChange={(e) => setItem(i, { initial_price: Number(e.target.value) })} required />
+                <CurrencyInput
+                  value={it.initial_price}
+                  onChange={(value) => setItem(i, { initial_price: value })}
+                  required
+                />
               </div>
-              <div className="col-span-1 flex justify-end">
-                <button type="button" className="btn-ghost text-red-600"
+              <div className="absolute right-2 top-2 md:static md:col-span-1 md:flex md:justify-end md:pb-0.5">
+                <button type="button" className="btn-ghost text-red-600 h-10 w-10 p-0"
                         onClick={() => removeItem(i)}
                         disabled={items.length === 1}
                         title="Hapus baris">
@@ -579,18 +626,17 @@ function CreateOrderForm({
       </div>
 
       <div
-        className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-md border p-3"
+        className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-md border p-3 min-w-0"
         style={{ borderColor: "var(--border)", backgroundColor: "color-mix(in oklab, var(--bg) 55%, var(--card))" }}
       >
-        <div>
+        <div className="min-w-0">
           <label className="label">Total Komisi (1 transaksi)</label>
-          <input className="input" type="number" min={0} step={1} value={fee}
-                 onChange={(e) => setFee(Number(e.target.value))} required />
+          <CurrencyInput value={fee} onChange={setFee} required />
           <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
             Akan dibagi proporsional ke setiap varian sesuai omset.
           </p>
         </div>
-        <div className="text-left sm:text-right space-y-1">
+        <div className="min-w-0 text-left sm:text-right space-y-1">
           <div className="text-sm" style={{ color: "var(--muted)" }}>Total Omset</div>
           <div className="text-base sm:text-lg font-semibold">{formatIDR(totals.gross)}</div>
           <div className="text-sm" style={{ color: "var(--muted)" }}>Estimasi Net Profit</div>
@@ -621,6 +667,8 @@ function EditRowForm({
   pending: boolean;
 }) {
   const [variantId, setVariantId] = useState(row.product_variant_id);
+  const [price, setPrice] = useState(formatNumberInput(row.initial_price));
+  const [deductionFee, setDeductionFee] = useState(formatNumberInput(row.deduction_fee));
   return (
     <form
       className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-md border p-3"
@@ -669,13 +717,13 @@ function EditRowForm({
       </div>
       <div>
         <label className="label">Harga</label>
-        <input className="input" name="initial_price" type="number" min={0} step={1}
-               defaultValue={row.initial_price} required />
+        <CurrencyInput value={price} onChange={setPrice} required />
+        <input type="hidden" name="initial_price" value={parseNumberInput(price)} />
       </div>
       <div>
         <label className="label">Komisi (untuk baris ini)</label>
-        <input className="input" name="deduction_fee" type="number" min={0} step={1}
-               defaultValue={row.deduction_fee} required />
+        <CurrencyInput value={deductionFee} onChange={setDeductionFee} required />
+        <input type="hidden" name="deduction_fee" value={parseNumberInput(deductionFee)} />
       </div>
       <div className="sm:col-span-2 flex justify-end pt-1">
         <button className="btn-primary" disabled={pending}>

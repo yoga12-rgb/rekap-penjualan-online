@@ -30,6 +30,7 @@ type SummaryRow = {
 };
 type DetailRow = SummaryRow & {
   id: string;
+  order_number: string | null;
   outlet_id: string;
   outlets: { name: string } | null;
 };
@@ -166,6 +167,7 @@ export function DashboardClient({
 
     const headers = [
       "Tanggal",
+      "NomorPesanan",
       "Outlet",
       "Merchant",
       "Produk",
@@ -177,6 +179,7 @@ export function DashboardClient({
     ];
     const data = detailRows.map((r) => [
       isoToWIBDisplay(r.transaction_date),
+      r.order_number ?? "",
       r.outlets?.name ?? "",
       r.food_merchants?.name ?? "",
       r.product_variants?.name ?? "",
@@ -592,7 +595,7 @@ function DetailTransactions({ filter }: { filter: DashboardFilter }) {
         <table className="table">
           <thead>
             <tr>
-              <th>Tanggal</th><th>Outlet</th><th>Merchant</th><th>Produk</th>
+              <th>Tanggal</th><th>No. Pesanan</th><th>Outlet</th><th>Merchant</th><th>Produk</th>
               <th className="text-right">Qty</th><th className="text-right">Harga</th>
               <th className="text-right">Omset</th><th className="text-right">Potongan</th>
               <th className="text-right">Net</th>
@@ -602,6 +605,7 @@ function DetailTransactions({ filter }: { filter: DashboardFilter }) {
             {rows.map((r) => (
               <tr key={r.id}>
                 <td>{isoToWIBDisplay(r.transaction_date)}</td>
+                <td>{r.order_number ?? "-"}</td>
                 <td>{r.outlets?.name}</td>
                 <td><MerchantBadge name={r.food_merchants?.name} color={r.food_merchants?.color} /></td>
                 <td>{r.product_variants?.name}</td>
@@ -614,7 +618,7 @@ function DetailTransactions({ filter }: { filter: DashboardFilter }) {
             ))}
             {isActive && !loading && !error && !rows.length && (
               <tr>
-                <td colSpan={9} className="text-center py-6" style={{ color: "var(--muted)" }}>
+                <td colSpan={10} className="text-center py-6" style={{ color: "var(--muted)" }}>
                   Belum ada transaksi pada rentang ini.
                 </td>
               </tr>

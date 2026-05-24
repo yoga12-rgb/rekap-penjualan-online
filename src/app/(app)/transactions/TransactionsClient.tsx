@@ -19,6 +19,7 @@ type Variant = Option & { base_price: number };
 type Row = {
   id: string;
   order_id: string | null;
+  order_number: string | null;
   transaction_date: string;
   qty: number;
   initial_price: number;
@@ -34,6 +35,7 @@ type Row = {
 
 type Group = {
   order_id: string;
+  orderNumber: string | null;
   date: string;
   outlet: string;
   merchant: string;
@@ -134,6 +136,7 @@ export function TransactionsClient({
     if (!filter.q) return rows;
     const needle = filter.q.toLowerCase();
     return rows.filter((r) =>
+      (r.order_number ?? "").toLowerCase().includes(needle) ||
       (r.product_variants?.name ?? "").toLowerCase().includes(needle) ||
       (r.outlets?.name ?? "").toLowerCase().includes(needle) ||
       (r.food_merchants?.name ?? "").toLowerCase().includes(needle)
@@ -146,6 +149,7 @@ export function TransactionsClient({
       const key = r.order_id ?? r.id;
       const cur = map.get(key) ?? {
         order_id: key,
+        orderNumber: r.order_number ?? null,
         date: r.transaction_date,
         outlet: r.outlets?.name ?? "",
         merchant: r.food_merchants?.name ?? "",
@@ -267,7 +271,7 @@ export function TransactionsClient({
             <input
               type="text"
               className="input"
-              placeholder="produk / outlet..."
+              placeholder="no. pesanan / produk / outlet..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") setParam("q", search); }}
@@ -312,6 +316,7 @@ export function TransactionsClient({
                   <div className="text-base sm:text-lg font-bold leading-tight truncate">{g.outlet}</div>
                   <div className="text-xs sm:text-sm flex flex-wrap items-center gap-x-2 gap-y-1" style={{ color: "var(--muted)" }}>
                     <span>{isoToWIBDisplay(g.date)}</span>
+                    {g.orderNumber && <span className="badge">No. {g.orderNumber}</span>}
                     <MerchantBadge name={g.merchant} color={g.merchantColor} solid />
                     {g.rows.length > 1 && <span className="badge">{g.rows.length} item</span>}
                   </div>
@@ -488,6 +493,7 @@ function CreateOrderForm({
 }) {
   const [pending, start] = useTransition();
   const [outletId, setOutletId] = useState<string>(role === "kasir" ? (myOutletId ?? "") : "");
+  const [orderNumber, setOrderNumber] = useState("");
   const [merchantId, setMerchantId] = useState<string>("");
   const [date, setDate] = useState<string>(() => isoToWIBLocalInput(new Date().toISOString()));
   const [fee, setFee] = useState<string>("");
@@ -528,6 +534,7 @@ function CreateOrderForm({
     start(async () => {
       const res = await createOrder({
         outlet_id: outletId,
+        order_number: orderNumber,
         food_merchant_id: merchantId,
         transaction_date: date,
         deduction_fee: feeValue,
@@ -560,6 +567,16 @@ function CreateOrderForm({
               {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
           )}
+        </div>
+        <div>
+          <label className="label">Nomor Pesanan</label>
+          <input
+            className="input"
+            value={orderNumber}
+            onChange={(e) => setOrderNumber(e.target.value)}
+            placeholder="Opsional"
+            maxLength={80}
+          />
         </div>
         <div className="min-w-0">
           <label className="label">Food Merchant</label>
@@ -667,6 +684,7 @@ function EditRowForm({
   pending: boolean;
 }) {
   const [variantId, setVariantId] = useState(row.product_variant_id);
+  const [orderNumber, setOrderNumber] = useState(row.order_number ?? "");
   const [price, setPrice] = useState(formatNumberInput(row.initial_price));
   const [deductionFee, setDeductionFee] = useState(formatNumberInput(row.deduction_fee));
   return (
@@ -688,6 +706,17 @@ function EditRowForm({
             {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
           </select>
         )}
+      </div>
+      <div>
+        <label className="label">Nomor Pesanan</label>
+        <input
+          className="input"
+          name="order_number"
+          value={orderNumber}
+          onChange={(e) => setOrderNumber(e.target.value)}
+          placeholder="Opsional"
+          maxLength={80}
+        />
       </div>
       <div>
         <label className="label">Food Merchant</label>

@@ -34,6 +34,8 @@ create table if not exists public.profiles (
 
 create table if not exists public.transactions (
   id uuid primary key default gen_random_uuid(),
+  order_id uuid not null default gen_random_uuid(),
+  order_number text,
   created_by uuid not null references public.profiles(id) on delete restrict,
   outlet_id uuid not null references public.outlets(id) on delete restrict,
   food_merchant_id uuid not null references public.food_merchants(id) on delete restrict,
@@ -48,6 +50,8 @@ create table if not exists public.transactions (
 );
 
 create index if not exists idx_tx_date on public.transactions(transaction_date desc);
+create index if not exists idx_tx_order on public.transactions(order_id);
+create index if not exists idx_tx_order_number on public.transactions(order_number);
 create index if not exists idx_tx_outlet on public.transactions(outlet_id);
 create index if not exists idx_tx_merchant on public.transactions(food_merchant_id);
 create index if not exists idx_tx_variant on public.transactions(product_variant_id);

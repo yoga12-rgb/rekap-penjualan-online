@@ -13,6 +13,7 @@ const ItemSchema = z.object({
 
 const OrderSchema = z.object({
   outlet_id: z.string().uuid(),
+  order_number: z.string().trim().max(80).optional(),
   food_merchant_id: z.string().uuid(),
   transaction_date: z.string().min(1),
   deduction_fee: z.coerce.number().nonnegative(),
@@ -49,6 +50,7 @@ export async function createOrder(payload: unknown) {
   }
 
   const { items, food_merchant_id, transaction_date, deduction_fee } = parsed.data;
+  const order_number = parsed.data.order_number?.trim() || null;
   const grosses = items.map((it) => ({ gross: it.qty * it.initial_price }));
   const fees = splitFeeProportional(grosses, deduction_fee);
 
@@ -58,6 +60,7 @@ export async function createOrder(payload: unknown) {
 
   const rows = items.map((it, i) => ({
     order_id,
+    order_number,
     outlet_id,
     food_merchant_id,
     transaction_date: tx_iso,
@@ -78,6 +81,7 @@ export async function createOrder(payload: unknown) {
 
 const UpdateRowSchema = z.object({
   outlet_id: z.string().uuid(),
+  order_number: z.string().trim().max(80).optional(),
   food_merchant_id: z.string().uuid(),
   product_variant_id: z.string().uuid(),
   transaction_date: z.string().min(1),
@@ -96,7 +100,12 @@ export async function updateTransaction(id: string, formData: FormData) {
   if (profile.role === "kasir") outlet_id = profile.outlet_id ?? outlet_id;
 
   const { error } = await supabase.from("transactions")
-    .update({ ...parsed.data, outlet_id, transaction_date: wibLocalToIso(parsed.data.transaction_date) })
+    .update({
+      ...parsed.data,
+      order_number: parsed.data.order_number?.trim() || null,
+      outlet_id,
+      transaction_date: wibLocalToIso(parsed.data.transaction_date)
+    })
     .eq("id", id);
   if (error) return { error: error.message };
 

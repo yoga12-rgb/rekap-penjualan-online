@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 
   let query = supabase
     .from("transactions")
-    .select("id, transaction_date, qty, initial_price, deduction_fee, net_profit, outlet_id, food_merchant_id, product_variant_id, outlets(name), food_merchants(name,color), product_variants(name)")
+    .select("id, order_number, transaction_date, qty, initial_price, deduction_fee, net_profit, outlet_id, food_merchant_id, product_variant_id, outlets(name), food_merchants(name,color), product_variants(name)")
     .gte("transaction_date", wibStartOfDay(fromStr))
     .lte("transaction_date", wibEndOfDay(toStr))
     .order("transaction_date", { ascending: false })

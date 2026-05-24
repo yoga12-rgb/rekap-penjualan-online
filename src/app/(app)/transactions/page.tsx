@@ -44,7 +44,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
 
   let q = supabase
     .from("transactions")
-    .select("id, order_id, transaction_date, qty, initial_price, deduction_fee, net_profit, outlet_id, food_merchant_id, product_variant_id, outlets(name), food_merchants(name,color), product_variants(name)")
+    .select("id, order_id, order_number, transaction_date, qty, initial_price, deduction_fee, net_profit, outlet_id, food_merchant_id, product_variant_id, outlets(name), food_merchants(name,color), product_variants(name)")
     .gte("transaction_date", wibStartOfDay(filter.from))
     .lte("transaction_date", wibEndOfDay(filter.to))
     .order("transaction_date", { ascending: false })

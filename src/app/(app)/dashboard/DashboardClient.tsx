@@ -11,7 +11,7 @@ import { Combobox } from "@/components/ui/Combobox";
 import {
   isoToWIBDateKey, isoToWIBDisplay, todayWIBKey, daysAgoWIBKey, startOfYearWIBKey, endOfYearWIBKey
 } from "@/lib/date";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, X } from "lucide-react";
 
 type Option = { id: string; name: string };
 type Merchant = Option & { color?: string | null };
@@ -41,6 +41,7 @@ type TransactionPage = {
   error?: string;
 };
 type DashboardTab = "trend" | "products" | "merchants" | "details";
+const DASHBOARD_FILTER_STORAGE_KEY = "dashboard-filters";
 
 export function DashboardClient({
   role, outlets, merchants, variants, rows, filter
@@ -54,8 +55,37 @@ export function DashboardClient({
 }) {
   const router = useRouter();
   const sp = useSearchParams();
+  const skipNextFilterSave = useRef(false);
   const [isExporting, setIsExporting] = useState(false);
   const [activeTab, setActiveTab] = useState<DashboardTab>("trend");
+
+  useEffect(() => {
+    const hasUrlFilter = sp.toString().length > 0;
+    const saved = localStorage.getItem(DASHBOARD_FILTER_STORAGE_KEY);
+    if (!hasUrlFilter && saved) {
+      try {
+        const params = new URLSearchParams(JSON.parse(saved) as Record<string, string>);
+        skipNextFilterSave.current = true;
+        router.replace(`/dashboard?${params.toString()}`);
+      } catch {
+        localStorage.removeItem(DASHBOARD_FILTER_STORAGE_KEY);
+      }
+    }
+  }, [router, sp]);
+
+  useEffect(() => {
+    if (skipNextFilterSave.current) {
+      skipNextFilterSave.current = false;
+      return;
+    }
+    const params = new URLSearchParams();
+    params.set("from", filter.from);
+    params.set("to", filter.to);
+    if (filter.outlet) params.set("outlet", filter.outlet);
+    if (filter.merchant) params.set("merchant", filter.merchant);
+    if (filter.variant) params.set("variant", filter.variant);
+    localStorage.setItem(DASHBOARD_FILTER_STORAGE_KEY, JSON.stringify(Object.fromEntries(params)));
+  }, [filter.from, filter.to, filter.outlet, filter.merchant, filter.variant]);
 
   function setParam(key: string, value: string) {
     const next = new URLSearchParams(sp.toString());
@@ -177,9 +207,21 @@ export function DashboardClient({
     if (preset === "year") return setRange(startOfYearWIBKey(), endOfYearWIBKey());
   }
 
+  function clearFilter() {
+    localStorage.removeItem(DASHBOARD_FILTER_STORAGE_KEY);
+    router.push("/dashboard");
+  }
+
+  const hasActiveFilter =
+    filter.from !== todayWIBKey() ||
+    filter.to !== todayWIBKey() ||
+    !!filter.outlet ||
+    !!filter.merchant ||
+    !!filter.variant;
+
   return (
     <div className="space-y-3 sm:space-y-4">
-      <div className="card p-3 overflow-hidden">
+      <div className="card p-3">
         <div className="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-6 gap-2.5 items-end">
           <Field label="Dari">
             <input type="date" className="input" value={filter.from}
@@ -235,6 +277,12 @@ export function DashboardClient({
           <PresetButton onClick={() => setRangePreset("30d")}>30H</PresetButton>
           <PresetButton onClick={() => setRangePreset("ytd")}>YTD</PresetButton>
           <PresetButton onClick={() => setRangePreset("year")}>Tahun</PresetButton>
+          {hasActiveFilter && (
+            <PresetButton onClick={clearFilter}>
+              <X size={14} />
+              Reset
+            </PresetButton>
+          )}
         </div>
       </div>
 

@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { DashboardClient } from "./DashboardClient";
 import {
-  daysAgoWIBKey, todayWIBKey, wibStartOfDay, wibEndOfDay, firstParam, isValidDateKey
+  todayWIBKey, wibStartOfDay, wibEndOfDay, firstParam, isValidDateKey
 } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +20,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const supabase = await createClient();
   const params = await searchParams;
 
-  const defaultFrom = daysAgoWIBKey(29);
+  const defaultFrom = todayWIBKey();
   const defaultTo = todayWIBKey();
   const rawFrom = firstParam(params.from);
   const rawTo = firstParam(params.to);

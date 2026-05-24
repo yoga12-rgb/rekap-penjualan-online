@@ -31,7 +31,7 @@ html, body { background: var(--bg); color: var(--fg); }
 
   .input {
     @apply w-full rounded-md px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900/30;
-    background-color: var(--card);
+    background-color: var(--bg);
     color: var(--fg);
     border: 1px solid var(--border);
   }

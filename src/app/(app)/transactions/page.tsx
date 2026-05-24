@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { TransactionsClient } from "./TransactionsClient";
 import {
-  daysAgoWIBKey, todayWIBKey, wibStartOfDay, wibEndOfDay, firstParam, isValidDateKey
+  todayWIBKey, wibStartOfDay, wibEndOfDay, firstParam, isValidDateKey
 } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
 
   const rawFrom = firstParam(params.from);
   const rawTo = firstParam(params.to);
-  let fromStr = isValidDateKey(rawFrom) ? rawFrom : daysAgoWIBKey(29);
+  let fromStr = isValidDateKey(rawFrom) ? rawFrom : todayWIBKey();
   let toStr = isValidDateKey(rawTo) ? rawTo : todayWIBKey();
   if (fromStr > toStr) [fromStr, toStr] = [toStr, fromStr];
 

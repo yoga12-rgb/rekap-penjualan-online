@@ -36,11 +36,11 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 sm:p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 sm:p-4"
       onClick={() => { if (closeOnBackdrop) onClose(); }}
     >
       <div
-        className={`card w-full ${maxW} p-4 sm:p-5 max-h-[95vh] overflow-y-auto rounded-b-none sm:rounded-lg`}
+        className={`card w-full ${maxW} p-4 sm:p-5 max-h-[95vh] overflow-y-auto rounded-b-none sm:rounded-lg shadow-2xl`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between sticky top-0 -mx-4 sm:-mx-5 px-4 sm:px-5 -mt-4 sm:-mt-5 pt-4 sm:pt-5 pb-3 z-10"

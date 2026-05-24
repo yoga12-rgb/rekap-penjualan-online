@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
 import { formatIDR } from "@/lib/utils";
@@ -43,6 +43,7 @@ type Group = {
   fee: number;
   net: number;
 };
+const TRANSACTIONS_FILTER_STORAGE_KEY = "transactions-filters";
 
 export function TransactionsClient({
   role, myOutletId, outlets, merchants, variants, rows, filter
@@ -57,10 +58,44 @@ export function TransactionsClient({
 }) {
   const router = useRouter();
   const sp = useSearchParams();
+  const skipNextFilterSave = useRef(false);
   const [openCreate, setOpenCreate] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
   const [pending, start] = useTransition();
   const [search, setSearch] = useState(filter.q);
+
+  useEffect(() => {
+    const hasUrlFilter = sp.toString().length > 0;
+    const saved = localStorage.getItem(TRANSACTIONS_FILTER_STORAGE_KEY);
+    if (!hasUrlFilter && saved) {
+      try {
+        const params = new URLSearchParams(JSON.parse(saved) as Record<string, string>);
+        skipNextFilterSave.current = true;
+        router.replace(`/transactions?${params.toString()}`);
+      } catch {
+        localStorage.removeItem(TRANSACTIONS_FILTER_STORAGE_KEY);
+      }
+    }
+  }, [router, sp]);
+
+  useEffect(() => {
+    setSearch(filter.q);
+  }, [filter.q]);
+
+  useEffect(() => {
+    if (skipNextFilterSave.current) {
+      skipNextFilterSave.current = false;
+      return;
+    }
+    const params = new URLSearchParams();
+    params.set("from", filter.from);
+    params.set("to", filter.to);
+    if (filter.outlet) params.set("outlet", filter.outlet);
+    if (filter.merchant) params.set("merchant", filter.merchant);
+    if (filter.variant) params.set("variant", filter.variant);
+    if (filter.q) params.set("q", filter.q);
+    localStorage.setItem(TRANSACTIONS_FILTER_STORAGE_KEY, JSON.stringify(Object.fromEntries(params)));
+  }, [filter.from, filter.to, filter.outlet, filter.merchant, filter.variant, filter.q]);
 
   function setParam(key: string, value: string) {
     const next = new URLSearchParams(sp.toString());
@@ -81,12 +116,18 @@ export function TransactionsClient({
     router.push(`/transactions?${next.toString()}`);
   }
   function clearFilter() {
+    localStorage.removeItem(TRANSACTIONS_FILTER_STORAGE_KEY);
     router.push("/transactions");
     setSearch("");
   }
 
   const hasActiveFilter =
-    !!filter.outlet || !!filter.merchant || !!filter.variant || !!filter.q;
+    filter.from !== todayWIBKey() ||
+    filter.to !== todayWIBKey() ||
+    !!filter.outlet ||
+    !!filter.merchant ||
+    !!filter.variant ||
+    !!filter.q;
   const fromInvalid = filter.from > filter.to;
 
   const filteredRows = useMemo(() => {
@@ -459,7 +500,10 @@ function CreateOrderForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div
+        className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-md border p-3"
+        style={{ borderColor: "var(--border)", backgroundColor: "color-mix(in oklab, var(--bg) 55%, var(--card))" }}
+      >
         <div className="sm:col-span-2">
           <label className="label">Outlet</label>
           {role === "kasir" ? (
@@ -488,7 +532,10 @@ function CreateOrderForm({
         </div>
       </div>
 
-      <div>
+      <div
+        className="rounded-md border p-3"
+        style={{ borderColor: "var(--border)", backgroundColor: "color-mix(in oklab, var(--bg) 55%, var(--card))" }}
+      >
         <div className="flex items-center justify-between mb-1">
           <label className="label">Item Transaksi</label>
           <button type="button" className="btn-outline" onClick={addItem}>
@@ -497,7 +544,8 @@ function CreateOrderForm({
         </div>
         <div className="space-y-2">
           {items.map((it, i) => (
-            <div key={it.key} className="grid grid-cols-12 gap-2 items-end">
+            <div key={it.key} className="grid grid-cols-12 gap-2 items-end rounded-md border p-2"
+                 style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}>
               <div className="col-span-12 sm:col-span-6">
                 <label className="text-xs" style={{ color: "var(--muted)" }}>Varian</label>
                 <Combobox
@@ -530,7 +578,10 @@ function CreateOrderForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t" style={{ borderColor: "var(--border)" }}>
+      <div
+        className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-md border p-3"
+        style={{ borderColor: "var(--border)", backgroundColor: "color-mix(in oklab, var(--bg) 55%, var(--card))" }}
+      >
         <div>
           <label className="label">Total Komisi (1 transaksi)</label>
           <input className="input" type="number" min={0} step={1} value={fee}
@@ -572,7 +623,8 @@ function EditRowForm({
   const [variantId, setVariantId] = useState(row.product_variant_id);
   return (
     <form
-      className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+      className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-md border p-3"
+      style={{ borderColor: "var(--border)", backgroundColor: "color-mix(in oklab, var(--bg) 55%, var(--card))" }}
       onSubmit={(e) => { e.preventDefault(); onSubmit(e.currentTarget); }}
     >
       <div className="sm:col-span-2">

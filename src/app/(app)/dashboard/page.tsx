@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { DashboardClient } from "./DashboardClient";
 import {
-  todayWIBKey, wibStartOfDay, wibEndOfDay, firstParam, isValidDateKey
+  todayWIBKey, daysAgoWIBKey, wibStartOfDay, wibEndOfDay, firstParam, isValidDateKey, previousPeriodForRange
 } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +20,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const supabase = await createClient();
   const params = await searchParams;
 
-  const defaultFrom = todayWIBKey();
+  const defaultFrom = daysAgoWIBKey(6);
   const defaultTo = todayWIBKey();
   const rawFrom = firstParam(params.from);
   const rawTo = firstParam(params.to);
@@ -36,6 +36,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const outlet = profile.role === "super_admin" ? firstParam(params.outlet) : "";
   const merchant = firstParam(params.merchant);
   const variant = firstParam(params.variant);
+  const previousRange = previousPeriodForRange(fromStr, toStr);
 
   const [{ data: outlets }, { data: merchants }, { data: variants }] = await Promise.all([
     supabase.from("outlets").select("id,name").order("name"),
@@ -45,17 +46,36 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   let q = supabase
     .from("transactions")
-    .select("transaction_date, qty, initial_price, deduction_fee, net_profit, food_merchant_id, product_variant_id, food_merchants(name,color), product_variants(name)")
+    .select("id, order_id, order_number, transaction_date, qty, initial_price, deduction_fee, net_profit, outlet_id, food_merchant_id, product_variant_id, outlets(name), food_merchants(name,color), product_variants(name)")
     .gte("transaction_date", wibStartOfDay(fromStr))
     .lte("transaction_date", wibEndOfDay(toStr))
     .order("transaction_date", { ascending: true });
 
-  if (profile.role === "kasir") q = profile.outlet_id ? q.eq("outlet_id", profile.outlet_id) : q.is("outlet_id", null);
-  if (outlet) q = q.eq("outlet_id", outlet);
-  if (merchant) q = q.eq("food_merchant_id", merchant);
-  if (variant) q = q.eq("product_variant_id", variant);
+  let previousQ = supabase
+    .from("transactions")
+    .select("id, order_id, order_number, transaction_date, qty, initial_price, deduction_fee, net_profit, outlet_id, food_merchant_id, product_variant_id, outlets(name), food_merchants(name,color), product_variants(name)")
+    .gte("transaction_date", wibStartOfDay(previousRange.from))
+    .lte("transaction_date", wibEndOfDay(previousRange.to))
+    .order("transaction_date", { ascending: true });
 
-  const { data: rows } = await q;
+  if (profile.role === "kasir") {
+    q = profile.outlet_id ? q.eq("outlet_id", profile.outlet_id) : q.is("outlet_id", null);
+    previousQ = profile.outlet_id ? previousQ.eq("outlet_id", profile.outlet_id) : previousQ.is("outlet_id", null);
+  }
+  if (outlet) {
+    q = q.eq("outlet_id", outlet);
+    previousQ = previousQ.eq("outlet_id", outlet);
+  }
+  if (merchant) {
+    q = q.eq("food_merchant_id", merchant);
+    previousQ = previousQ.eq("food_merchant_id", merchant);
+  }
+  if (variant) {
+    q = q.eq("product_variant_id", variant);
+    previousQ = previousQ.eq("product_variant_id", variant);
+  }
+
+  const [{ data: rows }, { data: previousRows }] = await Promise.all([q, previousQ]);
 
   return (
     <DashboardClient
@@ -64,6 +84,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       merchants={(merchants ?? []) as any}
       variants={(variants ?? []) as any}
       rows={(rows ?? []) as any}
+      previousRows={(previousRows ?? []) as any}
+      previousRange={previousRange}
       filter={{ from: fromStr, to: toStr, outlet, merchant, variant, rangeWasReversed }}
     />
   );

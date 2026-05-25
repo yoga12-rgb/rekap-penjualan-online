@@ -31,6 +31,54 @@ export function daysAgoWIBKey(n: number): string {
   return dt.toISOString().slice(0, 10);
 }
 
+function dateKeyToUTCDate(dateKey: string): Date {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+/** Tambah/kurangi n hari dari date key kalender. */
+export function addDaysToDateKey(dateKey: string, days: number): string {
+  const dt = dateKeyToUTCDate(dateKey);
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
+}
+
+/** Selisih hari inklusif untuk rentang tanggal. */
+export function inclusiveDaysBetween(from: string, to: string): number {
+  const start = dateKeyToUTCDate(from).getTime();
+  const end = dateKeyToUTCDate(to).getTime();
+  return Math.max(1, Math.round((end - start) / 86_400_000) + 1);
+}
+
+/** Rentang periode sebelumnya dengan panjang hari yang sama. */
+export function previousPeriodForRange(from: string, to: string): { from: string; to: string } {
+  const length = inclusiveDaysBetween(from, to);
+  const previousTo = addDaysToDateKey(from, -1);
+  return {
+    from: addDaysToDateKey(previousTo, -(length - 1)),
+    to: previousTo
+  };
+}
+
+export function startOfMonthWIBKey(): string {
+  return todayWIBKey().slice(0, 7) + "-01";
+}
+
+export function endOfMonthWIBKey(): string {
+  const [y, m] = todayWIBKey().split("-").map(Number);
+  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+}
+
+export function startOfPreviousMonthWIBKey(): string {
+  const [y, m] = todayWIBKey().split("-").map(Number);
+  return new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 10);
+}
+
+export function endOfPreviousMonthWIBKey(): string {
+  const [y, m] = todayWIBKey().split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, 0)).toISOString().slice(0, 10);
+}
+
 export function startOfYearWIBKey(): string {
   return todayWIBKey().slice(0, 4) + "-01-01";
 }
@@ -92,6 +140,16 @@ export function isoToWIBLocalInput(iso: string): string {
 /** Bucket key tanggal WIB dari ISO timestamp */
 export function isoToWIBDateKey(iso: string): string {
   return formatWIBDateKey(new Date(iso));
+}
+
+/** Bucket jam WIB dari ISO timestamp, 0-23. */
+export function isoToWIBHour(iso: string): number {
+  const hour = new Intl.DateTimeFormat("en-US", {
+    timeZone: WIB_TZ,
+    hour: "2-digit",
+    hour12: false
+  }).format(new Date(iso));
+  return Number(hour === "24" ? "0" : hour);
 }
 
 /** Format ISO timestamp ke string lokal WIB (untuk export & label tabel). */

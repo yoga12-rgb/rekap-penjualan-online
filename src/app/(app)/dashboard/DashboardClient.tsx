@@ -9,7 +9,17 @@ import { getMerchantTheme } from "@/lib/merchantColors";
 import { MerchantBadge } from "@/components/MerchantBadge";
 import { Combobox } from "@/components/ui/Combobox";
 import {
-  isoToWIBDateKey, isoToWIBDisplay, todayWIBKey, daysAgoWIBKey, startOfYearWIBKey, endOfYearWIBKey
+  isoToWIBDateKey,
+  isoToWIBDisplay,
+  isoToWIBHour,
+  todayWIBKey,
+  daysAgoWIBKey,
+  startOfMonthWIBKey,
+  endOfMonthWIBKey,
+  startOfPreviousMonthWIBKey,
+  endOfPreviousMonthWIBKey,
+  startOfYearWIBKey,
+  endOfYearWIBKey
 } from "@/lib/date";
 import { AlertCircle, X } from "lucide-react";
 
@@ -18,22 +28,22 @@ type Merchant = Option & { color?: string | null };
 type Variant = Option & { base_price?: number };
 type DashboardFilter = { from: string; to: string; outlet: string; merchant: string; variant: string; rangeWasReversed?: boolean };
 type SummaryRow = {
+  id: string;
+  order_id: string;
+  order_number: string | null;
   transaction_date: string;
   qty: number;
   initial_price: number;
   deduction_fee: number;
   net_profit: number;
+  outlet_id: string;
   food_merchant_id: string;
   product_variant_id: string;
+  outlets: { name: string } | null;
   food_merchants: { name: string; color: string | null } | null;
   product_variants: { name: string } | null;
 };
-type DetailRow = SummaryRow & {
-  id: string;
-  order_number: string | null;
-  outlet_id: string;
-  outlets: { name: string } | null;
-};
+type DetailRow = SummaryRow;
 
 type TransactionPage = {
   rows: DetailRow[];
@@ -41,17 +51,43 @@ type TransactionPage = {
   hasMore: boolean;
   error?: string;
 };
-type DashboardTab = "trend" | "products" | "merchants" | "details";
+type DashboardTab = "trend" | "products" | "merchants" | "outlets" | "hours" | "insights" | "details";
+type DatePreset = "today" | "7d" | "30d" | "month" | "lastMonth" | "ytd" | "year";
 const DASHBOARD_FILTER_STORAGE_KEY = "dashboard-filters";
+const TAB_LABELS: Record<DashboardTab, string> = {
+  trend: "Tren",
+  products: "Produk",
+  merchants: "Merchant",
+  outlets: "Outlet",
+  hours: "Jam",
+  insights: "Insight",
+  details: "Detail"
+};
+
+type Totals = {
+  gross: number;
+  fee: number;
+  feePercent: number;
+  net: number;
+  qty: number;
+  transactionCount: number;
+  avgGross: number;
+  avgQty: number;
+  avgNet: number;
+};
+type ComparisonMetric = ReturnType<typeof buildComparison>;
+type DeclineMetric = ReturnType<typeof buildDeclines>[number];
 
 export function DashboardClient({
-  role, outlets, merchants, variants, rows, filter
+  role, outlets, merchants, variants, rows, previousRows, previousRange, filter
 }: {
   role: "super_admin" | "kasir";
   outlets: Option[];
   merchants: Merchant[];
   variants: Variant[];
   rows: SummaryRow[];
+  previousRows: SummaryRow[];
+  previousRange: { from: string; to: string };
   filter: DashboardFilter;
 }) {
   const router = useRouter();
@@ -65,7 +101,12 @@ export function DashboardClient({
     const saved = localStorage.getItem(DASHBOARD_FILTER_STORAGE_KEY);
     if (!hasUrlFilter && saved) {
       try {
-        const params = new URLSearchParams(JSON.parse(saved) as Record<string, string>);
+        const savedFilter = JSON.parse(saved) as Record<string, string>;
+        if (isLegacyTodayOnlyFilter(savedFilter)) {
+          localStorage.removeItem(DASHBOARD_FILTER_STORAGE_KEY);
+          return;
+        }
+        const params = new URLSearchParams(savedFilter);
         skipNextFilterSave.current = true;
         router.replace(`/dashboard?${params.toString()}`);
       } catch {
@@ -101,13 +142,15 @@ export function DashboardClient({
     router.push(`/dashboard?${next.toString()}`);
   }
 
-  const totals = useMemo(() => {
-    const gross = rows.reduce((a, r) => a + r.qty * r.initial_price, 0);
-    const fee = rows.reduce((a, r) => a + Number(r.deduction_fee || 0), 0);
-    const net = rows.reduce((a, r) => a + Number(r.net_profit || 0), 0);
-    const qty = rows.reduce((a, r) => a + r.qty, 0);
-    return { gross, fee, net, qty };
-  }, [rows]);
+  const totals = useMemo(() => buildTotals(rows), [rows]);
+  const previousTotals = useMemo(() => buildTotals(previousRows), [previousRows]);
+
+  const comparison = useMemo(() => ([
+    buildComparison("Omset", totals.gross, previousTotals.gross, "currency"),
+    buildComparison("Net Profit", totals.net, previousTotals.net, "currency"),
+    buildComparison("Qty", totals.qty, previousTotals.qty, "number"),
+    buildComparison("Transaksi", totals.transactionCount, previousTotals.transactionCount, "number")
+  ]), [previousTotals.gross, previousTotals.net, previousTotals.qty, previousTotals.transactionCount, totals.gross, totals.net, totals.qty, totals.transactionCount]);
 
   const daily = useMemo(() => {
     const map = new Map<string, { date: string; gross: number; fee: number; net: number }>();
@@ -123,11 +166,12 @@ export function DashboardClient({
   }, [rows]);
 
   const leaderboard = useMemo(() => {
-    const map = new Map<string, { name: string; qty: number; net: number }>();
+    const map = new Map<string, { name: string; qty: number; gross: number; net: number }>();
     for (const r of rows) {
       const key = r.product_variant_id;
-      const cur = map.get(key) ?? { name: r.product_variants?.name ?? "-", qty: 0, net: 0 };
+      const cur = map.get(key) ?? { name: r.product_variants?.name ?? "-", qty: 0, gross: 0, net: 0 };
       cur.qty += r.qty;
+      cur.gross += getGross(r);
       cur.net += Number(r.net_profit || 0);
       map.set(key, cur);
     }
@@ -149,10 +193,137 @@ export function DashboardClient({
     return Array.from(map.values()).sort((a, b) => b.net - a.net);
   }, [rows]);
 
+  const outletBreakdown = useMemo(() => {
+    const map = new Map<string, { name: string; gross: number; net: number; qty: number; transactionKeys: Set<string> }>();
+    for (const r of rows) {
+      const key = r.outlet_id || "unknown";
+      const cur = map.get(key) ?? {
+        name: r.outlets?.name ?? "-",
+        gross: 0,
+        net: 0,
+        qty: 0,
+        transactionKeys: new Set<string>()
+      };
+      cur.gross += getGross(r);
+      cur.net += Number(r.net_profit || 0);
+      cur.qty += r.qty;
+      cur.transactionKeys.add(getTransactionKey(r));
+      map.set(key, cur);
+    }
+    return Array.from(map.values())
+      .map((o) => ({ ...o, transactionCount: o.transactionKeys.size }))
+      .sort((a, b) => b.gross - a.gross);
+  }, [rows]);
+
+  const hourly = useMemo(() => {
+    const buckets = Array.from({ length: 24 }, (_, hour) => ({
+      hour,
+      label: `${String(hour).padStart(2, "0")}:00`,
+      gross: 0,
+      net: 0,
+      qty: 0,
+      transactionKeys: new Set<string>()
+    }));
+    for (const r of rows) {
+      const bucket = buckets[isoToWIBHour(r.transaction_date)];
+      bucket.gross += getGross(r);
+      bucket.net += Number(r.net_profit || 0);
+      bucket.qty += r.qty;
+      bucket.transactionKeys.add(getTransactionKey(r));
+    }
+    return buckets.map((b) => ({ ...b, transactionCount: b.transactionKeys.size }));
+  }, [rows]);
+
+  const productDeclines = useMemo(
+    () => buildDeclines(rows, previousRows, "product", "qty").slice(0, 5),
+    [previousRows, rows]
+  );
+
+  const merchantDeclines = useMemo(
+    () => buildDeclines(rows, previousRows, "merchant", "net").slice(0, 5),
+    [previousRows, rows]
+  );
+
+  const insights = useMemo(() => {
+    const topProduct = leaderboard[0];
+    const topMerchant = merchantBreakdown[0];
+    const topOutlet = outletBreakdown[0];
+    const busiestHour = hourly.reduce((best, item) => item.transactionCount > best.transactionCount ? item : best, hourly[0]);
+    const strongestComparison = comparison
+      .filter((item) => item.previous > 0)
+      .sort((a, b) => Math.abs(b.percentChange) - Math.abs(a.percentChange))[0];
+    return [
+      topProduct ? `Produk terlaris periode ini: ${topProduct.name} (${topProduct.qty.toLocaleString("id-ID")} qty).` : "",
+      topMerchant ? `Merchant dengan net profit tertinggi: ${topMerchant.name} (${formatIDR(topMerchant.net)}).` : "",
+      topOutlet ? `Outlet dengan omset tertinggi: ${topOutlet.name} (${formatIDR(topOutlet.gross)}).` : "",
+      totals.gross > 0 ? `Potongan admin setara ${formatPercent(totals.feePercent)} dari total omset.` : "",
+      busiestHour?.transactionCount ? `Jam transaksi paling ramai: ${busiestHour.label} (${busiestHour.transactionCount.toLocaleString("id-ID")} transaksi).` : "",
+      strongestComparison ? `${strongestComparison.label} ${strongestComparison.percentChange >= 0 ? "naik" : "turun"} ${formatPercent(Math.abs(strongestComparison.percentChange))} dibanding periode sebelumnya.` : ""
+    ].filter(Boolean);
+  }, [comparison, hourly, leaderboard, merchantBreakdown, outletBreakdown, totals.feePercent, totals.gross]);
+
   async function exportCsv() {
     setIsExporting(true);
-    const detailRows: DetailRow[] = [];
     try {
+      if (activeTab === "trend") {
+        downloadCsv(
+          ["Tanggal", "Omset", "Potongan", "NetProfit"],
+          daily.map((r) => [r.date, r.gross, r.fee, r.net]),
+          `tren_harian_${filter.from}_to_${filter.to}.csv`
+        );
+        return;
+      }
+
+      if (activeTab === "products") {
+        downloadCsv(
+          ["Produk", "Qty", "Omset", "NetProfit"],
+          leaderboard.map((r) => [r.name, r.qty, r.gross, r.net]),
+          `produk_terlaris_${filter.from}_to_${filter.to}.csv`
+        );
+        return;
+      }
+
+      if (activeTab === "merchants") {
+        downloadCsv(
+          ["Merchant", "NetProfit"],
+          merchantBreakdown.map((r) => [r.name, r.net]),
+          `profit_merchant_${filter.from}_to_${filter.to}.csv`
+        );
+        return;
+      }
+
+      if (activeTab === "outlets") {
+        downloadCsv(
+          ["Outlet", "Transaksi", "Qty", "Omset", "NetProfit"],
+          outletBreakdown.map((r) => [r.name, r.transactionCount, r.qty, r.gross, r.net]),
+          `top_outlet_${filter.from}_to_${filter.to}.csv`
+        );
+        return;
+      }
+
+      if (activeTab === "hours") {
+        downloadCsv(
+          ["Jam", "Transaksi", "Qty", "Omset", "NetProfit"],
+          hourly.map((r) => [r.label, r.transactionCount, r.qty, r.gross, r.net]),
+          `jam_ramai_${filter.from}_to_${filter.to}.csv`
+        );
+        return;
+      }
+
+      if (activeTab === "insights") {
+        downloadCsv(
+          ["Kategori", "Nama", "SaatIni", "PeriodeSebelumnya", "Selisih", "Perubahan"],
+          [
+            ...comparison.map((r) => [r.label, "-", r.current, r.previous, r.delta, formatPercent(r.percentChange)]),
+            ...productDeclines.map((r) => ["Produk Turun", r.name, r.current, r.previous, r.delta, formatPercent(r.percentChange)]),
+            ...merchantDeclines.map((r) => ["Merchant Turun", r.name, r.current, r.previous, r.delta, formatPercent(r.percentChange)])
+          ],
+          `insight_${filter.from}_to_${filter.to}.csv`
+        );
+        return;
+      }
+
+      const detailRows: DetailRow[] = [];
       let offset = 0;
       let hasMore = true;
       while (hasMore) {
@@ -161,53 +332,56 @@ export function DashboardClient({
         offset = page.nextOffset;
         hasMore = page.hasMore;
       }
+      downloadCsv(
+        [
+          "Tanggal",
+          "NomorPesanan",
+          "Outlet",
+          "Merchant",
+          "Produk",
+          "Qty",
+          "HargaSatuan",
+          "Omset",
+          "Potongan",
+          "NetProfit"
+        ],
+        detailRows.map((r) => [
+          isoToWIBDisplay(r.transaction_date),
+          r.order_number ?? "",
+          r.outlets?.name ?? "",
+          r.food_merchants?.name ?? "",
+          r.product_variants?.name ?? "",
+          r.qty,
+          r.initial_price,
+          getGross(r),
+          r.deduction_fee,
+          r.net_profit
+        ]),
+        `detail_transaksi_${filter.from}_to_${filter.to}.csv`
+      );
     } finally {
       setIsExporting(false);
     }
-
-    const headers = [
-      "Tanggal",
-      "NomorPesanan",
-      "Outlet",
-      "Merchant",
-      "Produk",
-      "Qty",
-      "HargaSatuan",
-      "Omset",
-      "Potongan",
-      "NetProfit"
-    ];
-    const data = detailRows.map((r) => [
-      isoToWIBDisplay(r.transaction_date),
-      r.order_number ?? "",
-      r.outlets?.name ?? "",
-      r.food_merchants?.name ?? "",
-      r.product_variants?.name ?? "",
-      r.qty,
-      r.initial_price,
-      r.qty * r.initial_price,
-      r.deduction_fee,
-      r.net_profit
-    ]);
-    const escapeCell = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
-    const csv = [headers, ...data].map((row) => row.map(escapeCell).join(",")).join("\r\n");
-    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `rekap_${filter.from}_to_${filter.to}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
   }
 
-  function setRangePreset(preset: "today" | "7d" | "30d" | "ytd" | "year") {
-    if (preset === "today") return setRange(todayWIBKey(), todayWIBKey());
-    if (preset === "7d") return setRange(daysAgoWIBKey(6), todayWIBKey());
-    if (preset === "30d") return setRange(daysAgoWIBKey(29), todayWIBKey());
-    if (preset === "ytd") return setRange(startOfYearWIBKey(), todayWIBKey());
-    if (preset === "year") return setRange(startOfYearWIBKey(), endOfYearWIBKey());
+  function getPresetRange(preset: DatePreset) {
+    if (preset === "today") return { from: todayWIBKey(), to: todayWIBKey() };
+    if (preset === "7d") return { from: daysAgoWIBKey(6), to: todayWIBKey() };
+    if (preset === "30d") return { from: daysAgoWIBKey(29), to: todayWIBKey() };
+    if (preset === "month") return { from: startOfMonthWIBKey(), to: endOfMonthWIBKey() };
+    if (preset === "lastMonth") return { from: startOfPreviousMonthWIBKey(), to: endOfPreviousMonthWIBKey() };
+    if (preset === "ytd") return { from: startOfYearWIBKey(), to: todayWIBKey() };
+    return { from: startOfYearWIBKey(), to: endOfYearWIBKey() };
+  }
+
+  function isPresetActive(preset: DatePreset) {
+    const range = getPresetRange(preset);
+    return filter.from === range.from && filter.to === range.to;
+  }
+
+  function setRangePreset(preset: DatePreset) {
+    const range = getPresetRange(preset);
+    return setRange(range.from, range.to);
   }
 
   function clearFilter() {
@@ -216,7 +390,7 @@ export function DashboardClient({
   }
 
   const hasActiveFilter =
-    filter.from !== todayWIBKey() ||
+    filter.from !== daysAgoWIBKey(6) ||
     filter.to !== todayWIBKey() ||
     !!filter.outlet ||
     !!filter.merchant ||
@@ -269,17 +443,19 @@ export function DashboardClient({
           </Field>
           <div className="col-span-2 md:col-span-1 min-w-0">
             <button className="btn-primary w-full h-10 px-3 whitespace-nowrap" onClick={exportCsv} disabled={!rows.length || isExporting}>
-              {isExporting ? "Exporting..." : "Export CSV"}
+              {isExporting ? "Exporting..." : `Export ${TAB_LABELS[activeTab]}`}
             </button>
           </div>
         </div>
 
         <div className="mt-2 flex gap-1.5 overflow-x-auto pb-0.5">
-          <PresetButton onClick={() => setRangePreset("today")}>Hari ini</PresetButton>
-          <PresetButton onClick={() => setRangePreset("7d")}>7H</PresetButton>
-          <PresetButton onClick={() => setRangePreset("30d")}>30H</PresetButton>
-          <PresetButton onClick={() => setRangePreset("ytd")}>YTD</PresetButton>
-          <PresetButton onClick={() => setRangePreset("year")}>Tahun</PresetButton>
+          <PresetButton active={isPresetActive("today")} onClick={() => setRangePreset("today")}>Hari ini</PresetButton>
+          <PresetButton active={isPresetActive("7d")} onClick={() => setRangePreset("7d")}>7H</PresetButton>
+          <PresetButton active={isPresetActive("30d")} onClick={() => setRangePreset("30d")}>30H</PresetButton>
+          <PresetButton active={isPresetActive("month")} onClick={() => setRangePreset("month")}>Bulan ini</PresetButton>
+          <PresetButton active={isPresetActive("lastMonth")} onClick={() => setRangePreset("lastMonth")}>Bulan lalu</PresetButton>
+          <PresetButton active={isPresetActive("ytd")} onClick={() => setRangePreset("ytd")}>YTD</PresetButton>
+          <PresetButton active={isPresetActive("year")} onClick={() => setRangePreset("year")}>Tahun</PresetButton>
           {hasActiveFilter && (
             <PresetButton onClick={clearFilter}>
               <X size={14} />
@@ -296,11 +472,23 @@ export function DashboardClient({
         </div>
       )}
 
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5">
-        <KPI title="Total Omset" value={formatIDR(totals.gross)} />
-        <KPI title="Total Potongan Admin" value={formatIDR(totals.fee)} />
-        <KPI title="Net Profit" value={formatIDR(totals.net)} accent />
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2.5">
+        <KPI title="Total Omset" value={formatIDR(totals.gross)} variant="gross" />
+        <KPI title="Total Potongan Admin" value={formatIDR(totals.fee)} variant="fee" />
+        <KPI
+          title="Potongan Admin (%)"
+          value={formatPercent(totals.feePercent)}
+          variant="percent"
+        />
+        <KPI title="Net Profit" value={formatIDR(totals.net)} variant="net" />
         <KPI title="Total Qty" value={totals.qty.toLocaleString("id-ID")} />
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+        <KPI title="Total Transaksi" value={totals.transactionCount.toLocaleString("id-ID")} />
+        <KPI title="Rata-rata Omset" value={formatIDR(totals.avgGross)} />
+        <KPI title="Rata-rata Qty" value={totals.avgQty.toLocaleString("id-ID", { maximumFractionDigits: 2 })} />
+        <KPI title="Rata-rata Net" value={formatIDR(totals.avgNet)} />
       </div>
 
       <div className="flex overflow-x-auto border-b -mb-1" style={{ borderColor: "var(--border)" }}>
@@ -313,6 +501,15 @@ export function DashboardClient({
         <TabButton active={activeTab === "merchants"} onClick={() => setActiveTab("merchants")}>
           Profit Merchant
         </TabButton>
+        <TabButton active={activeTab === "outlets"} onClick={() => setActiveTab("outlets")}>
+          Outlet
+        </TabButton>
+        <TabButton active={activeTab === "hours"} onClick={() => setActiveTab("hours")}>
+          Jam Ramai
+        </TabButton>
+        <TabButton active={activeTab === "insights"} onClick={() => setActiveTab("insights")}>
+          Insight
+        </TabButton>
         <TabButton active={activeTab === "details"} onClick={() => setActiveTab("details")}>
           Detail Transaksi
         </TabButton>
@@ -321,6 +518,17 @@ export function DashboardClient({
       {activeTab === "trend" && <TrendTab daily={daily} />}
       {activeTab === "products" && <ProductsTab leaderboard={leaderboard} />}
       {activeTab === "merchants" && <MerchantsTab merchantBreakdown={merchantBreakdown} />}
+      {activeTab === "outlets" && <OutletsTab outletBreakdown={outletBreakdown} />}
+      {activeTab === "hours" && <HoursTab hourly={hourly} />}
+      {activeTab === "insights" && (
+        <InsightsTab
+          comparison={comparison}
+          previousRange={previousRange}
+          productDeclines={productDeclines}
+          merchantDeclines={merchantDeclines}
+          insights={insights}
+        />
+      )}
       {activeTab === "details" && <DetailTransactions filter={filter} />}
     </div>
   );
@@ -359,9 +567,19 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function PresetButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+function PresetButton({ active = false, onClick, children }: { active?: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" className="btn-outline px-2.5 py-1.5 text-xs whitespace-nowrap" onClick={onClick}>
+    <button
+      type="button"
+      className={`btn-outline px-2.5 py-1.5 text-xs whitespace-nowrap transition-colors ${
+        active
+          ? "border-red-700 bg-red-700 text-white hover:bg-red-800 dark:border-red-500 dark:bg-red-600 dark:text-white dark:hover:bg-red-700"
+          : ""
+      }`}
+      aria-pressed={active}
+      onClick={onClick}
+    >
+      {active && <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />}
       {children}
     </button>
   );
@@ -399,7 +617,7 @@ function TrendTab({ daily }: { daily: Array<{ date: string; gross: number; fee: 
   );
 }
 
-function ProductsTab({ leaderboard }: { leaderboard: Array<{ name: string; qty: number; net: number }> }) {
+function ProductsTab({ leaderboard }: { leaderboard: Array<{ name: string; qty: number; gross: number; net: number }> }) {
   return (
     <div className="card p-3">
       <h3 className="text-sm font-semibold mb-2">Produk Terlaris (Qty)</h3>
@@ -475,6 +693,348 @@ function MerchantsTab({
         ))}
       </div>
     </div>
+  );
+}
+
+function OutletsTab({
+  outletBreakdown
+}: {
+  outletBreakdown: Array<{ name: string; gross: number; net: number; qty: number; transactionCount: number }>;
+}) {
+  return (
+    <div className="card p-3">
+      <h3 className="text-sm font-semibold mb-2">Top Outlet</h3>
+      <div className="h-52 sm:h-60 lg:h-64">
+        {outletBreakdown.length === 0 ? (
+          <EmptyChart />
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={outletBreakdown}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="name" stroke="var(--muted)" />
+              <YAxis tickFormatter={(v) => Intl.NumberFormat("id-ID").format(v as number)} stroke="var(--muted)" />
+              <Tooltip
+                contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", color: "var(--fg)" }}
+                formatter={(v: any, name) => name === "gross" || name === "net" ? formatIDR(Number(v)) : Number(v).toLocaleString("id-ID")}
+              />
+              <Legend />
+              <Bar dataKey="gross" name="Omset" fill="#3b82f6" />
+              <Bar dataKey="net" name="Net Profit" fill="#22c55e" />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+      <div className="overflow-auto mt-2">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Outlet</th>
+              <th className="text-right">Transaksi</th>
+              <th className="text-right">Qty</th>
+              <th className="text-right">Omset</th>
+              <th className="text-right">Net</th>
+            </tr>
+          </thead>
+          <tbody>
+            {outletBreakdown.map((o) => (
+              <tr key={o.name}>
+                <td>{o.name}</td>
+                <td className="text-right">{o.transactionCount.toLocaleString("id-ID")}</td>
+                <td className="text-right">{o.qty.toLocaleString("id-ID")}</td>
+                <td className="text-right">{formatIDR(o.gross)}</td>
+                <td className="text-right font-medium">{formatIDR(o.net)}</td>
+              </tr>
+            ))}
+            {!outletBreakdown.length && (
+              <tr><td colSpan={5} className="text-center py-4" style={{ color: "var(--muted)" }}>Tidak ada data</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function HoursTab({
+  hourly
+}: {
+  hourly: Array<{ label: string; gross: number; net: number; qty: number; transactionCount: number }>;
+}) {
+  const visibleHours = hourly.filter((h) => h.transactionCount > 0 || h.qty > 0);
+  return (
+    <div className="card p-3">
+      <h3 className="text-sm font-semibold mb-2">Jam Ramai Transaksi</h3>
+      <div className="h-52 sm:h-60 lg:h-64">
+        {visibleHours.length === 0 ? (
+          <EmptyChart />
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={hourly}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="label" stroke="var(--muted)" />
+              <YAxis stroke="var(--muted)" />
+              <Tooltip
+                contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", color: "var(--fg)" }}
+                formatter={(v: any, name) => name === "gross" || name === "net" ? formatIDR(Number(v)) : Number(v).toLocaleString("id-ID")}
+              />
+              <Legend />
+              <Bar dataKey="transactionCount" name="Transaksi" fill="#b91c1c" />
+              <Bar dataKey="qty" name="Qty" fill="#3b82f6" />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+      <div className="overflow-auto mt-2">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Jam</th>
+              <th className="text-right">Transaksi</th>
+              <th className="text-right">Qty</th>
+              <th className="text-right">Omset</th>
+              <th className="text-right">Net</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visibleHours.map((h) => (
+              <tr key={h.label}>
+                <td>{h.label}</td>
+                <td className="text-right">{h.transactionCount.toLocaleString("id-ID")}</td>
+                <td className="text-right">{h.qty.toLocaleString("id-ID")}</td>
+                <td className="text-right">{formatIDR(h.gross)}</td>
+                <td className="text-right font-medium">{formatIDR(h.net)}</td>
+              </tr>
+            ))}
+            {!visibleHours.length && (
+              <tr><td colSpan={5} className="text-center py-4" style={{ color: "var(--muted)" }}>Tidak ada data</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function InsightsTab({
+  comparison,
+  previousRange,
+  productDeclines,
+  merchantDeclines,
+  insights
+}: {
+  comparison: ComparisonMetric[];
+  previousRange: { from: string; to: string };
+  productDeclines: DeclineMetric[];
+  merchantDeclines: DeclineMetric[];
+  insights: string[];
+}) {
+  return (
+    <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
+      <div className="card p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <h3 className="text-sm font-semibold">Perbandingan Periode</h3>
+          <span className="text-xs" style={{ color: "var(--muted)" }}>
+            vs {previousRange.from} - {previousRange.to}
+          </span>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {comparison.map((item) => (
+            <ComparisonCard key={item.label} item={item} />
+          ))}
+        </div>
+      </div>
+
+      <div className="card p-3">
+        <h3 className="text-sm font-semibold mb-2">Insight Otomatis</h3>
+        <div className="space-y-2 text-sm">
+          {insights.map((item) => (
+            <div key={item} className="rounded-md border px-3 py-2" style={{ borderColor: "var(--border)" }}>
+              {item}
+            </div>
+          ))}
+          {!insights.length && (
+            <div className="py-6 text-center" style={{ color: "var(--muted)" }}>Belum ada insight untuk rentang ini.</div>
+          )}
+        </div>
+      </div>
+
+      <DeclineTable title="Produk yang Performanya Turun" metricLabel="Qty" rows={productDeclines} />
+      <DeclineTable title="Merchant yang Performanya Turun" metricLabel="Net Profit" rows={merchantDeclines} currency />
+    </div>
+  );
+}
+
+function ComparisonCard({ item }: { item: ComparisonMetric }) {
+  const isUp = item.delta >= 0;
+  return (
+    <div className="rounded-md border px-3 py-2" style={{ borderColor: "var(--border)" }}>
+      <div className="text-xs uppercase" style={{ color: "var(--muted)" }}>{item.label}</div>
+      <div className="mt-1 text-lg font-bold">{formatMetricValue(item.current, item.format)}</div>
+      <div className={`text-xs font-medium ${isUp ? "text-emerald-600 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}>
+        {isUp ? "+" : ""}{formatMetricValue(item.delta, item.format)} ({isUp ? "+" : ""}{formatPercent(item.percentChange)})
+      </div>
+      <div className="text-xs" style={{ color: "var(--muted)" }}>
+        Sebelumnya {formatMetricValue(item.previous, item.format)}
+      </div>
+    </div>
+  );
+}
+
+function DeclineTable({
+  title,
+  metricLabel,
+  rows,
+  currency
+}: {
+  title: string;
+  metricLabel: string;
+  rows: DeclineMetric[];
+  currency?: boolean;
+}) {
+  return (
+    <div className="card p-3">
+      <h3 className="text-sm font-semibold mb-2">{title}</h3>
+      <div className="overflow-auto">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Nama</th>
+              <th className="text-right">Saat Ini</th>
+              <th className="text-right">Sebelumnya</th>
+              <th className="text-right">Turun</th>
+              <th className="text-right">%</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.name}>
+                <td>{row.name}</td>
+                <td className="text-right">{currency ? formatIDR(row.current) : row.current.toLocaleString("id-ID")}</td>
+                <td className="text-right">{currency ? formatIDR(row.previous) : row.previous.toLocaleString("id-ID")}</td>
+                <td className="text-right">{currency ? formatIDR(Math.abs(row.delta)) : Math.abs(row.delta).toLocaleString("id-ID")}</td>
+                <td className="text-right text-red-700 dark:text-red-300">{formatPercent(row.percentChange)}</td>
+              </tr>
+            ))}
+            {!rows.length && (
+              <tr>
+                <td colSpan={5} className="text-center py-4" style={{ color: "var(--muted)" }}>
+                  Tidak ada penurunan {metricLabel.toLowerCase()} yang terdeteksi.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function getGross(row: SummaryRow) {
+  return row.qty * row.initial_price;
+}
+
+function getTransactionKey(row: SummaryRow) {
+  return row.order_id || row.id;
+}
+
+function buildTotals(rows: SummaryRow[]): Totals {
+  const transactionKeys = new Set<string>();
+  const gross = rows.reduce((a, r) => {
+    transactionKeys.add(getTransactionKey(r));
+    return a + getGross(r);
+  }, 0);
+  const fee = rows.reduce((a, r) => a + Number(r.deduction_fee || 0), 0);
+  const net = rows.reduce((a, r) => a + Number(r.net_profit || 0), 0);
+  const qty = rows.reduce((a, r) => a + r.qty, 0);
+  const transactionCount = transactionKeys.size;
+  const feePercent = gross > 0 ? (fee / gross) * 100 : 0;
+  return {
+    gross,
+    fee,
+    feePercent,
+    net,
+    qty,
+    transactionCount,
+    avgGross: transactionCount > 0 ? gross / transactionCount : 0,
+    avgQty: transactionCount > 0 ? qty / transactionCount : 0,
+    avgNet: transactionCount > 0 ? net / transactionCount : 0
+  };
+}
+
+function buildComparison(label: string, current: number, previous: number, format: "currency" | "number") {
+  const delta = current - previous;
+  const percentChange = previous > 0 ? (delta / previous) * 100 : current > 0 ? 100 : 0;
+  return { label, current, previous, delta, percentChange, format };
+}
+
+function buildDeclines(
+  currentRows: SummaryRow[],
+  previousRows: SummaryRow[],
+  group: "product" | "merchant",
+  metric: "qty" | "net"
+) {
+  const current = groupRows(currentRows, group, metric);
+  const previous = groupRows(previousRows, group, metric);
+  return Array.from(previous.entries())
+    .map(([key, prev]) => {
+      const cur = current.get(key);
+      const currentValue = cur?.value ?? 0;
+      const delta = currentValue - prev.value;
+      return {
+        key,
+        name: cur?.name ?? prev.name,
+        current: currentValue,
+        previous: prev.value,
+        delta,
+        percentChange: prev.value > 0 ? (delta / prev.value) * 100 : 0
+      };
+    })
+    .filter((item) => item.delta < 0)
+    .sort((a, b) => a.delta - b.delta);
+}
+
+function groupRows(rows: SummaryRow[], group: "product" | "merchant", metric: "qty" | "net") {
+  const map = new Map<string, { name: string; value: number }>();
+  for (const row of rows) {
+    const key = group === "product" ? row.product_variant_id : row.food_merchant_id;
+    const name = group === "product" ? row.product_variants?.name ?? "-" : row.food_merchants?.name ?? "-";
+    const cur = map.get(key) ?? { name, value: 0 };
+    cur.value += metric === "qty" ? row.qty : Number(row.net_profit || 0);
+    map.set(key, cur);
+  }
+  return map;
+}
+
+function formatPercent(value: number) {
+  return `${value.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+}
+
+function formatMetricValue(value: number, format: "currency" | "number") {
+  if (format === "currency") return formatIDR(value);
+  return value.toLocaleString("id-ID");
+}
+
+function downloadCsv(headers: string[], data: Array<Array<string | number>>, filename: string) {
+  const escapeCell = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
+  const csv = [headers, ...data].map((row) => row.map(escapeCell).join(",")).join("\r\n");
+  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function isLegacyTodayOnlyFilter(savedFilter: Record<string, string>) {
+  return (
+    savedFilter.from === todayWIBKey() &&
+    savedFilter.to === todayWIBKey() &&
+    !savedFilter.outlet &&
+    !savedFilter.merchant &&
+    !savedFilter.variant
   );
 }
 
@@ -611,7 +1171,7 @@ function DetailTransactions({ filter }: { filter: DashboardFilter }) {
                 <td>{r.product_variants?.name}</td>
                 <td className="text-right">{r.qty}</td>
                 <td className="text-right">{formatIDR(r.initial_price)}</td>
-                <td className="text-right">{formatIDR(r.qty * r.initial_price)}</td>
+                <td className="text-right">{formatIDR(getGross(r))}</td>
                 <td className="text-right">{formatIDR(r.deduction_fee)}</td>
                 <td className="text-right font-medium">{formatIDR(r.net_profit)}</td>
               </tr>
@@ -636,11 +1196,45 @@ function DetailTransactions({ filter }: { filter: DashboardFilter }) {
   );
 }
 
-function KPI({ title, value, accent }: { title: string; value: string; accent?: boolean }) {
+type KPIVariant = "default" | "gross" | "fee" | "percent" | "net";
+
+const KPI_VARIANTS: Record<KPIVariant, { card: string; value: string }> = {
+  default: {
+    card: "",
+    value: ""
+  },
+  gross: {
+    card: "border-l-4 border-l-blue-500 bg-blue-50/70 dark:bg-blue-950/20",
+    value: "text-blue-700 dark:text-blue-300"
+  },
+  fee: {
+    card: "border-l-4 border-l-amber-500 bg-amber-50/80 dark:bg-amber-950/20",
+    value: "text-amber-700 dark:text-amber-300"
+  },
+  percent: {
+    card: "border-l-4 border-l-cyan-500 bg-cyan-50/80 dark:bg-cyan-950/20",
+    value: "text-cyan-700 dark:text-cyan-300"
+  },
+  net: {
+    card: "border-l-4 border-l-emerald-500 bg-emerald-50/80 dark:bg-emerald-950/20",
+    value: "text-emerald-700 dark:text-emerald-300"
+  }
+};
+
+function KPI({
+  title,
+  value,
+  variant = "default"
+}: {
+  title: string;
+  value: string;
+  variant?: KPIVariant;
+}) {
+  const tone = KPI_VARIANTS[variant];
   return (
-    <div className={`card px-3 py-2.5 ${accent ? "ring-2 ring-red-200 dark:ring-red-900/40" : ""}`}>
+    <div className={`card px-3 py-2.5 ${tone.card}`}>
       <div className="text-[10px] sm:text-xs uppercase tracking-wide" style={{ color: "var(--muted)" }}>{title}</div>
-      <div className={`mt-0.5 text-sm sm:text-lg font-bold leading-tight break-words ${accent ? "text-red-700 dark:text-red-300" : ""}`}>{value}</div>
+      <div className={`mt-0.5 text-sm sm:text-lg font-bold leading-tight break-words ${tone.value}`}>{value}</div>
     </div>
   );
 }

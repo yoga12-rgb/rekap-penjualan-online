@@ -15,7 +15,8 @@ import {
 
 type Option = { id: string; name: string };
 type Merchant = Option & { color?: string | null };
-type Variant = Option & { base_price: number };
+type VariantPrice = { food_merchant_id: string; price: number };
+type Variant = Option & { base_price: number; product_variant_prices?: VariantPrice[] | null };
 type Row = {
   id: string;
   order_id: string | null;
@@ -45,6 +46,7 @@ type Group = {
   fee: number;
   net: number;
 };
+type TransactionDatePreset = "today" | "7d" | "30d" | "ytd";
 const TRANSACTIONS_FILTER_STORAGE_KEY = "transactions-filters";
 
 export function TransactionsClient({
@@ -56,7 +58,7 @@ export function TransactionsClient({
   merchants: Merchant[];
   variants: Variant[];
   rows: Row[];
-  filter: { from: string; to: string; outlet: string; merchant: string; variant: string; q: string };
+  filter: { from: string; to: string; outlet: string; merchant: string; variant: string; q: string; rangeWasReversed?: boolean };
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -71,7 +73,12 @@ export function TransactionsClient({
     const saved = localStorage.getItem(TRANSACTIONS_FILTER_STORAGE_KEY);
     if (!hasUrlFilter && saved) {
       try {
-        const params = new URLSearchParams(JSON.parse(saved) as Record<string, string>);
+        const savedFilter = JSON.parse(saved) as Record<string, string>;
+        if (isLegacyTodayOnlyFilter(savedFilter)) {
+          localStorage.removeItem(TRANSACTIONS_FILTER_STORAGE_KEY);
+          return;
+        }
+        const params = new URLSearchParams(savedFilter);
         skipNextFilterSave.current = true;
         router.replace(`/transactions?${params.toString()}`);
       } catch {
@@ -104,17 +111,23 @@ export function TransactionsClient({
     if (value) next.set(key, value); else next.delete(key);
     router.push(`/transactions?${next.toString()}`);
   }
-  function setRangePreset(preset: "today" | "7d" | "30d" | "ytd") {
+  function getPresetRange(preset: TransactionDatePreset) {
+    if (preset === "today") return { from: todayWIBKey(), to: todayWIBKey() };
+    if (preset === "7d") return { from: daysAgoWIBKey(6), to: todayWIBKey() };
+    if (preset === "30d") return { from: daysAgoWIBKey(29), to: todayWIBKey() };
+    return { from: startOfYearWIBKey(), to: todayWIBKey() };
+  }
+
+  function isPresetActive(preset: TransactionDatePreset) {
+    const range = getPresetRange(preset);
+    return filter.from === range.from && filter.to === range.to;
+  }
+
+  function setRangePreset(preset: TransactionDatePreset) {
     const next = new URLSearchParams(sp.toString());
-    if (preset === "today") {
-      next.set("from", todayWIBKey()); next.set("to", todayWIBKey());
-    } else if (preset === "7d") {
-      next.set("from", daysAgoWIBKey(6)); next.set("to", todayWIBKey());
-    } else if (preset === "30d") {
-      next.set("from", daysAgoWIBKey(29)); next.set("to", todayWIBKey());
-    } else if (preset === "ytd") {
-      next.set("from", startOfYearWIBKey()); next.set("to", todayWIBKey());
-    }
+    const range = getPresetRange(preset);
+    next.set("from", range.from);
+    next.set("to", range.to);
     router.push(`/transactions?${next.toString()}`);
   }
   function clearFilter() {
@@ -124,13 +137,12 @@ export function TransactionsClient({
   }
 
   const hasActiveFilter =
-    filter.from !== todayWIBKey() ||
+    filter.from !== daysAgoWIBKey(6) ||
     filter.to !== todayWIBKey() ||
     !!filter.outlet ||
     !!filter.merchant ||
     !!filter.variant ||
     !!filter.q;
-  const fromInvalid = filter.from > filter.to;
 
   const filteredRows = useMemo(() => {
     if (!filter.q) return rows;
@@ -259,7 +271,7 @@ export function TransactionsClient({
           <div>
             <label className="label">Varian</label>
             <Combobox
-              options={variants.map((v) => ({ value: v.id, label: v.name, hint: formatIDR(v.base_price) }))}
+              options={variants.map((v) => ({ value: v.id, label: v.name, hint: getVariantHint(v, filter.merchant) }))}
               value={filter.variant}
               onChange={(v) => setParam("variant", v)}
               placeholder="Semua"
@@ -280,18 +292,18 @@ export function TransactionsClient({
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button className="btn-outline" onClick={() => setRangePreset("today")}>Hari ini</button>
-          <button className="btn-outline" onClick={() => setRangePreset("7d")}>7 Hari</button>
-          <button className="btn-outline" onClick={() => setRangePreset("30d")}>30 Hari</button>
-          <button className="btn-outline" onClick={() => setRangePreset("ytd")}>YTD</button>
+          <DatePresetButton active={isPresetActive("today")} onClick={() => setRangePreset("today")}>Hari ini</DatePresetButton>
+          <DatePresetButton active={isPresetActive("7d")} onClick={() => setRangePreset("7d")}>7 Hari</DatePresetButton>
+          <DatePresetButton active={isPresetActive("30d")} onClick={() => setRangePreset("30d")}>30 Hari</DatePresetButton>
+          <DatePresetButton active={isPresetActive("ytd")} onClick={() => setRangePreset("ytd")}>YTD</DatePresetButton>
         </div>
       </div>
 
       {/* SUMMARY */}
-      {fromInvalid && (
+      {filter.rangeWasReversed && (
         <div className="card p-3 flex items-center gap-2 text-sm">
           <AlertCircle size={16} className="text-amber-600" />
-          <span>Tanggal "Dari" lebih besar dari "Sampai" — sistem otomatis menukar untuk query.</span>
+          <span>Tanggal "Dari" lebih besar dari "Sampai"; sistem otomatis menukar untuk query.</span>
         </div>
       )}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -455,6 +467,19 @@ function parseNumberInput(value: string) {
   return digits ? Number(digits) : 0;
 }
 
+function getMerchantVariantPrice(variants: Variant[], variantId: string, merchantId: string) {
+  const variant = variants.find((item) => item.id === variantId);
+  if (!variant) return 0;
+  const merchantPrice = variant.product_variant_prices?.find((price) => price.food_merchant_id === merchantId);
+  return Number(merchantPrice?.price ?? variant.base_price);
+}
+
+function getVariantHint(variant: Variant, merchantId: string) {
+  const merchantPrice = variant.product_variant_prices?.find((price) => price.food_merchant_id === merchantId);
+  const price = Number(merchantPrice?.price ?? variant.base_price);
+  return merchantPrice ? formatIDR(price) : `${formatIDR(price)} default`;
+}
+
 function CurrencyInput({
   value,
   onChange,
@@ -510,9 +535,19 @@ function CreateOrderForm({
   function removeItem(i: number) {
     setItems((p) => p.length === 1 ? p : p.filter((_, idx) => idx !== i));
   }
+  function onMerchantChange(id: string) {
+    setMerchantId(id);
+    setItems((current) => current.map((item) => {
+      if (!item.product_variant_id) return item;
+      return {
+        ...item,
+        initial_price: formatNumberInput(getMerchantVariantPrice(variants, item.product_variant_id, id))
+      };
+    }));
+  }
   function onVariantChange(i: number, id: string) {
-    const v = variants.find((x) => x.id === id);
-    setItem(i, { product_variant_id: id, initial_price: v ? formatNumberInput(v.base_price) : "" });
+    const price = id ? getMerchantVariantPrice(variants, id, merchantId) : 0;
+    setItem(i, { product_variant_id: id, initial_price: id ? formatNumberInput(price) : "" });
   }
 
   const totals = useMemo(() => {
@@ -581,7 +616,7 @@ function CreateOrderForm({
         <div className="min-w-0">
           <label className="label">Food Merchant</label>
           <select className="input" value={merchantId}
-                  onChange={(e) => setMerchantId(e.target.value)} required>
+                  onChange={(e) => onMerchantChange(e.target.value)} required>
             <option value="">-- pilih --</option>
             {merchants.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
@@ -610,7 +645,7 @@ function CreateOrderForm({
               <div className="min-w-0 pr-11 sm:col-span-12 md:col-span-5 md:pr-0">
                 <label className="text-xs" style={{ color: "var(--muted)" }}>Varian</label>
                 <Combobox
-                  options={variants.map((v) => ({ value: v.id, label: v.name, hint: formatIDR(v.base_price) }))}
+                  options={variants.map((v) => ({ value: v.id, label: v.name, hint: getVariantHint(v, merchantId) }))}
                   value={it.product_variant_id}
                   onChange={(v) => onVariantChange(i, v)}
                   placeholder="-- pilih --"
@@ -684,9 +719,21 @@ function EditRowForm({
   pending: boolean;
 }) {
   const [variantId, setVariantId] = useState(row.product_variant_id);
+  const [merchantId, setMerchantId] = useState(row.food_merchant_id);
   const [orderNumber, setOrderNumber] = useState(row.order_number ?? "");
   const [price, setPrice] = useState(formatNumberInput(row.initial_price));
   const [deductionFee, setDeductionFee] = useState(formatNumberInput(row.deduction_fee));
+
+  function changeMerchant(id: string) {
+    setMerchantId(id);
+    setPrice(formatNumberInput(getMerchantVariantPrice(variants, variantId, id)));
+  }
+
+  function changeVariant(id: string) {
+    setVariantId(id);
+    setPrice(formatNumberInput(getMerchantVariantPrice(variants, id, merchantId)));
+  }
+
   return (
     <form
       className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-md border p-3"
@@ -720,7 +767,7 @@ function EditRowForm({
       </div>
       <div>
         <label className="label">Food Merchant</label>
-        <select className="input" name="food_merchant_id" defaultValue={row.food_merchant_id} required>
+        <select className="input" name="food_merchant_id" value={merchantId} onChange={(e) => changeMerchant(e.target.value)} required>
           {merchants.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
       </div>
@@ -732,9 +779,9 @@ function EditRowForm({
       <div>
         <label className="label">Varian</label>
         <Combobox
-          options={variants.map((v) => ({ value: v.id, label: v.name, hint: formatIDR(v.base_price) }))}
+          options={variants.map((v) => ({ value: v.id, label: v.name, hint: getVariantHint(v, merchantId) }))}
           value={variantId}
-          onChange={setVariantId}
+          onChange={changeVariant}
           placeholder="-- pilih --"
         />
         <input type="hidden" name="product_variant_id" value={variantId} />
@@ -770,5 +817,42 @@ function Stat({ title, value, sub, accent }: { title: string; value: string; sub
       <div className={`mt-1 text-base sm:text-lg font-bold leading-tight break-words ${accent ? "text-red-700 dark:text-red-300" : ""}`}>{value}</div>
       {sub && <div className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>{sub}</div>}
     </div>
+  );
+}
+
+function DatePresetButton({
+  active,
+  onClick,
+  children
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      className={`btn-outline transition-colors ${
+        active
+          ? "border-red-700 bg-red-700 text-white hover:bg-red-800 dark:border-red-500 dark:bg-red-600 dark:text-white dark:hover:bg-red-700"
+          : ""
+      }`}
+      aria-pressed={active}
+      onClick={onClick}
+    >
+      {active && <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />}
+      {children}
+    </button>
+  );
+}
+
+function isLegacyTodayOnlyFilter(savedFilter: Record<string, string>) {
+  return (
+    savedFilter.from === todayWIBKey() &&
+    savedFilter.to === todayWIBKey() &&
+    !savedFilter.outlet &&
+    !savedFilter.merchant &&
+    !savedFilter.variant &&
+    !savedFilter.q
   );
 }

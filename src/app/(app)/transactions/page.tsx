@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { TransactionsClient } from "./TransactionsClient";
 import {
-  todayWIBKey, wibStartOfDay, wibEndOfDay, firstParam, isValidDateKey
+  todayWIBKey, daysAgoWIBKey, wibStartOfDay, wibEndOfDay, firstParam, isValidDateKey
 } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
@@ -23,9 +23,13 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
 
   const rawFrom = firstParam(params.from);
   const rawTo = firstParam(params.to);
-  let fromStr = isValidDateKey(rawFrom) ? rawFrom : todayWIBKey();
+  let fromStr = isValidDateKey(rawFrom) ? rawFrom : daysAgoWIBKey(6);
   let toStr = isValidDateKey(rawTo) ? rawTo : todayWIBKey();
-  if (fromStr > toStr) [fromStr, toStr] = [toStr, fromStr];
+  let rangeWasReversed = false;
+  if (fromStr > toStr) {
+    [fromStr, toStr] = [toStr, fromStr];
+    rangeWasReversed = true;
+  }
 
   const filter = {
     from: fromStr,
@@ -33,13 +37,17 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
     outlet: profile.role === "super_admin" ? firstParam(params.outlet) : "",
     merchant: firstParam(params.merchant),
     variant: firstParam(params.variant),
-    q: firstParam(params.q)
+    q: firstParam(params.q),
+    rangeWasReversed
   };
 
   const [{ data: outlets }, { data: merchants }, { data: variants }] = await Promise.all([
     supabase.from("outlets").select("id,name").order("name"),
     supabase.from("food_merchants").select("id,name,color").order("name"),
-    supabase.from("product_variants").select("id,name,base_price").order("name")
+    supabase
+      .from("product_variants")
+      .select("id,name,base_price,product_variant_prices(food_merchant_id,price)")
+      .order("name")
   ]);
 
   let q = supabase

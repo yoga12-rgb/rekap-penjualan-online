@@ -24,6 +24,16 @@ create table if not exists public.product_variants (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.product_variant_prices (
+  id uuid primary key default gen_random_uuid(),
+  product_variant_id uuid not null references public.product_variants(id) on delete cascade,
+  food_merchant_id uuid not null references public.food_merchants(id) on delete cascade,
+  price numeric(12,2) not null check (price >= 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(product_variant_id, food_merchant_id)
+);
+
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
@@ -55,6 +65,8 @@ create index if not exists idx_tx_order_number on public.transactions(order_numb
 create index if not exists idx_tx_outlet on public.transactions(outlet_id);
 create index if not exists idx_tx_merchant on public.transactions(food_merchant_id);
 create index if not exists idx_tx_variant on public.transactions(product_variant_id);
+create index if not exists idx_variant_prices_product on public.product_variant_prices(product_variant_id);
+create index if not exists idx_variant_prices_merchant on public.product_variant_prices(food_merchant_id);
 
 -- 2. UPDATED_AT TRIGGER -----------------------------------------------
 
@@ -64,6 +76,10 @@ begin new.updated_at = now(); return new; end; $$;
 
 drop trigger if exists trg_tx_updated_at on public.transactions;
 create trigger trg_tx_updated_at before update on public.transactions
+  for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_variant_prices_updated_at on public.product_variant_prices;
+create trigger trg_variant_prices_updated_at before update on public.product_variant_prices
   for each row execute function public.set_updated_at();
 
 -- 3. HELPER FUNCTIONS (untuk RLS) -------------------------------------
@@ -84,6 +100,7 @@ alter table public.profiles         enable row level security;
 alter table public.outlets          enable row level security;
 alter table public.food_merchants   enable row level security;
 alter table public.product_variants enable row level security;
+alter table public.product_variant_prices enable row level security;
 alter table public.transactions     enable row level security;
 
 -- 5. POLICIES ----------------------------------------------------------
@@ -118,6 +135,12 @@ drop policy if exists "variants_read" on public.product_variants;
 create policy "variants_read" on public.product_variants for select using ( auth.uid() is not null );
 drop policy if exists "variants_admin_write" on public.product_variants;
 create policy "variants_admin_write" on public.product_variants for all
+  using ( public.is_super_admin() ) with check ( public.is_super_admin() );
+
+drop policy if exists "variant_prices_read" on public.product_variant_prices;
+create policy "variant_prices_read" on public.product_variant_prices for select using ( auth.uid() is not null );
+drop policy if exists "variant_prices_admin_write" on public.product_variant_prices;
+create policy "variant_prices_admin_write" on public.product_variant_prices for all
   using ( public.is_super_admin() ) with check ( public.is_super_admin() );
 
 -- transactions:

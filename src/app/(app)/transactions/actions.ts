@@ -6,6 +6,7 @@ import { z } from "zod";
 import { wibLocalToIso } from "@/lib/date";
 
 const ItemSchema = z.object({
+  id: z.string().uuid().optional(),
   product_variant_id: z.string().uuid(),
   qty: z.coerce.number().int().positive(),
   initial_price: z.coerce.number().nonnegative()
@@ -18,6 +19,10 @@ const OrderSchema = z.object({
   transaction_date: z.string().min(1),
   deduction_fee: z.coerce.number().nonnegative(),
   items: z.array(ItemSchema).min(1)
+});
+
+const UpdateOrderSchema = OrderSchema.extend({
+  order_id: z.string().uuid()
 });
 
 /** Bagi nominal komisi proporsional ke tiap baris berdasarkan omset.
@@ -79,45 +84,63 @@ export async function createOrder(payload: unknown) {
   return { ok: true };
 }
 
-const UpdateRowSchema = z.object({
-  outlet_id: z.string().uuid(),
-  order_number: z.string().trim().max(80).optional(),
-  food_merchant_id: z.string().uuid(),
-  product_variant_id: z.string().uuid(),
-  transaction_date: z.string().min(1),
-  qty: z.coerce.number().int().positive(),
-  initial_price: z.coerce.number().nonnegative(),
-  deduction_fee: z.coerce.number().nonnegative()
-});
-
-export async function updateTransaction(id: string, formData: FormData) {
+export async function updateOrder(payload: unknown) {
   const profile = await requireProfile();
   const supabase = await createClient();
-  const parsed = UpdateRowSchema.safeParse(Object.fromEntries(formData));
+
+  const parsed = UpdateOrderSchema.safeParse(payload);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Data tidak valid" };
 
+  const { order_id, items, food_merchant_id, transaction_date, deduction_fee } = parsed.data;
+  const order_number = parsed.data.order_number?.trim() || null;
+
+  const { data: existingRows, error: readError } = await supabase
+    .from("transactions")
+    .select("id")
+    .eq("order_id", order_id);
+  if (readError) return { error: readError.message };
+  if (!existingRows?.length) return { error: "Transaksi tidak ditemukan" };
+
   let outlet_id = parsed.data.outlet_id;
-  if (profile.role === "kasir") outlet_id = profile.outlet_id ?? outlet_id;
+  if (profile.role === "kasir") {
+    if (!profile.outlet_id) return { error: "Profil kasir belum diassign ke outlet" };
+    outlet_id = profile.outlet_id;
+  }
 
-  const { error } = await supabase.from("transactions")
-    .update({
-      ...parsed.data,
-      order_number: parsed.data.order_number?.trim() || null,
+  const grosses = items.map((it) => ({ gross: it.qty * it.initial_price }));
+  const fees = splitFeeProportional(grosses, deduction_fee);
+  const tx_iso = wibLocalToIso(transaction_date);
+  const existingIds = new Set(existingRows.map((row) => row.id));
+  const keptIds = new Set(items.map((item) => item.id).filter(Boolean));
+
+  const removedIds = [...existingIds].filter((id) => !keptIds.has(id));
+  if (removedIds.length) {
+    const { error } = await supabase.from("transactions").delete().in("id", removedIds);
+    if (error) return { error: error.message };
+  }
+
+  for (const [i, item] of items.entries()) {
+    const row = {
+      order_id,
+      order_number,
       outlet_id,
-      transaction_date: wibLocalToIso(parsed.data.transaction_date)
-    })
-    .eq("id", id);
-  if (error) return { error: error.message };
+      food_merchant_id,
+      transaction_date: tx_iso,
+      product_variant_id: item.product_variant_id,
+      qty: item.qty,
+      initial_price: item.initial_price,
+      deduction_fee: fees[i]
+    };
 
-  revalidatePath("/transactions");
-  revalidatePath("/dashboard");
-  return { ok: true };
-}
+    if (item.id && existingIds.has(item.id)) {
+      const { error } = await supabase.from("transactions").update(row).eq("id", item.id);
+      if (error) return { error: error.message };
+    } else {
+      const { error } = await supabase.from("transactions").insert({ ...row, created_by: profile.id });
+      if (error) return { error: error.message };
+    }
+  }
 
-export async function deleteTransaction(id: string) {
-  const supabase = await createClient();
-  const { error } = await supabase.from("transactions").delete().eq("id", id);
-  if (error) return { error: error.message };
   revalidatePath("/transactions");
   revalidatePath("/dashboard");
   return { ok: true };

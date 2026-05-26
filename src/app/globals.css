@@ -46,6 +46,12 @@ html, body { background: var(--bg); color: var(--fg); }
     background-color: var(--hover);
     border-bottom: 1px solid var(--border);
   }
+  .table th.text-right {
+    text-align: right;
+  }
+  .table th.text-center {
+    text-align: center;
+  }
   .table td {
     @apply px-3 py-2 align-top;
     border-bottom: 1px solid var(--border);

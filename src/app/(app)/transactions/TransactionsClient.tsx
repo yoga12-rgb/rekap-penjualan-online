@@ -5,7 +5,7 @@ import { Modal } from "@/components/ui/Modal";
 import { formatIDR } from "@/lib/utils";
 import { toast } from "@/components/Toast";
 import { Plus, Trash2, Pencil, Filter, X, AlertCircle } from "lucide-react";
-import { createOrder, updateTransaction, deleteTransaction, deleteOrder } from "./actions";
+import { createOrder, updateOrder, deleteOrder } from "./actions";
 import { MerchantBadge } from "@/components/MerchantBadge";
 import { getMerchantTheme } from "@/lib/merchantColors";
 import { Combobox } from "@/components/ui/Combobox";
@@ -64,8 +64,9 @@ export function TransactionsClient({
   const sp = useSearchParams();
   const skipNextFilterSave = useRef(false);
   const [openCreate, setOpenCreate] = useState(false);
-  const [editing, setEditing] = useState<Row | null>(null);
-  const [pending, start] = useTransition();
+  const [editingOrder, setEditingOrder] = useState<Group | null>(null);
+  const [deletePending, startDelete] = useTransition();
+  const [deletingOrder, setDeletingOrder] = useState<Group | null>(null);
   const [search, setSearch] = useState(filter.q);
 
   useEffect(() => {
@@ -190,32 +191,17 @@ export function TransactionsClient({
     );
   }, [filteredRows]);
 
-  async function onDeleteOrder(g: Group) {
-    if (!confirm(`Hapus seluruh transaksi (${g.rows.length} baris)?`)) return;
-    start(async () => {
-      const res = await deleteOrder(g.order_id);
+  async function onConfirmDeleteOrder() {
+    if (!deletingOrder) return;
+    startDelete(async () => {
+      const res = await deleteOrder(deletingOrder.order_id);
       if ((res as any)?.error) toast((res as any).error, "error");
-      else toast("Transaksi dihapus", "success");
+      else {
+        toast("Transaksi dihapus", "success");
+        setDeletingOrder(null);
+      }
     });
   }
-  async function onDeleteRow(r: Row) {
-    if (!confirm("Hapus baris ini?")) return;
-    start(async () => {
-      const res = await deleteTransaction(r.id);
-      if ((res as any)?.error) toast((res as any).error, "error");
-      else toast("Baris dihapus", "success");
-    });
-  }
-  async function onSubmitEdit(form: HTMLFormElement) {
-    if (!editing) return;
-    const fd = new FormData(form);
-    start(async () => {
-      const res = await updateTransaction(editing.id, fd);
-      if ((res as any)?.error) toast((res as any).error, "error");
-      else { toast("Tersimpan", "success"); setEditing(null); }
-    });
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -309,7 +295,7 @@ export function TransactionsClient({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Stat title="Transaksi" value={`${groups.length} order`} sub={`${filteredRows.length} baris`} />
         <Stat title="Total Omset" value={formatIDR(totals.gross)} />
-        <Stat title="Total Komisi" value={formatIDR(totals.fee)} />
+        <Stat title="Potongan/Komisi" value={formatIDR(totals.fee)} />
         <Stat title="Net Profit" value={formatIDR(totals.net)} accent />
       </div>
 
@@ -333,13 +319,18 @@ export function TransactionsClient({
                     {g.rows.length > 1 && <span className="badge">{g.rows.length} item</span>}
                   </div>
                 </div>
-                <button className="btn-ghost text-red-600 shrink-0" onClick={() => onDeleteOrder(g)} title="Hapus seluruh transaksi">
-                  <Trash2 size={16} />
-                </button>
+                <div className="flex shrink-0 gap-1">
+                  <button className="btn-ghost" onClick={() => setEditingOrder(g)} title="Edit transaksi">
+                    <Pencil size={16} />
+                  </button>
+                  <button className="btn-ghost text-red-600" onClick={() => setDeletingOrder(g)} title="Hapus transaksi">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm">
                 <span style={{ color: "var(--muted)" }}>Omset: <b>{formatIDR(g.gross)}</b></span>
-                <span style={{ color: "var(--muted)" }}>Komisi: <b>{formatIDR(g.fee)}</b></span>
+                <span style={{ color: "var(--muted)" }}>Potongan/Komisi: <b>{formatIDR(g.fee)}</b></span>
                 <span className="text-emerald-700 dark:text-emerald-400 font-semibold">Net: {formatIDR(g.net)}</span>
               </div>
             </div>
@@ -354,16 +345,8 @@ export function TransactionsClient({
                       {r.qty} × {formatIDR(r.initial_price)} = <b>{formatIDR(r.qty * r.initial_price)}</b>
                     </div>
                     <div className="text-xs" style={{ color: "var(--muted)" }}>
-                      Komisi: {formatIDR(r.deduction_fee)} · Net: <b className="text-emerald-700 dark:text-emerald-400">{formatIDR(r.net_profit)}</b>
+                      Potongan/Komisi: {formatIDR(r.deduction_fee)} · Net: <b className="text-emerald-700 dark:text-emerald-400">{formatIDR(r.net_profit)}</b>
                     </div>
-                  </div>
-                  <div className="flex flex-col gap-1 shrink-0">
-                    <button className="btn-ghost py-1 px-2" onClick={() => setEditing(r)} aria-label="Edit baris">
-                      <Pencil size={14} />
-                    </button>
-                    <button className="btn-ghost text-red-600 py-1 px-2" onClick={() => onDeleteRow(r)} aria-label="Hapus baris">
-                      <Trash2 size={14} />
-                    </button>
                   </div>
                 </div>
               ))}
@@ -372,15 +355,22 @@ export function TransactionsClient({
             {/* Desktop: tabel */}
             <div className="hidden sm:block overflow-auto">
               <table className="table">
+                <colgroup>
+                  <col />
+                  <col className="w-16" />
+                  <col className="w-36" />
+                  <col className="w-36" />
+                  <col className="w-48" />
+                  <col className="w-36" />
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Produk</th>
                     <th className="text-right">Qty</th>
                     <th className="text-right">Harga</th>
                     <th className="text-right">Subtotal</th>
-                    <th className="text-right">Komisi (proporsional)</th>
+                    <th className="text-right">Potongan/Komisi</th>
                     <th className="text-right">Net</th>
-                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -392,14 +382,6 @@ export function TransactionsClient({
                       <td className="text-right">{formatIDR(r.qty * r.initial_price)}</td>
                       <td className="text-right">{formatIDR(r.deduction_fee)}</td>
                       <td className="text-right font-medium">{formatIDR(r.net_profit)}</td>
-                      <td className="text-right whitespace-nowrap">
-                        <button className="btn-ghost" onClick={() => setEditing(r)} title="Edit baris">
-                          <Pencil size={14} />
-                        </button>
-                        <button className="btn-ghost text-red-600" onClick={() => onDeleteRow(r)} title="Hapus baris">
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -424,18 +406,59 @@ export function TransactionsClient({
         />
       </Modal>
 
-      <Modal open={!!editing} onClose={() => setEditing(null)} title="Edit Baris Transaksi" size="lg">
-        {editing && (
-          <EditRowForm
+      <Modal open={!!editingOrder} onClose={() => setEditingOrder(null)} title="Edit Transaksi" size="xl">
+        {editingOrder && (
+          <EditOrderForm
             role={role}
             myOutletId={myOutletId}
             outlets={outlets}
             merchants={merchants}
             variants={variants}
-            row={editing}
-            onSubmit={onSubmitEdit}
-            pending={pending}
+            group={editingOrder}
+            onDone={() => setEditingOrder(null)}
           />
+        )}
+      </Modal>
+
+      <Modal open={!!deletingOrder} onClose={() => { if (!deletePending) setDeletingOrder(null); }} title="Hapus Transaksi" size="md">
+        {deletingOrder && (
+          <div className="space-y-4">
+            <div className="rounded-md border border-red-200 bg-red-50 p-3 text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">
+              <div className="flex items-start gap-2">
+                <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                <div className="space-y-1">
+                  <div className="font-semibold">Transaksi ini akan dihapus permanen.</div>
+                  <div className="text-sm text-red-700 dark:text-red-300">
+                    Semua item dalam card ini ikut terhapus dan tidak bisa dikembalikan dari aplikasi.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-md border p-3 text-sm" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg)" }}>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                <div style={{ color: "var(--muted)" }}>Outlet</div>
+                <div className="text-right font-medium">{deletingOrder.outlet || "-"}</div>
+                <div style={{ color: "var(--muted)" }}>Merchant</div>
+                <div className="text-right font-medium">{deletingOrder.merchant || "-"}</div>
+                <div style={{ color: "var(--muted)" }}>No. Pesanan</div>
+                <div className="text-right font-medium">{deletingOrder.orderNumber || "-"}</div>
+                <div style={{ color: "var(--muted)" }}>Item</div>
+                <div className="text-right font-medium">{deletingOrder.rows.length} baris</div>
+                <div style={{ color: "var(--muted)" }}>Net</div>
+                <div className="text-right font-bold">{formatIDR(deletingOrder.net)}</div>
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button type="button" className="btn-outline" onClick={() => setDeletingOrder(null)} disabled={deletePending}>
+                Batal
+              </button>
+              <button type="button" className="btn-primary bg-red-700 hover:bg-red-800" onClick={onConfirmDeleteOrder} disabled={deletePending}>
+                {deletePending ? "Menghapus..." : "Hapus Transaksi"}
+              </button>
+            </div>
+          </div>
         )}
       </Modal>
     </div>
@@ -443,11 +466,12 @@ export function TransactionsClient({
 }
 
 /* ============================================================
- * Create form: multi-varian dengan 1 nominal komisi
+ * Create form: multi-varian dengan 1 nominal pendapatan bersih
  * ============================================================ */
 
 type Item = {
   key: number;
+  id?: string;
   product_variant_id: string;
   qty: number;
   initial_price: string;
@@ -521,7 +545,7 @@ function CreateOrderForm({
   const [orderNumber, setOrderNumber] = useState("");
   const [merchantId, setMerchantId] = useState<string>("");
   const [date, setDate] = useState<string>(() => isoToWIBLocalInput(new Date().toISOString()));
-  const [fee, setFee] = useState<string>("");
+  const [netIncome, setNetIncome] = useState<string>("");
   const [items, setItems] = useState<Item[]>([
     { key: 1, product_variant_id: "", qty: 1, initial_price: "" }
   ]);
@@ -552,9 +576,9 @@ function CreateOrderForm({
 
   const totals = useMemo(() => {
     const gross = items.reduce((a, it) => a + it.qty * parseNumberInput(it.initial_price), 0);
-    const feeValue = parseNumberInput(fee);
-    return { gross, net: gross - feeValue };
-  }, [items, fee]);
+    const net = parseNumberInput(netIncome);
+    return { gross, net, fee: Math.max(gross - net, 0), isNetTooHigh: net > gross };
+  }, [items, netIncome]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -565,7 +589,10 @@ function CreateOrderForm({
       if (it.qty < 1) return toast("Qty harus minimal 1", "error");
       if (parseNumberInput(it.initial_price) < 0) return toast("Harga tidak valid", "error");
     }
-    const feeValue = parseNumberInput(fee);
+    const netValue = parseNumberInput(netIncome);
+    const grossValue = items.reduce((a, it) => a + it.qty * parseNumberInput(it.initial_price), 0);
+    if (netValue > grossValue) return toast("Pendapatan bersih tidak boleh lebih besar dari total omset", "error");
+    const feeValue = grossValue - netValue;
     start(async () => {
       const res = await createOrder({
         outlet_id: outletId,
@@ -681,18 +708,27 @@ function CreateOrderForm({
         className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-md border p-3 min-w-0"
         style={{ borderColor: "var(--border)", backgroundColor: "color-mix(in oklab, var(--bg) 55%, var(--card))" }}
       >
-        <div className="min-w-0">
-          <label className="label">Total Komisi (1 transaksi)</label>
-          <CurrencyInput value={fee} onChange={setFee} required />
-          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-            Akan dibagi proporsional ke setiap varian sesuai omset.
+        <div className="min-w-0 rounded-md border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/30">
+          <label className="mb-2 block text-sm font-bold text-emerald-800 dark:text-emerald-200">Pendapatan Bersih (1 transaksi)</label>
+          <CurrencyInput value={netIncome} onChange={setNetIncome} required />
+          <p className="text-xs mt-1 text-emerald-700 dark:text-emerald-300">
+            Potongan/komisi dihitung otomatis dari total omset dikurangi pendapatan bersih.
           </p>
         </div>
         <div className="min-w-0 text-left sm:text-right space-y-1">
           <div className="text-sm" style={{ color: "var(--muted)" }}>Total Omset</div>
           <div className="text-base sm:text-lg font-semibold">{formatIDR(totals.gross)}</div>
-          <div className="text-sm" style={{ color: "var(--muted)" }}>Estimasi Net Profit</div>
+          <div className="text-sm" style={{ color: "var(--muted)" }}>Potongan/Komisi</div>
+          <div className={`text-base sm:text-lg font-semibold ${totals.isNetTooHigh ? "text-red-700 dark:text-red-300" : ""}`}>
+            {formatIDR(totals.fee)}
+          </div>
+          <div className="text-sm" style={{ color: "var(--muted)" }}>Pendapatan Bersih</div>
           <div className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{formatIDR(totals.net)}</div>
+          {totals.isNetTooHigh && (
+            <div className="text-xs text-red-700 dark:text-red-300">
+              Pendapatan bersih tidak boleh lebih besar dari total omset.
+            </div>
+          )}
         </div>
       </div>
 
@@ -706,104 +742,217 @@ function CreateOrderForm({
 }
 
 /* ============================================================
- * Edit baris (single row) — komisi per baris bisa diubah manual
+ * Edit form: 1 order penuh dengan input pendapatan bersih
  * ============================================================ */
-function EditRowForm({
-  role, myOutletId, outlets, merchants, variants, row, onSubmit, pending
+function EditOrderForm({
+  role, myOutletId, outlets, merchants, variants, group, onDone
 }: {
   role: "super_admin" | "kasir";
   myOutletId: string | null;
   outlets: Option[]; merchants: Option[]; variants: Variant[];
-  row: Row;
-  onSubmit: (f: HTMLFormElement) => void;
-  pending: boolean;
+  group: Group;
+  onDone: () => void;
 }) {
-  const [variantId, setVariantId] = useState(row.product_variant_id);
-  const [merchantId, setMerchantId] = useState(row.food_merchant_id);
-  const [orderNumber, setOrderNumber] = useState(row.order_number ?? "");
-  const [price, setPrice] = useState(formatNumberInput(row.initial_price));
-  const [deductionFee, setDeductionFee] = useState(formatNumberInput(row.deduction_fee));
+  const firstRow = group.rows[0];
+  const [pending, start] = useTransition();
+  const [outletId, setOutletId] = useState<string>(role === "kasir" ? (myOutletId ?? "") : (firstRow?.outlet_id ?? ""));
+  const [orderNumber, setOrderNumber] = useState(group.orderNumber ?? "");
+  const [merchantId, setMerchantId] = useState<string>(firstRow?.food_merchant_id ?? "");
+  const [date, setDate] = useState<string>(() => isoToWIBLocalInput(group.date));
+  const [netIncome, setNetIncome] = useState<string>(() => formatNumberInput(group.net));
+  const [items, setItems] = useState<Item[]>(() => group.rows.map((row, index) => ({
+    key: index + 1,
+    id: row.id,
+    product_variant_id: row.product_variant_id,
+    qty: row.qty,
+    initial_price: formatNumberInput(row.initial_price)
+  })));
 
-  function changeMerchant(id: string) {
+  function setItem(i: number, patch: Partial<Item>) {
+    setItems((prev) => prev.map((it, idx) => idx === i ? { ...it, ...patch } : it));
+  }
+  function addItem() {
+    setItems((p) => [...p, { key: Date.now(), product_variant_id: "", qty: 1, initial_price: "" }]);
+  }
+  function removeItem(i: number) {
+    setItems((p) => p.length === 1 ? p : p.filter((_, idx) => idx !== i));
+  }
+  function onMerchantChange(id: string) {
     setMerchantId(id);
-    setPrice(formatNumberInput(getMerchantVariantPrice(variants, variantId, id)));
+    setItems((current) => current.map((item) => {
+      if (!item.product_variant_id) return item;
+      return {
+        ...item,
+        initial_price: formatNumberInput(getMerchantVariantPrice(variants, item.product_variant_id, id))
+      };
+    }));
+  }
+  function onVariantChange(i: number, id: string) {
+    const price = id ? getMerchantVariantPrice(variants, id, merchantId) : 0;
+    setItem(i, { product_variant_id: id, initial_price: id ? formatNumberInput(price) : "" });
   }
 
-  function changeVariant(id: string) {
-    setVariantId(id);
-    setPrice(formatNumberInput(getMerchantVariantPrice(variants, id, merchantId)));
+  const totals = useMemo(() => {
+    const gross = items.reduce((a, it) => a + it.qty * parseNumberInput(it.initial_price), 0);
+    const net = parseNumberInput(netIncome);
+    return { gross, net, fee: Math.max(gross - net, 0), isNetTooHigh: net > gross };
+  }, [items, netIncome]);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!outletId) return toast("Outlet wajib dipilih", "error");
+    if (!merchantId) return toast("Merchant wajib dipilih", "error");
+    for (const it of items) {
+      if (!it.product_variant_id) return toast("Varian wajib diisi pada semua baris", "error");
+      if (it.qty < 1) return toast("Qty harus minimal 1", "error");
+      if (parseNumberInput(it.initial_price) < 0) return toast("Harga tidak valid", "error");
+    }
+    if (totals.isNetTooHigh) return toast("Pendapatan bersih tidak boleh lebih besar dari total omset", "error");
+
+    start(async () => {
+      const res = await updateOrder({
+        order_id: group.order_id,
+        outlet_id: outletId,
+        order_number: orderNumber,
+        food_merchant_id: merchantId,
+        transaction_date: date,
+        deduction_fee: totals.fee,
+        items: items.map((it) => ({
+          id: it.id,
+          product_variant_id: it.product_variant_id,
+          qty: it.qty,
+          initial_price: parseNumberInput(it.initial_price)
+        }))
+      });
+      if ((res as any)?.error) toast((res as any).error, "error");
+      else { toast("Transaksi diperbarui", "success"); onDone(); }
+    });
   }
 
   return (
-    <form
-      className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-md border p-3"
-      style={{ borderColor: "var(--border)", backgroundColor: "color-mix(in oklab, var(--bg) 55%, var(--card))" }}
-      onSubmit={(e) => { e.preventDefault(); onSubmit(e.currentTarget); }}
-    >
-      <div className="sm:col-span-2">
-        <label className="label">Outlet</label>
-        {role === "kasir" ? (
-          <>
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div
+        className="grid grid-cols-1 md:grid-cols-3 gap-3 rounded-md border p-3 min-w-0"
+        style={{ borderColor: "var(--border)", backgroundColor: "color-mix(in oklab, var(--bg) 55%, var(--card))" }}
+      >
+        <div className="md:col-span-3 min-w-0">
+          <label className="label">Outlet</label>
+          {role === "kasir" ? (
             <input className="input" disabled
-                   value={outlets.find((o) => o.id === myOutletId)?.name ?? ""} />
-            <input type="hidden" name="outlet_id" value={myOutletId ?? ""} />
-          </>
-        ) : (
-          <select className="input" name="outlet_id" defaultValue={row.outlet_id} required>
-            {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                   value={outlets.find((o) => o.id === myOutletId)?.name ?? "(belum diassign)"} />
+          ) : (
+            <select className="input" value={outletId}
+                    onChange={(e) => setOutletId(e.target.value)} required>
+              <option value="">-- pilih outlet --</option>
+              {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
+          )}
+        </div>
+        <div>
+          <label className="label">Nomor Pesanan</label>
+          <input
+            className="input"
+            value={orderNumber}
+            onChange={(e) => setOrderNumber(e.target.value)}
+            placeholder="Opsional"
+            maxLength={80}
+          />
+        </div>
+        <div className="min-w-0">
+          <label className="label">Food Merchant</label>
+          <select className="input" value={merchantId}
+                  onChange={(e) => onMerchantChange(e.target.value)} required>
+            <option value="">-- pilih --</option>
+            {merchants.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
-        )}
+        </div>
+        <div className="min-w-0">
+          <label className="label">Tanggal/Waktu</label>
+          <input className="input" type="datetime-local" required
+                 value={date} onChange={(e) => setDate(e.target.value)} />
+        </div>
       </div>
-      <div>
-        <label className="label">Nomor Pesanan</label>
-        <input
-          className="input"
-          name="order_number"
-          value={orderNumber}
-          onChange={(e) => setOrderNumber(e.target.value)}
-          placeholder="Opsional"
-          maxLength={80}
-        />
+
+      <div
+        className="rounded-md border p-3 min-w-0"
+        style={{ borderColor: "var(--border)", backgroundColor: "color-mix(in oklab, var(--bg) 55%, var(--card))" }}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+          <label className="label">Item Transaksi</label>
+          <button type="button" className="btn-outline w-full sm:w-auto" onClick={addItem}>
+            <Plus size={14} /> Tambah Varian
+          </button>
+        </div>
+        <div className="space-y-2">
+          {items.map((it, i) => (
+            <div key={it.key} className="relative grid grid-cols-1 sm:grid-cols-12 gap-2 items-end rounded-md border p-2.5 min-w-0"
+                 style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}>
+              <div className="min-w-0 pr-11 sm:col-span-12 md:col-span-5 md:pr-0">
+                <label className="text-xs" style={{ color: "var(--muted)" }}>Varian</label>
+                <Combobox
+                  options={variants.map((v) => ({ value: v.id, label: v.name, hint: getVariantHint(v, merchantId) }))}
+                  value={it.product_variant_id}
+                  onChange={(v) => onVariantChange(i, v)}
+                  placeholder="-- pilih --"
+                />
+              </div>
+              <div className="min-w-0 sm:col-span-4 md:col-span-2">
+                <label className="text-xs" style={{ color: "var(--muted)" }}>Qty</label>
+                <input className="input" type="number" min={1} step={1} value={it.qty}
+                       onChange={(e) => setItem(i, { qty: Number(e.target.value) })} required />
+              </div>
+              <div className="min-w-0 sm:col-span-8 md:col-span-4">
+                <label className="text-xs" style={{ color: "var(--muted)" }}>Harga</label>
+                <CurrencyInput
+                  value={it.initial_price}
+                  onChange={(value) => setItem(i, { initial_price: value })}
+                  required
+                />
+              </div>
+              <div className="absolute right-2 top-2 md:static md:col-span-1 md:flex md:justify-end md:pb-0.5">
+                <button type="button" className="btn-ghost text-red-600 h-10 w-10 p-0"
+                        onClick={() => removeItem(i)}
+                        disabled={items.length === 1}
+                        title="Hapus baris">
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
-      <div>
-        <label className="label">Food Merchant</label>
-        <select className="input" name="food_merchant_id" value={merchantId} onChange={(e) => changeMerchant(e.target.value)} required>
-          {merchants.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </select>
+
+      <div
+        className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-md border p-3 min-w-0"
+        style={{ borderColor: "var(--border)", backgroundColor: "color-mix(in oklab, var(--bg) 55%, var(--card))" }}
+      >
+        <div className="min-w-0 rounded-md border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/30">
+          <label className="mb-2 block text-sm font-bold text-emerald-800 dark:text-emerald-200">Pendapatan Bersih (1 transaksi)</label>
+          <CurrencyInput value={netIncome} onChange={setNetIncome} required />
+          <p className="text-xs mt-1 text-emerald-700 dark:text-emerald-300">
+            Potongan/komisi dihitung otomatis dari total omset dikurangi pendapatan bersih.
+          </p>
+        </div>
+        <div className="min-w-0 text-left sm:text-right space-y-1">
+          <div className="text-sm" style={{ color: "var(--muted)" }}>Total Omset</div>
+          <div className="text-base sm:text-lg font-semibold">{formatIDR(totals.gross)}</div>
+          <div className="text-sm" style={{ color: "var(--muted)" }}>Potongan/Komisi</div>
+          <div className={`text-base sm:text-lg font-semibold ${totals.isNetTooHigh ? "text-red-700 dark:text-red-300" : ""}`}>
+            {formatIDR(totals.fee)}
+          </div>
+          <div className="text-sm" style={{ color: "var(--muted)" }}>Pendapatan Bersih</div>
+          <div className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{formatIDR(totals.net)}</div>
+          {totals.isNetTooHigh && (
+            <div className="text-xs text-red-700 dark:text-red-300">
+              Pendapatan bersih tidak boleh lebih besar dari total omset.
+            </div>
+          )}
+        </div>
       </div>
-      <div>
-        <label className="label">Tanggal/Waktu</label>
-        <input className="input" name="transaction_date" type="datetime-local"
-               defaultValue={isoToWIBLocalInput(row.transaction_date)} required />
-      </div>
-      <div>
-        <label className="label">Varian</label>
-        <Combobox
-          options={variants.map((v) => ({ value: v.id, label: v.name, hint: getVariantHint(v, merchantId) }))}
-          value={variantId}
-          onChange={changeVariant}
-          placeholder="-- pilih --"
-        />
-        <input type="hidden" name="product_variant_id" value={variantId} />
-      </div>
-      <div>
-        <label className="label">Qty</label>
-        <input className="input" name="qty" type="number" min={1} step={1}
-               defaultValue={row.qty} required />
-      </div>
-      <div>
-        <label className="label">Harga</label>
-        <CurrencyInput value={price} onChange={setPrice} required />
-        <input type="hidden" name="initial_price" value={parseNumberInput(price)} />
-      </div>
-      <div>
-        <label className="label">Komisi (untuk baris ini)</label>
-        <CurrencyInput value={deductionFee} onChange={setDeductionFee} required />
-        <input type="hidden" name="deduction_fee" value={parseNumberInput(deductionFee)} />
-      </div>
-      <div className="sm:col-span-2 flex justify-end pt-1">
+
+      <div className="flex justify-end pt-1">
         <button className="btn-primary" disabled={pending}>
-          {pending ? "Menyimpan..." : "Simpan"}
+          {pending ? "Menyimpan..." : "Simpan Perubahan"}
         </button>
       </div>
     </form>

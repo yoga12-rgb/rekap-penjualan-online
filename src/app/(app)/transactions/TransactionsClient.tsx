@@ -63,6 +63,7 @@ export function TransactionsClient({
   const router = useRouter();
   const sp = useSearchParams();
   const skipNextFilterSave = useRef(false);
+  const addTransactionButtonRef = useRef<HTMLButtonElement>(null);
   const [openCreate, setOpenCreate] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Group | null>(null);
   const [deletePending, startDelete] = useTransition();
@@ -202,11 +203,18 @@ export function TransactionsClient({
       }
     });
   }
+  function closeCreateModalAndFocusAddButton() {
+    setOpenCreate(false);
+    requestAnimationFrame(() => {
+      addTransactionButtonRef.current?.focus();
+    });
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h1 className="text-xl font-bold">Transaksi</h1>
-        <button className="btn-primary" onClick={() => setOpenCreate(true)}>
+        <button ref={addTransactionButtonRef} className="btn-primary" onClick={() => setOpenCreate(true)}>
           <Plus size={16} /> Tambah Transaksi
         </button>
       </div>
@@ -293,10 +301,10 @@ export function TransactionsClient({
         </div>
       )}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Stat title="Transaksi" value={`${groups.length} order`} sub={`${filteredRows.length} baris`} />
-        <Stat title="Total Omset" value={formatIDR(totals.gross)} />
-        <Stat title="Potongan/Komisi" value={formatIDR(totals.fee)} />
-        <Stat title="Net Profit" value={formatIDR(totals.net)} accent />
+        <Stat title="Transaksi" value={`${groups.length} order`} sub={`${filteredRows.length} baris`} tone="indigo" />
+        <Stat title="Total Omset" value={formatIDR(totals.gross)} tone="sky" />
+        <Stat title="Potongan/Komisi" value={formatIDR(totals.fee)} sub={formatPercent(feePercent(totals.fee, totals.gross))} tone="amber" />
+        <Stat title="Net Profit" value={formatIDR(totals.net)} tone="emerald" />
       </div>
 
       <div className="space-y-3">
@@ -305,14 +313,25 @@ export function TransactionsClient({
           return (
           <div
             key={g.order_id}
-            className="card p-3 sm:p-4 border-l-4"
-            style={{ borderLeftColor: theme.bg }}
+            className="card relative overflow-hidden p-3 sm:p-4"
+            style={{
+              borderColor: "var(--border)",
+              backgroundColor: "var(--card)",
+              boxShadow: "0 1px 2px rgba(15, 23, 42, 0.06)"
+            }}
           >
-            <div className="flex flex-col gap-2 mb-3">
+            <div
+              className="pointer-events-none absolute inset-y-0 left-0 w-2"
+              style={{ backgroundColor: theme.bg }}
+            />
+            <div
+              className="flex flex-col gap-2 mb-3 rounded-md border px-3 py-2.5"
+              style={{ borderColor: theme.ring, backgroundColor: `color-mix(in srgb, ${theme.bg} 5%, var(--card))` }}
+            >
               <div className="flex items-start justify-between gap-2">
                 <div className="space-y-1 min-w-0 flex-1">
-                  <div className="text-base sm:text-lg font-bold leading-tight truncate">{g.outlet}</div>
-                  <div className="text-xs sm:text-sm flex flex-wrap items-center gap-x-2 gap-y-1" style={{ color: "var(--muted)" }}>
+                  <div className="text-base sm:text-lg font-bold leading-tight truncate text-slate-950 dark:text-white">{g.outlet}</div>
+                  <div className="text-xs sm:text-sm flex flex-wrap items-center gap-x-2 gap-y-1 text-slate-700 dark:text-slate-300">
                     <span>{isoToWIBDisplay(g.date)}</span>
                     {g.orderNumber && <span className="badge">No. {g.orderNumber}</span>}
                     <MerchantBadge name={g.merchant} color={g.merchantColor} solid />
@@ -329,9 +348,11 @@ export function TransactionsClient({
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm">
-                <span style={{ color: "var(--muted)" }}>Omset: <b>{formatIDR(g.gross)}</b></span>
-                <span style={{ color: "var(--muted)" }}>Potongan/Komisi: <b>{formatIDR(g.fee)}</b></span>
-                <span className="text-emerald-700 dark:text-emerald-400 font-semibold">Net: {formatIDR(g.net)}</span>
+                <span className="text-slate-700 dark:text-slate-300">Omset: <b className="font-bold text-slate-950 dark:text-white">{formatIDR(g.gross)}</b></span>
+                <span className="text-slate-700 dark:text-slate-300">
+                  Potongan/Komisi: <b className="font-bold text-slate-950 dark:text-white">{formatIDR(g.fee)}</b> ({formatPercent(feePercent(g.fee, g.gross))})
+                </span>
+                <span className="font-bold text-emerald-700 dark:text-emerald-300">Net: {formatIDR(g.net)}</span>
               </div>
             </div>
             {/* Mobile: list ringkas */}
@@ -345,7 +366,7 @@ export function TransactionsClient({
                       {r.qty} × {formatIDR(r.initial_price)} = <b>{formatIDR(r.qty * r.initial_price)}</b>
                     </div>
                     <div className="text-xs" style={{ color: "var(--muted)" }}>
-                      Potongan/Komisi: {formatIDR(r.deduction_fee)} · Net: <b className="text-emerald-700 dark:text-emerald-400">{formatIDR(r.net_profit)}</b>
+                      Potongan/Komisi: {formatIDR(r.deduction_fee)} ({formatPercent(feePercent(r.deduction_fee, r.qty * r.initial_price))}) · Net: <b className="text-emerald-700 dark:text-emerald-400">{formatIDR(r.net_profit)}</b>
                     </div>
                   </div>
                 </div>
@@ -353,7 +374,7 @@ export function TransactionsClient({
             </div>
 
             {/* Desktop: tabel */}
-            <div className="hidden sm:block overflow-auto">
+            <div className="hidden sm:block overflow-auto rounded-md border" style={{ borderColor: "var(--border)" }}>
               <table className="table">
                 <colgroup>
                   <col />
@@ -376,12 +397,17 @@ export function TransactionsClient({
                 <tbody>
                   {g.rows.map((r) => (
                     <tr key={r.id}>
-                      <td>{r.product_variants?.name}</td>
-                      <td className="text-right">{r.qty}</td>
-                      <td className="text-right">{formatIDR(r.initial_price)}</td>
-                      <td className="text-right">{formatIDR(r.qty * r.initial_price)}</td>
-                      <td className="text-right">{formatIDR(r.deduction_fee)}</td>
-                      <td className="text-right font-medium">{formatIDR(r.net_profit)}</td>
+                      <td className="font-medium text-slate-950 dark:text-white">{r.product_variants?.name}</td>
+                      <td className="text-right text-slate-950 dark:text-white">{r.qty}</td>
+                      <td className="text-right text-slate-950 dark:text-white">{formatIDR(r.initial_price)}</td>
+                      <td className="text-right text-slate-950 dark:text-white">{formatIDR(r.qty * r.initial_price)}</td>
+                      <td className="text-right">
+                        <div className="text-slate-950 dark:text-white">{formatIDR(r.deduction_fee)}</div>
+                        <div className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                          {formatPercent(feePercent(r.deduction_fee, r.qty * r.initial_price))}
+                        </div>
+                      </td>
+                      <td className="text-right font-extrabold text-slate-950 dark:text-white">{formatIDR(r.net_profit)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -402,7 +428,7 @@ export function TransactionsClient({
           outlets={outlets}
           merchants={merchants}
           variants={variants}
-          onDone={() => setOpenCreate(false)}
+          onDone={closeCreateModalAndFocusAddButton}
         />
       </Modal>
 
@@ -491,6 +517,14 @@ function parseNumberInput(value: string) {
   return digits ? Number(digits) : 0;
 }
 
+function formatPercent(value: number) {
+  return `${value.toLocaleString("id-ID", { maximumFractionDigits: 2 })}%`;
+}
+
+function feePercent(fee: number, gross: number) {
+  return gross > 0 ? (fee / gross) * 100 : 0;
+}
+
 function getMerchantVariantPrice(variants: Variant[], variantId: string, merchantId: string) {
   const variant = variants.find((item) => item.id === variantId);
   if (!variant) return 0;
@@ -577,7 +611,8 @@ function CreateOrderForm({
   const totals = useMemo(() => {
     const gross = items.reduce((a, it) => a + it.qty * parseNumberInput(it.initial_price), 0);
     const net = parseNumberInput(netIncome);
-    return { gross, net, fee: Math.max(gross - net, 0), isNetTooHigh: net > gross };
+    const fee = Math.max(gross - net, 0);
+    return { gross, net, fee, feePercent: feePercent(fee, gross), isNetTooHigh: net > gross };
   }, [items, netIncome]);
 
   async function onSubmit(e: React.FormEvent) {
@@ -722,6 +757,9 @@ function CreateOrderForm({
           <div className={`text-base sm:text-lg font-semibold ${totals.isNetTooHigh ? "text-red-700 dark:text-red-300" : ""}`}>
             {formatIDR(totals.fee)}
           </div>
+          <div className="text-xs" style={{ color: "var(--muted)" }}>
+            {formatPercent(totals.feePercent)} dari total omset
+          </div>
           <div className="text-sm" style={{ color: "var(--muted)" }}>Pendapatan Bersih</div>
           <div className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{formatIDR(totals.net)}</div>
           {totals.isNetTooHigh && (
@@ -795,7 +833,8 @@ function EditOrderForm({
   const totals = useMemo(() => {
     const gross = items.reduce((a, it) => a + it.qty * parseNumberInput(it.initial_price), 0);
     const net = parseNumberInput(netIncome);
-    return { gross, net, fee: Math.max(gross - net, 0), isNetTooHigh: net > gross };
+    const fee = Math.max(gross - net, 0);
+    return { gross, net, fee, feePercent: feePercent(fee, gross), isNetTooHigh: net > gross };
   }, [items, netIncome]);
 
   async function onSubmit(e: React.FormEvent) {
@@ -940,6 +979,9 @@ function EditOrderForm({
           <div className={`text-base sm:text-lg font-semibold ${totals.isNetTooHigh ? "text-red-700 dark:text-red-300" : ""}`}>
             {formatIDR(totals.fee)}
           </div>
+          <div className="text-xs" style={{ color: "var(--muted)" }}>
+            {formatPercent(totals.feePercent)} dari total omset
+          </div>
           <div className="text-sm" style={{ color: "var(--muted)" }}>Pendapatan Bersih</div>
           <div className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{formatIDR(totals.net)}</div>
           {totals.isNetTooHigh && (
@@ -959,12 +1001,47 @@ function EditOrderForm({
   );
 }
 
-function Stat({ title, value, sub, accent }: { title: string; value: string; sub?: string; accent?: boolean }) {
+const STAT_TONES = {
+  indigo: "border-indigo-500 bg-indigo-50 text-indigo-950 ring-indigo-200 dark:border-indigo-400 dark:bg-indigo-950/35 dark:text-indigo-100 dark:ring-indigo-900/50",
+  sky: "border-sky-500 bg-sky-50 text-sky-950 ring-sky-200 dark:border-sky-400 dark:bg-sky-950/35 dark:text-sky-100 dark:ring-sky-900/50",
+  amber: "border-amber-500 bg-amber-50 text-amber-950 ring-amber-200 dark:border-amber-400 dark:bg-amber-950/35 dark:text-amber-100 dark:ring-amber-900/50",
+  emerald: "border-emerald-500 bg-emerald-50 text-emerald-950 ring-emerald-200 dark:border-emerald-400 dark:bg-emerald-950/35 dark:text-emerald-100 dark:ring-emerald-900/50"
+};
+
+const STAT_VALUE_TONES = {
+  indigo: "text-indigo-900 dark:text-indigo-100",
+  sky: "text-sky-900 dark:text-sky-100",
+  amber: "text-amber-900 dark:text-amber-100",
+  emerald: "text-emerald-900 dark:text-emerald-100"
+};
+
+const STAT_META_TONES = {
+  indigo: "text-indigo-700 dark:text-indigo-200",
+  sky: "text-sky-700 dark:text-sky-200",
+  amber: "text-amber-700 dark:text-amber-200",
+  emerald: "text-emerald-700 dark:text-emerald-200"
+};
+
+function Stat({
+  title,
+  value,
+  sub,
+  tone
+}: {
+  title: string;
+  value: string;
+  sub?: string;
+  tone: keyof typeof STAT_TONES;
+}) {
   return (
-    <div className={`card p-3 ${accent ? "ring-2 ring-red-200 dark:ring-red-900/40" : ""}`}>
-      <div className="text-[10px] sm:text-xs uppercase tracking-wide" style={{ color: "var(--muted)" }}>{title}</div>
-      <div className={`mt-1 text-base sm:text-lg font-bold leading-tight break-words ${accent ? "text-red-700 dark:text-red-300" : ""}`}>{value}</div>
-      {sub && <div className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>{sub}</div>}
+    <div
+      className={`relative overflow-hidden rounded-lg border border-l-4 p-4 shadow-sm ring-1 ${STAT_TONES[tone]}`}
+    >
+      <div className={`text-xs uppercase font-bold tracking-wide ${STAT_META_TONES[tone]}`}>{title}</div>
+      <div className={`mt-2 text-xl sm:text-2xl font-extrabold leading-tight break-words ${STAT_VALUE_TONES[tone]}`}>
+        {value}
+      </div>
+      {sub && <div className={`mt-1 text-sm font-semibold ${STAT_META_TONES[tone]}`}>{sub}</div>}
     </div>
   );
 }

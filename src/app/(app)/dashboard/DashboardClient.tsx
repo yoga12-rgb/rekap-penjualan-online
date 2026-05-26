@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatIDR } from "@/lib/utils";
 import {
@@ -21,7 +21,7 @@ import {
   startOfYearWIBKey,
   endOfYearWIBKey
 } from "@/lib/date";
-import { AlertCircle, X } from "lucide-react";
+import { AlertCircle, Loader2, X } from "lucide-react";
 
 type Option = { id: string; name: string };
 type Merchant = Option & { color?: string | null };
@@ -94,6 +94,7 @@ export function DashboardClient({
   const sp = useSearchParams();
   const skipNextFilterSave = useRef(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [filterPending, startFilterTransition] = useTransition();
   const [activeTab, setActiveTab] = useState<DashboardTab>("trend");
 
   useEffect(() => {
@@ -108,7 +109,7 @@ export function DashboardClient({
         }
         const params = new URLSearchParams(savedFilter);
         skipNextFilterSave.current = true;
-        router.replace(`/dashboard?${params.toString()}`);
+        startFilterTransition(() => router.replace(`/dashboard?${params.toString()}`));
       } catch {
         localStorage.removeItem(DASHBOARD_FILTER_STORAGE_KEY);
       }
@@ -132,14 +133,14 @@ export function DashboardClient({
   function setParam(key: string, value: string) {
     const next = new URLSearchParams(sp.toString());
     if (value) next.set(key, value); else next.delete(key);
-    router.push(`/dashboard?${next.toString()}`);
+    startFilterTransition(() => router.push(`/dashboard?${next.toString()}`));
   }
 
   function setRange(from: string, to: string) {
     const next = new URLSearchParams(sp.toString());
     next.set("from", from);
     next.set("to", to);
-    router.push(`/dashboard?${next.toString()}`);
+    startFilterTransition(() => router.push(`/dashboard?${next.toString()}`));
   }
 
   const totals = useMemo(() => buildTotals(rows), [rows]);
@@ -386,7 +387,7 @@ export function DashboardClient({
 
   function clearFilter() {
     localStorage.removeItem(DASHBOARD_FILTER_STORAGE_KEY);
-    router.push("/dashboard");
+    startFilterTransition(() => router.push("/dashboard"));
   }
 
   const hasActiveFilter =
@@ -399,6 +400,15 @@ export function DashboardClient({
   return (
     <div className="space-y-3 sm:space-y-4">
       <div className="card p-3">
+        <div className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+          <span>Filter</span>
+          {filterPending && (
+            <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg)" }}>
+              <Loader2 size={13} className="animate-spin" />
+              Memuat
+            </span>
+          )}
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-6 gap-2.5 items-end">
           <Field label="Dari">
             <input type="date" className="input" value={filter.from}

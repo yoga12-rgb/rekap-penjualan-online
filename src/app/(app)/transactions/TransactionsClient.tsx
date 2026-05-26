@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
 import { formatIDR } from "@/lib/utils";
 import { toast } from "@/components/Toast";
-import { Plus, Trash2, Pencil, Filter, X, AlertCircle } from "lucide-react";
+import { Plus, Trash2, Pencil, Filter, X, AlertCircle, Loader2 } from "lucide-react";
 import { createOrder, updateOrder, deleteOrder } from "./actions";
 import { MerchantBadge } from "@/components/MerchantBadge";
 import { getMerchantTheme } from "@/lib/merchantColors";
@@ -69,6 +69,7 @@ export function TransactionsClient({
   const filterBarRef = useRef<HTMLDivElement>(null);
   const [openCreate, setOpenCreate] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Group | null>(null);
+  const [filterPending, startFilterTransition] = useTransition();
   const [deletePending, startDelete] = useTransition();
   const [deletingOrder, setDeletingOrder] = useState<Group | null>(null);
   const [search, setSearch] = useState(filter.q);
@@ -88,7 +89,7 @@ export function TransactionsClient({
         }
         const params = new URLSearchParams(savedFilter);
         skipNextFilterSave.current = true;
-        router.replace(`/transactions?${params.toString()}`);
+        startFilterTransition(() => router.replace(`/transactions?${params.toString()}`));
       } catch {
         localStorage.removeItem(TRANSACTIONS_FILTER_STORAGE_KEY);
       }
@@ -117,7 +118,7 @@ export function TransactionsClient({
   function setParam(key: string, value: string) {
     const next = new URLSearchParams(sp.toString());
     if (value) next.set(key, value); else next.delete(key);
-    router.push(`/transactions?${next.toString()}`);
+    startFilterTransition(() => router.push(`/transactions?${next.toString()}`));
   }
   function getPresetRange(preset: TransactionDatePreset) {
     if (preset === "today") return { from: todayWIBKey(), to: todayWIBKey() };
@@ -136,11 +137,11 @@ export function TransactionsClient({
     const range = getPresetRange(preset);
     next.set("from", range.from);
     next.set("to", range.to);
-    router.push(`/transactions?${next.toString()}`);
+    startFilterTransition(() => router.push(`/transactions?${next.toString()}`));
   }
   function clearFilter() {
     localStorage.removeItem(TRANSACTIONS_FILTER_STORAGE_KEY);
-    router.push("/transactions");
+    startFilterTransition(() => router.push("/transactions"));
     setSearch("");
   }
 
@@ -268,6 +269,12 @@ export function TransactionsClient({
       <div ref={filterBarRef} className="card p-4 space-y-3 scroll-mt-4">
         <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
           <Filter size={16} /> Filter
+          {filterPending && (
+            <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold text-slate-600 dark:text-slate-300" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg)" }}>
+              <Loader2 size={13} className="animate-spin" />
+              Memuat
+            </span>
+          )}
           {hasActiveFilter && (
             <button onClick={clearFilter} className="ml-auto btn-ghost text-xs">
               <X size={14} /> Reset

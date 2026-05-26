@@ -48,6 +48,8 @@ type Group = {
 };
 type TransactionDatePreset = "today" | "7d" | "30d" | "ytd";
 const TRANSACTIONS_FILTER_STORAGE_KEY = "transactions-filters";
+const INITIAL_VISIBLE_GROUPS = 12;
+const GROUPS_PER_LOAD = 12;
 
 export function TransactionsClient({
   role, myOutletId, outlets, merchants, variants, rows, filter
@@ -64,11 +66,15 @@ export function TransactionsClient({
   const sp = useSearchParams();
   const skipNextFilterSave = useRef(false);
   const addTransactionButtonRef = useRef<HTMLButtonElement>(null);
+  const filterBarRef = useRef<HTMLDivElement>(null);
   const [openCreate, setOpenCreate] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Group | null>(null);
   const [deletePending, startDelete] = useTransition();
   const [deletingOrder, setDeletingOrder] = useState<Group | null>(null);
   const [search, setSearch] = useState(filter.q);
+  const [visibleGroupCount, setVisibleGroupCount] = useState(INITIAL_VISIBLE_GROUPS);
+  const [showFloatingFilter, setShowFloatingFilter] = useState(false);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const hasUrlFilter = sp.toString().length > 0;
@@ -179,6 +185,42 @@ export function TransactionsClient({
     return Array.from(map.values()).sort((a, b) => b.date.localeCompare(a.date));
   }, [filteredRows]);
 
+  useEffect(() => {
+    setVisibleGroupCount(INITIAL_VISIBLE_GROUPS);
+  }, [filter.from, filter.to, filter.outlet, filter.merchant, filter.variant, filter.q]);
+
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target || visibleGroupCount >= groups.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setVisibleGroupCount((current) => Math.min(current + GROUPS_PER_LOAD, groups.length));
+        }
+      },
+      { rootMargin: "320px 0px" }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [groups.length, visibleGroupCount]);
+
+  useEffect(() => {
+    function onScroll() {
+      setShowFloatingFilter(window.scrollY > 520);
+    }
+
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const visibleGroups = useMemo(
+    () => groups.slice(0, visibleGroupCount),
+    [groups, visibleGroupCount]
+  );
+
   const totals = useMemo(() => {
     return filteredRows.reduce(
       (acc, r) => {
@@ -209,6 +251,9 @@ export function TransactionsClient({
       addTransactionButtonRef.current?.focus();
     });
   }
+  function scrollToFilterBar() {
+    filterBarRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   return (
     <div className="space-y-4">
@@ -220,7 +265,7 @@ export function TransactionsClient({
       </div>
 
       {/* FILTER BAR */}
-      <div className="card p-4 space-y-3">
+      <div ref={filterBarRef} className="card p-4 space-y-3 scroll-mt-4">
         <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
           <Filter size={16} /> Filter
           {hasActiveFilter && (
@@ -308,7 +353,7 @@ export function TransactionsClient({
       </div>
 
       <div className="space-y-3">
-        {groups.map((g) => {
+        {visibleGroups.map((g) => {
           const theme = getMerchantTheme(g.merchant, g.merchantColor);
           return (
           <div
@@ -419,6 +464,11 @@ export function TransactionsClient({
         {!groups.length && (
           <div className="card p-6 text-center" style={{ color: "var(--muted)" }}>Belum ada transaksi.</div>
         )}
+        {groups.length > visibleGroups.length && (
+          <div ref={loadMoreRef} className="py-4 text-center text-sm" style={{ color: "var(--muted)" }}>
+            Memuat transaksi berikutnya...
+          </div>
+        )}
       </div>
 
       <Modal open={openCreate} onClose={() => setOpenCreate(false)} title="Tambah Transaksi" size="xl">
@@ -487,6 +537,18 @@ export function TransactionsClient({
           </div>
         )}
       </Modal>
+
+      {showFloatingFilter && (
+        <button
+          type="button"
+          className="fixed bottom-4 right-4 z-40 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold shadow-lg transition hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-red-300 dark:focus:ring-red-900"
+          style={{ backgroundColor: "var(--card)", borderColor: "var(--border)", color: "var(--fg)" }}
+          onClick={scrollToFilterBar}
+        >
+          <Filter size={16} />
+          Filter
+        </button>
+      )}
     </div>
   );
 }

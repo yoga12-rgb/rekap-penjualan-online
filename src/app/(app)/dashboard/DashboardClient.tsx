@@ -1,9 +1,26 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatIDR } from "@/lib/utils";
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, LineChart, Line, Legend, Cell
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  LineChart,
+  Line,
+  Legend,
+  Cell,
 } from "recharts";
 import { getMerchantTheme } from "@/lib/merchantColors";
 import { MerchantBadge } from "@/components/MerchantBadge";
@@ -19,14 +36,21 @@ import {
   startOfPreviousMonthWIBKey,
   endOfPreviousMonthWIBKey,
   startOfYearWIBKey,
-  endOfYearWIBKey
+  endOfYearWIBKey,
 } from "@/lib/date";
 import { AlertCircle, Loader2, X } from "lucide-react";
 
 type Option = { id: string; name: string };
 type Merchant = Option & { color?: string | null };
 type Variant = Option & { base_price?: number };
-type DashboardFilter = { from: string; to: string; outlet: string; merchant: string; variant: string; rangeWasReversed?: boolean };
+type DashboardFilter = {
+  from: string;
+  to: string;
+  outlet: string;
+  merchant: string;
+  variant: string;
+  rangeWasReversed?: boolean;
+};
 type SummaryRow = {
   id: string;
   order_id: string;
@@ -51,8 +75,22 @@ type TransactionPage = {
   hasMore: boolean;
   error?: string;
 };
-type DashboardTab = "trend" | "products" | "merchants" | "outlets" | "hours" | "insights" | "details";
-type DatePreset = "today" | "7d" | "30d" | "month" | "lastMonth" | "ytd" | "year";
+type DashboardTab =
+  | "trend"
+  | "products"
+  | "merchants"
+  | "outlets"
+  | "hours"
+  | "insights"
+  | "details";
+type DatePreset =
+  | "today"
+  | "7d"
+  | "30d"
+  | "month"
+  | "lastMonth"
+  | "ytd"
+  | "year";
 const DASHBOARD_FILTER_STORAGE_KEY = "dashboard-filters";
 const TAB_LABELS: Record<DashboardTab, string> = {
   trend: "Tren",
@@ -61,7 +99,7 @@ const TAB_LABELS: Record<DashboardTab, string> = {
   outlets: "Outlet",
   hours: "Jam",
   insights: "Insight",
-  details: "Detail"
+  details: "Detail",
 };
 
 type Totals = {
@@ -79,7 +117,14 @@ type ComparisonMetric = ReturnType<typeof buildComparison>;
 type DeclineMetric = ReturnType<typeof buildDeclines>[number];
 
 export function DashboardClient({
-  role, outlets, merchants, variants, rows, previousRows, previousRange, filter
+  role,
+  outlets,
+  merchants,
+  variants,
+  rows,
+  previousRows,
+  previousRange,
+  filter,
 }: {
   role: "super_admin" | "kasir";
   outlets: Option[];
@@ -109,7 +154,9 @@ export function DashboardClient({
         }
         const params = new URLSearchParams(savedFilter);
         skipNextFilterSave.current = true;
-        startFilterTransition(() => router.replace(`/dashboard?${params.toString()}`));
+        startFilterTransition(() =>
+          router.replace(`/dashboard?${params.toString()}`),
+        );
       } catch {
         localStorage.removeItem(DASHBOARD_FILTER_STORAGE_KEY);
       }
@@ -127,12 +174,16 @@ export function DashboardClient({
     if (filter.outlet) params.set("outlet", filter.outlet);
     if (filter.merchant) params.set("merchant", filter.merchant);
     if (filter.variant) params.set("variant", filter.variant);
-    localStorage.setItem(DASHBOARD_FILTER_STORAGE_KEY, JSON.stringify(Object.fromEntries(params)));
+    localStorage.setItem(
+      DASHBOARD_FILTER_STORAGE_KEY,
+      JSON.stringify(Object.fromEntries(params)),
+    );
   }, [filter.from, filter.to, filter.outlet, filter.merchant, filter.variant]);
 
   function setParam(key: string, value: string) {
     const next = new URLSearchParams(sp.toString());
-    if (value) next.set(key, value); else next.delete(key);
+    if (value) next.set(key, value);
+    else next.delete(key);
     startFilterTransition(() => router.push(`/dashboard?${next.toString()}`));
   }
 
@@ -144,17 +195,40 @@ export function DashboardClient({
   }
 
   const totals = useMemo(() => buildTotals(rows), [rows]);
-  const previousTotals = useMemo(() => buildTotals(previousRows), [previousRows]);
+  const previousTotals = useMemo(
+    () => buildTotals(previousRows),
+    [previousRows],
+  );
 
-  const comparison = useMemo(() => ([
-    buildComparison("Omset", totals.gross, previousTotals.gross, "currency"),
-    buildComparison("Net Profit", totals.net, previousTotals.net, "currency"),
-    buildComparison("Qty", totals.qty, previousTotals.qty, "number"),
-    buildComparison("Transaksi", totals.transactionCount, previousTotals.transactionCount, "number")
-  ]), [previousTotals.gross, previousTotals.net, previousTotals.qty, previousTotals.transactionCount, totals.gross, totals.net, totals.qty, totals.transactionCount]);
+  const comparison = useMemo(
+    () => [
+      buildComparison("Omset", totals.gross, previousTotals.gross, "currency"),
+      buildComparison("Net Profit", totals.net, previousTotals.net, "currency"),
+      buildComparison("Qty", totals.qty, previousTotals.qty, "number"),
+      buildComparison(
+        "Transaksi",
+        totals.transactionCount,
+        previousTotals.transactionCount,
+        "number",
+      ),
+    ],
+    [
+      previousTotals.gross,
+      previousTotals.net,
+      previousTotals.qty,
+      previousTotals.transactionCount,
+      totals.gross,
+      totals.net,
+      totals.qty,
+      totals.transactionCount,
+    ],
+  );
 
   const daily = useMemo(() => {
-    const map = new Map<string, { date: string; gross: number; fee: number; net: number }>();
+    const map = new Map<
+      string,
+      { date: string; gross: number; fee: number; net: number }
+    >();
     for (const r of rows) {
       const d = isoToWIBDateKey(r.transaction_date);
       const cur = map.get(d) ?? { date: d, gross: 0, fee: 0, net: 0 };
@@ -163,30 +237,45 @@ export function DashboardClient({
       cur.net += Number(r.net_profit || 0);
       map.set(d, cur);
     }
-    return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
+    return Array.from(map.values()).sort((a, b) =>
+      a.date.localeCompare(b.date),
+    );
   }, [rows]);
 
   const leaderboard = useMemo(() => {
-    const map = new Map<string, { name: string; qty: number; gross: number; net: number }>();
+    const map = new Map<
+      string,
+      { name: string; qty: number; gross: number; net: number }
+    >();
     for (const r of rows) {
       const key = r.product_variant_id;
-      const cur = map.get(key) ?? { name: r.product_variants?.name ?? "-", qty: 0, gross: 0, net: 0 };
+      const cur = map.get(key) ?? {
+        name: r.product_variants?.name ?? "-",
+        qty: 0,
+        gross: 0,
+        net: 0,
+      };
       cur.qty += r.qty;
       cur.gross += getGross(r);
       cur.net += Number(r.net_profit || 0);
       map.set(key, cur);
     }
-    return Array.from(map.values()).sort((a, b) => b.qty - a.qty).slice(0, 10);
+    return Array.from(map.values())
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, 10);
   }, [rows]);
 
   const merchantBreakdown = useMemo(() => {
-    const map = new Map<string, { name: string; net: number; color: string | null }>();
+    const map = new Map<
+      string,
+      { name: string; net: number; color: string | null }
+    >();
     for (const r of rows) {
       const key = r.food_merchant_id;
       const cur = map.get(key) ?? {
         name: r.food_merchants?.name ?? "-",
         color: r.food_merchants?.color ?? null,
-        net: 0
+        net: 0,
       };
       cur.net += Number(r.net_profit || 0);
       map.set(key, cur);
@@ -195,7 +284,16 @@ export function DashboardClient({
   }, [rows]);
 
   const outletBreakdown = useMemo(() => {
-    const map = new Map<string, { name: string; gross: number; net: number; qty: number; transactionKeys: Set<string> }>();
+    const map = new Map<
+      string,
+      {
+        name: string;
+        gross: number;
+        net: number;
+        qty: number;
+        transactionKeys: Set<string>;
+      }
+    >();
     for (const r of rows) {
       const key = r.outlet_id || "unknown";
       const cur = map.get(key) ?? {
@@ -203,7 +301,7 @@ export function DashboardClient({
         gross: 0,
         net: 0,
         qty: 0,
-        transactionKeys: new Set<string>()
+        transactionKeys: new Set<string>(),
       };
       cur.gross += getGross(r);
       cur.net += Number(r.net_profit || 0);
@@ -223,7 +321,7 @@ export function DashboardClient({
       gross: 0,
       net: 0,
       qty: 0,
-      transactionKeys: new Set<string>()
+      transactionKeys: new Set<string>(),
     }));
     for (const r of rows) {
       const bucket = buckets[isoToWIBHour(r.transaction_date)];
@@ -232,36 +330,63 @@ export function DashboardClient({
       bucket.qty += r.qty;
       bucket.transactionKeys.add(getTransactionKey(r));
     }
-    return buckets.map((b) => ({ ...b, transactionCount: b.transactionKeys.size }));
+    return buckets.map((b) => ({
+      ...b,
+      transactionCount: b.transactionKeys.size,
+    }));
   }, [rows]);
 
   const productDeclines = useMemo(
     () => buildDeclines(rows, previousRows, "product", "qty").slice(0, 5),
-    [previousRows, rows]
+    [previousRows, rows],
   );
 
   const merchantDeclines = useMemo(
     () => buildDeclines(rows, previousRows, "merchant", "net").slice(0, 5),
-    [previousRows, rows]
+    [previousRows, rows],
   );
 
   const insights = useMemo(() => {
     const topProduct = leaderboard[0];
     const topMerchant = merchantBreakdown[0];
     const topOutlet = outletBreakdown[0];
-    const busiestHour = hourly.reduce((best, item) => item.transactionCount > best.transactionCount ? item : best, hourly[0]);
+    const busiestHour = hourly.reduce(
+      (best, item) =>
+        item.transactionCount > best.transactionCount ? item : best,
+      hourly[0],
+    );
     const strongestComparison = comparison
       .filter((item) => item.previous > 0)
       .sort((a, b) => Math.abs(b.percentChange) - Math.abs(a.percentChange))[0];
     return [
-      topProduct ? `Produk terlaris periode ini: ${topProduct.name} (${topProduct.qty.toLocaleString("id-ID")} qty).` : "",
-      topMerchant ? `Merchant dengan net profit tertinggi: ${topMerchant.name} (${formatIDR(topMerchant.net)}).` : "",
-      topOutlet ? `Outlet dengan omset tertinggi: ${topOutlet.name} (${formatIDR(topOutlet.gross)}).` : "",
-      totals.gross > 0 ? `Potongan admin setara ${formatPercent(totals.feePercent)} dari total omset.` : "",
-      busiestHour?.transactionCount ? `Jam transaksi paling ramai: ${busiestHour.label} (${busiestHour.transactionCount.toLocaleString("id-ID")} transaksi).` : "",
-      strongestComparison ? `${strongestComparison.label} ${strongestComparison.percentChange >= 0 ? "naik" : "turun"} ${formatPercent(Math.abs(strongestComparison.percentChange))} dibanding periode sebelumnya.` : ""
+      topProduct
+        ? `Produk terlaris periode ini: ${topProduct.name} (${topProduct.qty.toLocaleString("id-ID")} qty).`
+        : "",
+      topMerchant
+        ? `Merchant dengan net profit tertinggi: ${topMerchant.name} (${formatIDR(topMerchant.net)}).`
+        : "",
+      topOutlet
+        ? `Outlet dengan omset tertinggi: ${topOutlet.name} (${formatIDR(topOutlet.gross)}).`
+        : "",
+      totals.gross > 0
+        ? `Potongan admin setara ${formatPercent(totals.feePercent)} dari total omset.`
+        : "",
+      busiestHour?.transactionCount
+        ? `Jam transaksi paling ramai: ${busiestHour.label} (${busiestHour.transactionCount.toLocaleString("id-ID")} transaksi).`
+        : "",
+      strongestComparison
+        ? `${strongestComparison.label} ${strongestComparison.percentChange >= 0 ? "naik" : "turun"} ${formatPercent(Math.abs(strongestComparison.percentChange))} dibanding periode sebelumnya.`
+        : "",
     ].filter(Boolean);
-  }, [comparison, hourly, leaderboard, merchantBreakdown, outletBreakdown, totals.feePercent, totals.gross]);
+  }, [
+    comparison,
+    hourly,
+    leaderboard,
+    merchantBreakdown,
+    outletBreakdown,
+    totals.feePercent,
+    totals.gross,
+  ]);
 
   async function exportCsv() {
     setIsExporting(true);
@@ -270,7 +395,7 @@ export function DashboardClient({
         downloadCsv(
           ["Tanggal", "Omset", "Potongan", "NetProfit"],
           daily.map((r) => [r.date, r.gross, r.fee, r.net]),
-          `tren_harian_${filter.from}_to_${filter.to}.csv`
+          `tren_harian_${filter.from}_to_${filter.to}.csv`,
         );
         return;
       }
@@ -279,7 +404,7 @@ export function DashboardClient({
         downloadCsv(
           ["Produk", "Qty", "Omset", "NetProfit"],
           leaderboard.map((r) => [r.name, r.qty, r.gross, r.net]),
-          `produk_terlaris_${filter.from}_to_${filter.to}.csv`
+          `produk_terlaris_${filter.from}_to_${filter.to}.csv`,
         );
         return;
       }
@@ -288,7 +413,7 @@ export function DashboardClient({
         downloadCsv(
           ["Merchant", "NetProfit"],
           merchantBreakdown.map((r) => [r.name, r.net]),
-          `profit_merchant_${filter.from}_to_${filter.to}.csv`
+          `profit_merchant_${filter.from}_to_${filter.to}.csv`,
         );
         return;
       }
@@ -296,8 +421,14 @@ export function DashboardClient({
       if (activeTab === "outlets") {
         downloadCsv(
           ["Outlet", "Transaksi", "Qty", "Omset", "NetProfit"],
-          outletBreakdown.map((r) => [r.name, r.transactionCount, r.qty, r.gross, r.net]),
-          `top_outlet_${filter.from}_to_${filter.to}.csv`
+          outletBreakdown.map((r) => [
+            r.name,
+            r.transactionCount,
+            r.qty,
+            r.gross,
+            r.net,
+          ]),
+          `top_outlet_${filter.from}_to_${filter.to}.csv`,
         );
         return;
       }
@@ -305,21 +436,55 @@ export function DashboardClient({
       if (activeTab === "hours") {
         downloadCsv(
           ["Jam", "Transaksi", "Qty", "Omset", "NetProfit"],
-          hourly.map((r) => [r.label, r.transactionCount, r.qty, r.gross, r.net]),
-          `jam_ramai_${filter.from}_to_${filter.to}.csv`
+          hourly.map((r) => [
+            r.label,
+            r.transactionCount,
+            r.qty,
+            r.gross,
+            r.net,
+          ]),
+          `jam_ramai_${filter.from}_to_${filter.to}.csv`,
         );
         return;
       }
 
       if (activeTab === "insights") {
         downloadCsv(
-          ["Kategori", "Nama", "SaatIni", "PeriodeSebelumnya", "Selisih", "Perubahan"],
           [
-            ...comparison.map((r) => [r.label, "-", r.current, r.previous, r.delta, formatPercent(r.percentChange)]),
-            ...productDeclines.map((r) => ["Produk Turun", r.name, r.current, r.previous, r.delta, formatPercent(r.percentChange)]),
-            ...merchantDeclines.map((r) => ["Merchant Turun", r.name, r.current, r.previous, r.delta, formatPercent(r.percentChange)])
+            "Kategori",
+            "Nama",
+            "SaatIni",
+            "PeriodeSebelumnya",
+            "Selisih",
+            "Perubahan",
           ],
-          `insight_${filter.from}_to_${filter.to}.csv`
+          [
+            ...comparison.map((r) => [
+              r.label,
+              "-",
+              r.current,
+              r.previous,
+              r.delta,
+              formatPercent(r.percentChange),
+            ]),
+            ...productDeclines.map((r) => [
+              "Produk Turun",
+              r.name,
+              r.current,
+              r.previous,
+              r.delta,
+              formatPercent(r.percentChange),
+            ]),
+            ...merchantDeclines.map((r) => [
+              "Merchant Turun",
+              r.name,
+              r.current,
+              r.previous,
+              r.delta,
+              formatPercent(r.percentChange),
+            ]),
+          ],
+          `insight_${filter.from}_to_${filter.to}.csv`,
         );
         return;
       }
@@ -344,7 +509,7 @@ export function DashboardClient({
           "HargaSatuan",
           "Omset",
           "Potongan",
-          "NetProfit"
+          "NetProfit",
         ],
         detailRows.map((r) => [
           isoToWIBDisplay(r.transaction_date),
@@ -356,9 +521,9 @@ export function DashboardClient({
           r.initial_price,
           getGross(r),
           r.deduction_fee,
-          r.net_profit
+          r.net_profit,
         ]),
-        `detail_transaksi_${filter.from}_to_${filter.to}.csv`
+        `detail_transaksi_${filter.from}_to_${filter.to}.csv`,
       );
     } finally {
       setIsExporting(false);
@@ -369,9 +534,15 @@ export function DashboardClient({
     if (preset === "today") return { from: todayWIBKey(), to: todayWIBKey() };
     if (preset === "7d") return { from: daysAgoWIBKey(6), to: todayWIBKey() };
     if (preset === "30d") return { from: daysAgoWIBKey(29), to: todayWIBKey() };
-    if (preset === "month") return { from: startOfMonthWIBKey(), to: endOfMonthWIBKey() };
-    if (preset === "lastMonth") return { from: startOfPreviousMonthWIBKey(), to: endOfPreviousMonthWIBKey() };
-    if (preset === "ytd") return { from: startOfYearWIBKey(), to: todayWIBKey() };
+    if (preset === "month")
+      return { from: startOfMonthWIBKey(), to: endOfMonthWIBKey() };
+    if (preset === "lastMonth")
+      return {
+        from: startOfPreviousMonthWIBKey(),
+        to: endOfPreviousMonthWIBKey(),
+      };
+    if (preset === "ytd")
+      return { from: startOfYearWIBKey(), to: todayWIBKey() };
     return { from: startOfYearWIBKey(), to: endOfYearWIBKey() };
   }
 
@@ -403,7 +574,13 @@ export function DashboardClient({
         <div className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
           <span>Filter</span>
           {filterPending && (
-            <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg)" }}>
+            <span
+              className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold"
+              style={{
+                borderColor: "var(--border)",
+                backgroundColor: "var(--bg)",
+              }}
+            >
               <Loader2 size={13} className="animate-spin" />
               Memuat
             </span>
@@ -411,12 +588,20 @@ export function DashboardClient({
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-6 gap-2.5 items-end">
           <Field label="Dari">
-            <input type="date" className="input" value={filter.from}
-                   onChange={(e) => setParam("from", e.target.value)} />
+            <input
+              type="date"
+              className="input"
+              value={filter.from}
+              onChange={(e) => setParam("from", e.target.value)}
+            />
           </Field>
           <Field label="Sampai">
-            <input type="date" className="input" value={filter.to}
-                   onChange={(e) => setParam("to", e.target.value)} />
+            <input
+              type="date"
+              className="input"
+              value={filter.to}
+              onChange={(e) => setParam("to", e.target.value)}
+            />
           </Field>
           {role === "super_admin" && (
             <Field label="Outlet">
@@ -443,7 +628,8 @@ export function DashboardClient({
               options={variants.map((v) => ({
                 value: v.id,
                 label: v.name,
-                hint: v.base_price != null ? formatIDR(v.base_price) : undefined
+                hint:
+                  v.base_price != null ? formatIDR(v.base_price) : undefined,
               }))}
               value={filter.variant}
               onChange={(v) => setParam("variant", v)}
@@ -452,20 +638,59 @@ export function DashboardClient({
             />
           </Field>
           <div className="col-span-2 md:col-span-1 min-w-0">
-            <button className="btn-primary w-full h-10 px-3 whitespace-nowrap" onClick={exportCsv} disabled={!rows.length || isExporting}>
+            <button
+              className="btn-primary w-full h-10 px-3 whitespace-nowrap"
+              onClick={exportCsv}
+              disabled={!rows.length || isExporting}
+            >
               {isExporting ? "Exporting..." : `Export ${TAB_LABELS[activeTab]}`}
             </button>
           </div>
         </div>
 
         <div className="mt-2 flex gap-1.5 overflow-x-auto pb-0.5">
-          <PresetButton active={isPresetActive("today")} onClick={() => setRangePreset("today")}>Hari ini</PresetButton>
-          <PresetButton active={isPresetActive("7d")} onClick={() => setRangePreset("7d")}>7H</PresetButton>
-          <PresetButton active={isPresetActive("30d")} onClick={() => setRangePreset("30d")}>30H</PresetButton>
-          <PresetButton active={isPresetActive("month")} onClick={() => setRangePreset("month")}>Bulan ini</PresetButton>
-          <PresetButton active={isPresetActive("lastMonth")} onClick={() => setRangePreset("lastMonth")}>Bulan lalu</PresetButton>
-          <PresetButton active={isPresetActive("ytd")} onClick={() => setRangePreset("ytd")}>YTD</PresetButton>
-          <PresetButton active={isPresetActive("year")} onClick={() => setRangePreset("year")}>Tahun</PresetButton>
+          <PresetButton
+            active={isPresetActive("today")}
+            onClick={() => setRangePreset("today")}
+          >
+            Hari ini
+          </PresetButton>
+          <PresetButton
+            active={isPresetActive("7d")}
+            onClick={() => setRangePreset("7d")}
+          >
+            7H
+          </PresetButton>
+          <PresetButton
+            active={isPresetActive("30d")}
+            onClick={() => setRangePreset("30d")}
+          >
+            30H
+          </PresetButton>
+          <PresetButton
+            active={isPresetActive("month")}
+            onClick={() => setRangePreset("month")}
+          >
+            Bulan ini
+          </PresetButton>
+          <PresetButton
+            active={isPresetActive("lastMonth")}
+            onClick={() => setRangePreset("lastMonth")}
+          >
+            Bulan lalu
+          </PresetButton>
+          <PresetButton
+            active={isPresetActive("ytd")}
+            onClick={() => setRangePreset("ytd")}
+          >
+            YTD
+          </PresetButton>
+          <PresetButton
+            active={isPresetActive("year")}
+            onClick={() => setRangePreset("year")}
+          >
+            Tahun
+          </PresetButton>
           {hasActiveFilter && (
             <PresetButton onClick={clearFilter}>
               <X size={14} />
@@ -476,15 +701,29 @@ export function DashboardClient({
       </div>
 
       {filter.rangeWasReversed && (
-        <div className="card px-3 py-2 flex items-center gap-2 text-xs sm:text-sm" style={{ borderColor: "#f59e0b" }}>
+        <div
+          className="card px-3 py-2 flex items-center gap-2 text-xs sm:text-sm"
+          style={{ borderColor: "#f59e0b" }}
+        >
           <AlertCircle size={16} className="text-amber-600" />
-          <span>Tanggal "Dari" lebih besar dari "Sampai"; sistem otomatis menukar urutan untuk query.</span>
+          <span>
+            Tanggal "Dari" lebih besar dari "Sampai"; sistem otomatis menukar
+            urutan untuk query.
+          </span>
         </div>
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2.5">
-        <KPI title="Total Omset" value={formatIDR(totals.gross)} variant="gross" />
-        <KPI title="Total Potongan Admin" value={formatIDR(totals.fee)} variant="fee" />
+        <KPI
+          title="Total Omset"
+          value={formatIDR(totals.gross)}
+          variant="gross"
+        />
+        <KPI
+          title="Total Potongan Admin"
+          value={formatIDR(totals.fee)}
+          variant="fee"
+        />
         <KPI
           title="Potongan Admin (%)"
           value={formatPercent(totals.feePercent)}
@@ -495,40 +734,76 @@ export function DashboardClient({
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-        <KPI title="Total Transaksi" value={totals.transactionCount.toLocaleString("id-ID")} />
+        <KPI
+          title="Total Transaksi"
+          value={totals.transactionCount.toLocaleString("id-ID")}
+        />
         <KPI title="Rata-rata Omset" value={formatIDR(totals.avgGross)} />
-        <KPI title="Rata-rata Qty" value={totals.avgQty.toLocaleString("id-ID", { maximumFractionDigits: 2 })} />
+        <KPI
+          title="Rata-rata Qty"
+          value={totals.avgQty.toLocaleString("id-ID", {
+            maximumFractionDigits: 2,
+          })}
+        />
         <KPI title="Rata-rata Net" value={formatIDR(totals.avgNet)} />
       </div>
 
-      <div className="flex overflow-x-auto border-b -mb-1" style={{ borderColor: "var(--border)" }}>
-        <TabButton active={activeTab === "trend"} onClick={() => setActiveTab("trend")}>
+      <div
+        className="flex overflow-x-auto border-b -mb-1"
+        style={{ borderColor: "var(--border)" }}
+      >
+        <TabButton
+          active={activeTab === "trend"}
+          onClick={() => setActiveTab("trend")}
+        >
           Tren Harian
         </TabButton>
-        <TabButton active={activeTab === "products"} onClick={() => setActiveTab("products")}>
+        <TabButton
+          active={activeTab === "products"}
+          onClick={() => setActiveTab("products")}
+        >
           Produk Terlaris
         </TabButton>
-        <TabButton active={activeTab === "merchants"} onClick={() => setActiveTab("merchants")}>
+        <TabButton
+          active={activeTab === "merchants"}
+          onClick={() => setActiveTab("merchants")}
+        >
           Profit Merchant
         </TabButton>
-        <TabButton active={activeTab === "outlets"} onClick={() => setActiveTab("outlets")}>
+        <TabButton
+          active={activeTab === "outlets"}
+          onClick={() => setActiveTab("outlets")}
+        >
           Outlet
         </TabButton>
-        <TabButton active={activeTab === "hours"} onClick={() => setActiveTab("hours")}>
+        <TabButton
+          active={activeTab === "hours"}
+          onClick={() => setActiveTab("hours")}
+        >
           Jam Ramai
         </TabButton>
-        <TabButton active={activeTab === "insights"} onClick={() => setActiveTab("insights")}>
+        <TabButton
+          active={activeTab === "insights"}
+          onClick={() => setActiveTab("insights")}
+        >
           Insight
         </TabButton>
-        <TabButton active={activeTab === "details"} onClick={() => setActiveTab("details")}>
+        <TabButton
+          active={activeTab === "details"}
+          onClick={() => setActiveTab("details")}
+        >
           Detail Transaksi
         </TabButton>
       </div>
 
       {activeTab === "trend" && <TrendTab daily={daily} />}
       {activeTab === "products" && <ProductsTab leaderboard={leaderboard} />}
-      {activeTab === "merchants" && <MerchantsTab merchantBreakdown={merchantBreakdown} />}
-      {activeTab === "outlets" && <OutletsTab outletBreakdown={outletBreakdown} />}
+      {activeTab === "merchants" && (
+        <MerchantsTab merchantBreakdown={merchantBreakdown} />
+      )}
+      {activeTab === "outlets" && (
+        <OutletsTab outletBreakdown={outletBreakdown} />
+      )}
       {activeTab === "hours" && <HoursTab hourly={hourly} />}
       {activeTab === "insights" && (
         <InsightsTab
@@ -547,7 +822,7 @@ export function DashboardClient({
 function TabButton({
   active,
   onClick,
-  children
+  children,
 }: {
   active: boolean;
   onClick: () => void;
@@ -559,7 +834,7 @@ function TabButton({
       className={`px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium whitespace-nowrap border-b-2 ${active ? "text-red-700 dark:text-red-300" : ""}`}
       style={{
         borderColor: active ? "#b91c1c" : "transparent",
-        color: active ? undefined : "var(--muted)"
+        color: active ? undefined : "var(--muted)",
       }}
       onClick={onClick}
     >
@@ -568,16 +843,35 @@ function TabButton({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="min-w-0">
-      <label className="mb-1 block text-xs font-medium" style={{ color: "var(--muted)" }}>{label}</label>
+      <label
+        className="mb-1 block text-xs font-medium"
+        style={{ color: "var(--muted)" }}
+      >
+        {label}
+      </label>
       {children}
     </div>
   );
 }
 
-function PresetButton({ active = false, onClick, children }: { active?: boolean; onClick: () => void; children: React.ReactNode }) {
+function PresetButton({
+  active = false,
+  onClick,
+  children,
+}: {
+  active?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <button
       type="button"
@@ -589,13 +883,22 @@ function PresetButton({ active = false, onClick, children }: { active?: boolean;
       aria-pressed={active}
       onClick={onClick}
     >
-      {active && <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />}
+      {active && (
+        <span
+          className="h-1.5 w-1.5 rounded-full bg-current"
+          aria-hidden="true"
+        />
+      )}
       {children}
     </button>
   );
 }
 
-function TrendTab({ daily }: { daily: Array<{ date: string; gross: number; fee: number; net: number }> }) {
+function TrendTab({
+  daily,
+}: {
+  daily: Array<{ date: string; gross: number; fee: number; net: number }>;
+}) {
   return (
     <div className="card p-3">
       <h3 className="text-sm font-semibold mb-2">Tren Penjualan Harian</h3>
@@ -607,18 +910,45 @@ function TrendTab({ daily }: { daily: Array<{ date: string; gross: number; fee: 
             <LineChart data={daily}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="date" stroke="var(--muted)" />
-              <YAxis tickFormatter={(v) => Intl.NumberFormat("id-ID").format(v as number)} stroke="var(--muted)" />
+              <YAxis
+                tickFormatter={(v) =>
+                  Intl.NumberFormat("id-ID").format(v as number)
+                }
+                stroke="var(--muted)"
+              />
               <Tooltip
-                contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", color: "var(--fg)" }}
+                contentStyle={{
+                  backgroundColor: "var(--card)",
+                  border: "1px solid var(--border)",
+                  color: "var(--fg)",
+                }}
                 formatter={(v: any) => formatIDR(Number(v))}
               />
               <Legend />
-              <Line type="monotone" dataKey="gross" name="Omset" stroke="#3b82f6"
-                    dot={daily.length === 1} strokeWidth={2} />
-              <Line type="monotone" dataKey="net" name="Net Profit" stroke="#22c55e"
-                    dot={daily.length === 1} strokeWidth={2} />
-              <Line type="monotone" dataKey="fee" name="Potongan" stroke="#ef4444"
-                    dot={daily.length === 1} strokeWidth={2} />
+              <Line
+                type="monotone"
+                dataKey="gross"
+                name="Omset"
+                stroke="#3b82f6"
+                dot={daily.length === 1}
+                strokeWidth={2}
+              />
+              <Line
+                type="monotone"
+                dataKey="net"
+                name="Net Profit"
+                stroke="#22c55e"
+                dot={daily.length === 1}
+                strokeWidth={2}
+              />
+              <Line
+                type="monotone"
+                dataKey="fee"
+                name="Potongan"
+                stroke="#ef4444"
+                dot={daily.length === 1}
+                strokeWidth={2}
+              />
             </LineChart>
           </ResponsiveContainer>
         )}
@@ -627,7 +957,11 @@ function TrendTab({ daily }: { daily: Array<{ date: string; gross: number; fee: 
   );
 }
 
-function ProductsTab({ leaderboard }: { leaderboard: Array<{ name: string; qty: number; gross: number; net: number }> }) {
+function ProductsTab({
+  leaderboard,
+}: {
+  leaderboard: Array<{ name: string; qty: number; gross: number; net: number }>;
+}) {
   return (
     <div className="card p-3">
       <h3 className="text-sm font-semibold mb-2">Produk Terlaris (Qty)</h3>
@@ -640,35 +974,55 @@ function ProductsTab({ leaderboard }: { leaderboard: Array<{ name: string; qty: 
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="name" stroke="var(--muted)" />
               <YAxis stroke="var(--muted)" />
-              <Tooltip contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", color: "var(--fg)" }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "var(--card)",
+                  border: "1px solid var(--border)",
+                  color: "var(--fg)",
+                }}
+              />
               <Bar dataKey="qty" fill="#b91c1c" />
             </BarChart>
           </ResponsiveContainer>
         )}
       </div>
       <div className="overflow-auto mt-2">
-      <table className="table">
-        <thead><tr><th>Produk</th><th className="text-right">Qty</th><th className="text-right">Net</th></tr></thead>
-        <tbody>
-          {leaderboard.map((p) => (
-            <tr key={p.name}>
-              <td>{p.name}</td>
-              <td className="text-right">{p.qty}</td>
-              <td className="text-right">{formatIDR(p.net)}</td>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Produk</th>
+              <th className="text-right">Qty</th>
+              <th className="text-right">Net</th>
             </tr>
-          ))}
-          {!leaderboard.length && (
-            <tr><td colSpan={3} className="text-center py-4" style={{ color: "var(--muted)" }}>Tidak ada data</td></tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {leaderboard.map((p) => (
+              <tr key={p.name}>
+                <td>{p.name}</td>
+                <td className="text-right">{p.qty}</td>
+                <td className="text-right">{formatIDR(p.net)}</td>
+              </tr>
+            ))}
+            {!leaderboard.length && (
+              <tr>
+                <td
+                  colSpan={3}
+                  className="text-center py-4"
+                  style={{ color: "var(--muted)" }}
+                >
+                  Tidak ada data
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
 
 function MerchantsTab({
-  merchantBreakdown
+  merchantBreakdown,
 }: {
   merchantBreakdown: Array<{ name: string; net: number; color: string | null }>;
 }) {
@@ -683,14 +1037,26 @@ function MerchantsTab({
             <BarChart data={merchantBreakdown}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="name" stroke="var(--muted)" />
-              <YAxis tickFormatter={(v) => Intl.NumberFormat("id-ID").format(v as number)} stroke="var(--muted)" />
+              <YAxis
+                tickFormatter={(v) =>
+                  Intl.NumberFormat("id-ID").format(v as number)
+                }
+                stroke="var(--muted)"
+              />
               <Tooltip
-                contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", color: "var(--fg)" }}
+                contentStyle={{
+                  backgroundColor: "var(--card)",
+                  border: "1px solid var(--border)",
+                  color: "var(--fg)",
+                }}
                 formatter={(v: any) => formatIDR(Number(v))}
               />
               <Bar dataKey="net">
                 {merchantBreakdown.map((m) => (
-                  <Cell key={m.name} fill={getMerchantTheme(m.name, m.color).bg} />
+                  <Cell
+                    key={m.name}
+                    fill={getMerchantTheme(m.name, m.color).bg}
+                  />
                 ))}
               </Bar>
             </BarChart>
@@ -707,9 +1073,15 @@ function MerchantsTab({
 }
 
 function OutletsTab({
-  outletBreakdown
+  outletBreakdown,
 }: {
-  outletBreakdown: Array<{ name: string; gross: number; net: number; qty: number; transactionCount: number }>;
+  outletBreakdown: Array<{
+    name: string;
+    gross: number;
+    net: number;
+    qty: number;
+    transactionCount: number;
+  }>;
 }) {
   return (
     <div className="card p-3">
@@ -722,10 +1094,23 @@ function OutletsTab({
             <BarChart data={outletBreakdown}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="name" stroke="var(--muted)" />
-              <YAxis tickFormatter={(v) => Intl.NumberFormat("id-ID").format(v as number)} stroke="var(--muted)" />
+              <YAxis
+                tickFormatter={(v) =>
+                  Intl.NumberFormat("id-ID").format(v as number)
+                }
+                stroke="var(--muted)"
+              />
               <Tooltip
-                contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", color: "var(--fg)" }}
-                formatter={(v: any, name) => name === "gross" || name === "net" ? formatIDR(Number(v)) : Number(v).toLocaleString("id-ID")}
+                contentStyle={{
+                  backgroundColor: "var(--card)",
+                  border: "1px solid var(--border)",
+                  color: "var(--fg)",
+                }}
+                formatter={(v: any, name) =>
+                  name === "gross" || name === "net"
+                    ? formatIDR(Number(v))
+                    : Number(v).toLocaleString("id-ID")
+                }
               />
               <Legend />
               <Bar dataKey="gross" name="Omset" fill="#3b82f6" />
@@ -749,14 +1134,24 @@ function OutletsTab({
             {outletBreakdown.map((o) => (
               <tr key={o.name}>
                 <td>{o.name}</td>
-                <td className="text-right">{o.transactionCount.toLocaleString("id-ID")}</td>
+                <td className="text-right">
+                  {o.transactionCount.toLocaleString("id-ID")}
+                </td>
                 <td className="text-right">{o.qty.toLocaleString("id-ID")}</td>
                 <td className="text-right">{formatIDR(o.gross)}</td>
                 <td className="text-right font-medium">{formatIDR(o.net)}</td>
               </tr>
             ))}
             {!outletBreakdown.length && (
-              <tr><td colSpan={5} className="text-center py-4" style={{ color: "var(--muted)" }}>Tidak ada data</td></tr>
+              <tr>
+                <td
+                  colSpan={5}
+                  className="text-center py-4"
+                  style={{ color: "var(--muted)" }}
+                >
+                  Tidak ada data
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
@@ -766,11 +1161,19 @@ function OutletsTab({
 }
 
 function HoursTab({
-  hourly
+  hourly,
 }: {
-  hourly: Array<{ label: string; gross: number; net: number; qty: number; transactionCount: number }>;
+  hourly: Array<{
+    label: string;
+    gross: number;
+    net: number;
+    qty: number;
+    transactionCount: number;
+  }>;
 }) {
-  const visibleHours = hourly.filter((h) => h.transactionCount > 0 || h.qty > 0);
+  const visibleHours = hourly.filter(
+    (h) => h.transactionCount > 0 || h.qty > 0,
+  );
   return (
     <div className="card p-3">
       <h3 className="text-sm font-semibold mb-2">Jam Ramai Transaksi</h3>
@@ -784,8 +1187,16 @@ function HoursTab({
               <XAxis dataKey="label" stroke="var(--muted)" />
               <YAxis stroke="var(--muted)" />
               <Tooltip
-                contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", color: "var(--fg)" }}
-                formatter={(v: any, name) => name === "gross" || name === "net" ? formatIDR(Number(v)) : Number(v).toLocaleString("id-ID")}
+                contentStyle={{
+                  backgroundColor: "var(--card)",
+                  border: "1px solid var(--border)",
+                  color: "var(--fg)",
+                }}
+                formatter={(v: any, name) =>
+                  name === "gross" || name === "net"
+                    ? formatIDR(Number(v))
+                    : Number(v).toLocaleString("id-ID")
+                }
               />
               <Legend />
               <Bar dataKey="transactionCount" name="Transaksi" fill="#b91c1c" />
@@ -809,14 +1220,24 @@ function HoursTab({
             {visibleHours.map((h) => (
               <tr key={h.label}>
                 <td>{h.label}</td>
-                <td className="text-right">{h.transactionCount.toLocaleString("id-ID")}</td>
+                <td className="text-right">
+                  {h.transactionCount.toLocaleString("id-ID")}
+                </td>
                 <td className="text-right">{h.qty.toLocaleString("id-ID")}</td>
                 <td className="text-right">{formatIDR(h.gross)}</td>
                 <td className="text-right font-medium">{formatIDR(h.net)}</td>
               </tr>
             ))}
             {!visibleHours.length && (
-              <tr><td colSpan={5} className="text-center py-4" style={{ color: "var(--muted)" }}>Tidak ada data</td></tr>
+              <tr>
+                <td
+                  colSpan={5}
+                  className="text-center py-4"
+                  style={{ color: "var(--muted)" }}
+                >
+                  Tidak ada data
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
@@ -830,7 +1251,7 @@ function InsightsTab({
   previousRange,
   productDeclines,
   merchantDeclines,
-  insights
+  insights,
 }: {
   comparison: ComparisonMetric[];
   previousRange: { from: string; to: string };
@@ -858,18 +1279,33 @@ function InsightsTab({
         <h3 className="text-sm font-semibold mb-2">Insight Otomatis</h3>
         <div className="space-y-2 text-sm">
           {insights.map((item) => (
-            <div key={item} className="rounded-md border px-3 py-2" style={{ borderColor: "var(--border)" }}>
+            <div
+              key={item}
+              className="rounded-md border px-3 py-2"
+              style={{ borderColor: "var(--border)" }}
+            >
               {item}
             </div>
           ))}
           {!insights.length && (
-            <div className="py-6 text-center" style={{ color: "var(--muted)" }}>Belum ada insight untuk rentang ini.</div>
+            <div className="py-6 text-center" style={{ color: "var(--muted)" }}>
+              Belum ada insight untuk rentang ini.
+            </div>
           )}
         </div>
       </div>
 
-      <DeclineTable title="Produk yang Performanya Turun" metricLabel="Qty" rows={productDeclines} />
-      <DeclineTable title="Merchant yang Performanya Turun" metricLabel="Net Profit" rows={merchantDeclines} currency />
+      <DeclineTable
+        title="Produk yang Performanya Turun"
+        metricLabel="Qty"
+        rows={productDeclines}
+      />
+      <DeclineTable
+        title="Merchant yang Performanya Turun"
+        metricLabel="Net Profit"
+        rows={merchantDeclines}
+        currency
+      />
     </div>
   );
 }
@@ -877,11 +1313,22 @@ function InsightsTab({
 function ComparisonCard({ item }: { item: ComparisonMetric }) {
   const isUp = item.delta >= 0;
   return (
-    <div className="rounded-md border px-3 py-2" style={{ borderColor: "var(--border)" }}>
-      <div className="text-xs uppercase" style={{ color: "var(--muted)" }}>{item.label}</div>
-      <div className="mt-1 text-lg font-bold">{formatMetricValue(item.current, item.format)}</div>
-      <div className={`text-xs font-medium ${isUp ? "text-emerald-600 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}>
-        {isUp ? "+" : ""}{formatMetricValue(item.delta, item.format)} ({isUp ? "+" : ""}{formatPercent(item.percentChange)})
+    <div
+      className="rounded-md border px-3 py-2"
+      style={{ borderColor: "var(--border)" }}
+    >
+      <div className="text-xs uppercase" style={{ color: "var(--muted)" }}>
+        {item.label}
+      </div>
+      <div className="mt-1 text-lg font-bold">
+        {formatMetricValue(item.current, item.format)}
+      </div>
+      <div
+        className={`text-xs font-medium ${isUp ? "text-emerald-600 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}
+      >
+        {isUp ? "+" : ""}
+        {formatMetricValue(item.delta, item.format)} ({isUp ? "+" : ""}
+        {formatPercent(item.percentChange)})
       </div>
       <div className="text-xs" style={{ color: "var(--muted)" }}>
         Sebelumnya {formatMetricValue(item.previous, item.format)}
@@ -894,7 +1341,7 @@ function DeclineTable({
   title,
   metricLabel,
   rows,
-  currency
+  currency,
 }: {
   title: string;
   metricLabel: string;
@@ -919,16 +1366,35 @@ function DeclineTable({
             {rows.map((row) => (
               <tr key={row.name}>
                 <td>{row.name}</td>
-                <td className="text-right">{currency ? formatIDR(row.current) : row.current.toLocaleString("id-ID")}</td>
-                <td className="text-right">{currency ? formatIDR(row.previous) : row.previous.toLocaleString("id-ID")}</td>
-                <td className="text-right">{currency ? formatIDR(Math.abs(row.delta)) : Math.abs(row.delta).toLocaleString("id-ID")}</td>
-                <td className="text-right text-red-700 dark:text-red-300">{formatPercent(row.percentChange)}</td>
+                <td className="text-right">
+                  {currency
+                    ? formatIDR(row.current)
+                    : row.current.toLocaleString("id-ID")}
+                </td>
+                <td className="text-right">
+                  {currency
+                    ? formatIDR(row.previous)
+                    : row.previous.toLocaleString("id-ID")}
+                </td>
+                <td className="text-right">
+                  {currency
+                    ? formatIDR(Math.abs(row.delta))
+                    : Math.abs(row.delta).toLocaleString("id-ID")}
+                </td>
+                <td className="text-right text-red-700 dark:text-red-300">
+                  {formatPercent(row.percentChange)}
+                </td>
               </tr>
             ))}
             {!rows.length && (
               <tr>
-                <td colSpan={5} className="text-center py-4" style={{ color: "var(--muted)" }}>
-                  Tidak ada penurunan {metricLabel.toLowerCase()} yang terdeteksi.
+                <td
+                  colSpan={5}
+                  className="text-center py-4"
+                  style={{ color: "var(--muted)" }}
+                >
+                  Tidak ada penurunan {metricLabel.toLowerCase()} yang
+                  terdeteksi.
                 </td>
               </tr>
             )}
@@ -967,13 +1433,19 @@ function buildTotals(rows: SummaryRow[]): Totals {
     transactionCount,
     avgGross: transactionCount > 0 ? gross / transactionCount : 0,
     avgQty: transactionCount > 0 ? qty / transactionCount : 0,
-    avgNet: transactionCount > 0 ? net / transactionCount : 0
+    avgNet: transactionCount > 0 ? net / transactionCount : 0,
   };
 }
 
-function buildComparison(label: string, current: number, previous: number, format: "currency" | "number") {
+function buildComparison(
+  label: string,
+  current: number,
+  previous: number,
+  format: "currency" | "number",
+) {
   const delta = current - previous;
-  const percentChange = previous > 0 ? (delta / previous) * 100 : current > 0 ? 100 : 0;
+  const percentChange =
+    previous > 0 ? (delta / previous) * 100 : current > 0 ? 100 : 0;
   return { label, current, previous, delta, percentChange, format };
 }
 
@@ -981,33 +1453,53 @@ function buildDeclines(
   currentRows: SummaryRow[],
   previousRows: SummaryRow[],
   group: "product" | "merchant",
-  metric: "qty" | "net"
+  metric: "qty" | "net",
 ) {
   const current = groupRows(currentRows, group, metric);
   const previous = groupRows(previousRows, group, metric);
-  return Array.from(previous.entries())
-    .map(([key, prev]) => {
+  // Gabungkan semua key dari current dan previous
+  const allKeys = new Set([...current.keys(), ...previous.keys()]);
+  return Array.from(allKeys)
+    .map((key) => {
       const cur = current.get(key);
+      const prev = previous.get(key);
       const currentValue = cur?.value ?? 0;
-      const delta = currentValue - prev.value;
+      const previousValue = prev?.value ?? 0;
+      const delta = currentValue - previousValue;
       return {
         key,
-        name: cur?.name ?? prev.name,
+        name: cur?.name ?? prev?.name ?? "-",
         current: currentValue,
-        previous: prev.value,
+        previous: previousValue,
         delta,
-        percentChange: prev.value > 0 ? (delta / prev.value) * 100 : 0
+        percentChange:
+          previousValue > 0
+            ? (delta / previousValue) * 100
+            : currentValue > 0
+              ? (delta / currentValue) * 100
+              : 0,
       };
     })
-    .filter((item) => item.delta < 0)
+    .filter((item) => {
+      // Hanya tampilkan yang benar-benar mengalami penurunan signifikan
+      return item.delta < 0 && item.previous > 0;
+    })
     .sort((a, b) => a.delta - b.delta);
 }
 
-function groupRows(rows: SummaryRow[], group: "product" | "merchant", metric: "qty" | "net") {
+function groupRows(
+  rows: SummaryRow[],
+  group: "product" | "merchant",
+  metric: "qty" | "net",
+) {
   const map = new Map<string, { name: string; value: number }>();
   for (const row of rows) {
-    const key = group === "product" ? row.product_variant_id : row.food_merchant_id;
-    const name = group === "product" ? row.product_variants?.name ?? "-" : row.food_merchants?.name ?? "-";
+    const key =
+      group === "product" ? row.product_variant_id : row.food_merchant_id;
+    const name =
+      group === "product"
+        ? (row.product_variants?.name ?? "-")
+        : (row.food_merchants?.name ?? "-");
     const cur = map.get(key) ?? { name, value: 0 };
     cur.value += metric === "qty" ? row.qty : Number(row.net_profit || 0);
     map.set(key, cur);
@@ -1024,9 +1516,16 @@ function formatMetricValue(value: number, format: "currency" | "number") {
   return value.toLocaleString("id-ID");
 }
 
-function downloadCsv(headers: string[], data: Array<Array<string | number>>, filename: string) {
-  const escapeCell = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
-  const csv = [headers, ...data].map((row) => row.map(escapeCell).join(",")).join("\r\n");
+function downloadCsv(
+  headers: string[],
+  data: Array<Array<string | number>>,
+  filename: string,
+) {
+  const escapeCell = (value: string | number) =>
+    `"${String(value).replace(/"/g, '""')}"`;
+  const csv = [headers, ...data]
+    .map((row) => row.map(escapeCell).join(","))
+    .join("\r\n");
   const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -1048,12 +1547,16 @@ function isLegacyTodayOnlyFilter(savedFilter: Record<string, string>) {
   );
 }
 
-function buildTransactionUrl(filter: DashboardFilter, offset: number, limit: number) {
+function buildTransactionUrl(
+  filter: DashboardFilter,
+  offset: number,
+  limit: number,
+) {
   const params = new URLSearchParams({
     from: filter.from,
     to: filter.to,
     offset: String(offset),
-    limit: String(limit)
+    limit: String(limit),
   });
   if (filter.outlet) params.set("outlet", filter.outlet);
   if (filter.merchant) params.set("merchant", filter.merchant);
@@ -1061,8 +1564,14 @@ function buildTransactionUrl(filter: DashboardFilter, offset: number, limit: num
   return `/api/dashboard/transactions?${params.toString()}`;
 }
 
-async function fetchTransactionPage(filter: DashboardFilter, offset: number, limit: number) {
-  const res = await fetch(buildTransactionUrl(filter, offset, limit), { cache: "no-store" });
+async function fetchTransactionPage(
+  filter: DashboardFilter,
+  offset: number,
+  limit: number,
+) {
+  const res = await fetch(buildTransactionUrl(filter, offset, limit), {
+    cache: "no-store",
+  });
   const data = (await res.json()) as TransactionPage;
   if (!res.ok) throw new Error(data.error ?? "Gagal memuat detail transaksi");
   return data;
@@ -1109,7 +1618,7 @@ function DetailTransactions({ filter }: { filter: DashboardFilter }) {
       ([entry]) => {
         if (entry?.isIntersecting) setIsActive(true);
       },
-      { rootMargin: "300px 0px" }
+      { rootMargin: "300px 0px" },
     );
     observer.observe(target);
     return () => observer.disconnect();
@@ -1129,7 +1638,9 @@ function DetailTransactions({ filter }: { filter: DashboardFilter }) {
       setOffset(page.nextOffset);
       setHasMore(page.hasMore);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal memuat detail transaksi");
+      setError(
+        err instanceof Error ? err.message : "Gagal memuat detail transaksi",
+      );
     } finally {
       loadingRef.current = false;
       setLoading(false);
@@ -1147,7 +1658,7 @@ function DetailTransactions({ filter }: { filter: DashboardFilter }) {
       ([entry]) => {
         if (entry?.isIntersecting) void loadMore();
       },
-      { rootMargin: "400px 0px" }
+      { rootMargin: "400px 0px" },
     );
     observer.observe(target);
     return () => observer.disconnect();
@@ -1158,16 +1669,26 @@ function DetailTransactions({ filter }: { filter: DashboardFilter }) {
       <div className="flex justify-between items-center gap-3 mb-2">
         <h3 className="text-sm font-semibold">Detail Transaksi</h3>
         <span className="text-xs" style={{ color: "var(--muted)" }}>
-          {rows.length ? `${rows.length} dimuat` : isActive ? "Memuat..." : "Belum dimuat"}
+          {rows.length
+            ? `${rows.length} dimuat`
+            : isActive
+              ? "Memuat..."
+              : "Belum dimuat"}
         </span>
       </div>
       <div className="overflow-auto">
         <table className="table">
           <thead>
             <tr>
-              <th>Tanggal</th><th>No. Pesanan</th><th>Outlet</th><th>Merchant</th><th>Produk</th>
-              <th className="text-right">Qty</th><th className="text-right">Harga</th>
-              <th className="text-right">Omset</th><th className="text-right">Potongan</th>
+              <th>Tanggal</th>
+              <th>No. Pesanan</th>
+              <th>Outlet</th>
+              <th>Merchant</th>
+              <th>Produk</th>
+              <th className="text-right">Qty</th>
+              <th className="text-right">Harga</th>
+              <th className="text-right">Omset</th>
+              <th className="text-right">Potongan</th>
               <th className="text-right">Net</th>
             </tr>
           </thead>
@@ -1177,18 +1698,29 @@ function DetailTransactions({ filter }: { filter: DashboardFilter }) {
                 <td>{isoToWIBDisplay(r.transaction_date)}</td>
                 <td>{r.order_number ?? "-"}</td>
                 <td>{r.outlets?.name}</td>
-                <td><MerchantBadge name={r.food_merchants?.name} color={r.food_merchants?.color} /></td>
+                <td>
+                  <MerchantBadge
+                    name={r.food_merchants?.name}
+                    color={r.food_merchants?.color}
+                  />
+                </td>
                 <td>{r.product_variants?.name}</td>
                 <td className="text-right">{r.qty}</td>
                 <td className="text-right">{formatIDR(r.initial_price)}</td>
                 <td className="text-right">{formatIDR(getGross(r))}</td>
                 <td className="text-right">{formatIDR(r.deduction_fee)}</td>
-                <td className="text-right font-medium">{formatIDR(r.net_profit)}</td>
+                <td className="text-right font-medium">
+                  {formatIDR(r.net_profit)}
+                </td>
               </tr>
             ))}
             {isActive && !loading && !error && !rows.length && (
               <tr>
-                <td colSpan={10} className="text-center py-6" style={{ color: "var(--muted)" }}>
+                <td
+                  colSpan={10}
+                  className="text-center py-6"
+                  style={{ color: "var(--muted)" }}
+                >
                   Belum ada transaksi pada rentang ini.
                 </td>
               </tr>
@@ -1197,10 +1729,22 @@ function DetailTransactions({ filter }: { filter: DashboardFilter }) {
         </table>
       </div>
       {error && (
-        <div className="mt-3 text-sm text-red-600 dark:text-red-300">{error}</div>
+        <div className="mt-3 text-sm text-red-600 dark:text-red-300">
+          {error}
+        </div>
       )}
-      <div ref={sentinelRef} className="h-8 flex items-center justify-center text-xs" style={{ color: "var(--muted)" }}>
-        {loading ? "Memuat detail..." : hasMore && rows.length ? "Scroll untuk memuat lagi" : rows.length ? "Semua detail sudah dimuat" : ""}
+      <div
+        ref={sentinelRef}
+        className="h-8 flex items-center justify-center text-xs"
+        style={{ color: "var(--muted)" }}
+      >
+        {loading
+          ? "Memuat detail..."
+          : hasMore && rows.length
+            ? "Scroll untuk memuat lagi"
+            : rows.length
+              ? "Semua detail sudah dimuat"
+              : ""}
       </div>
     </div>
   );
@@ -1211,30 +1755,30 @@ type KPIVariant = "default" | "gross" | "fee" | "percent" | "net";
 const KPI_VARIANTS: Record<KPIVariant, { card: string; value: string }> = {
   default: {
     card: "",
-    value: ""
+    value: "",
   },
   gross: {
     card: "border-l-4 border-l-blue-500 bg-blue-50/70 dark:bg-blue-950/20",
-    value: "text-blue-700 dark:text-blue-300"
+    value: "text-blue-700 dark:text-blue-300",
   },
   fee: {
     card: "border-l-4 border-l-amber-500 bg-amber-50/80 dark:bg-amber-950/20",
-    value: "text-amber-700 dark:text-amber-300"
+    value: "text-amber-700 dark:text-amber-300",
   },
   percent: {
     card: "border-l-4 border-l-cyan-500 bg-cyan-50/80 dark:bg-cyan-950/20",
-    value: "text-cyan-700 dark:text-cyan-300"
+    value: "text-cyan-700 dark:text-cyan-300",
   },
   net: {
     card: "border-l-4 border-l-emerald-500 bg-emerald-50/80 dark:bg-emerald-950/20",
-    value: "text-emerald-700 dark:text-emerald-300"
-  }
+    value: "text-emerald-700 dark:text-emerald-300",
+  },
 };
 
 function KPI({
   title,
   value,
-  variant = "default"
+  variant = "default",
 }: {
   title: string;
   value: string;
@@ -1243,15 +1787,27 @@ function KPI({
   const tone = KPI_VARIANTS[variant];
   return (
     <div className={`card px-3 py-2.5 ${tone.card}`}>
-      <div className="text-[10px] sm:text-xs uppercase tracking-wide" style={{ color: "var(--muted)" }}>{title}</div>
-      <div className={`mt-0.5 text-sm sm:text-lg font-bold leading-tight break-words ${tone.value}`}>{value}</div>
+      <div
+        className="text-[10px] sm:text-xs uppercase tracking-wide"
+        style={{ color: "var(--muted)" }}
+      >
+        {title}
+      </div>
+      <div
+        className={`mt-0.5 text-sm sm:text-lg font-bold leading-tight break-words ${tone.value}`}
+      >
+        {value}
+      </div>
     </div>
   );
 }
 
 function EmptyChart() {
   return (
-    <div className="h-full flex items-center justify-center text-sm" style={{ color: "var(--muted)" }}>
+    <div
+      className="h-full flex items-center justify-center text-sm"
+      style={{ color: "var(--muted)" }}
+    >
       Tidak ada data untuk grafik ini.
     </div>
   );

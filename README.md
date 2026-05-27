@@ -1,65 +1,189 @@
-# Rekap Penjualan Abon Gulung Rajaklana
+# 🥩 Rekap Penjualan Abon Gulung Rajaklana
 
-Sistem rekapitulasi & analisis penjualan multi-outlet (GoFood/GrabFood/ShopeeFood) berbasis Next.js + Supabase.
+**Sistem rekapitulasi & analisis penjualan multi-outlet** untuk Abon Gulung Rajaklana yang dijual melalui berbagai platform food merchant (GoFood, GrabFood, ShopeeFood).
 
-## Stack
-- Next.js 14 (App Router) + TypeScript + Tailwind
-- Supabase (Postgres + Auth + RLS)
-- Recharts (grafik), export CSV native browser
+---
 
-## Cara Setup (urut)
+## ✨ Fitur Unggulan
 
-### 1. Install dependency
+- 📊 **Dashboard Analitik** — 7 tab visualisasi interaktif (tren harian, produk terlaris, profit merchant, performa outlet, jam ramai, insight otomatis, detail transaksi)
+- 📝 **Manajemen Transaksi** — Input multi-varian dengan perhitungan komisi otomatis
+- 🏪 **Master Data CRUD** — Outlet, food merchant (dengan warna badge), varian produk & pricing matrix, akun kasir
+- 🔐 **Role-based Access** — Super Admin & Kasir, diamankan dengan Row Level Security PostgreSQL
+- 🌙 **Dark/Light Mode** — Toggle tema dengan anti-flicker script
+- 📥 **Export CSV** — Semua tab dashboard bisa diexport
+- 📱 **Responsive Design** — Mobile-friendly dengan sidebar drawer + floating filter button
+- ⏰ **Timezone WIB** — Semua timestamp dikelola dalam waktu Jakarta (Asia/Jakarta)
+
+---
+
+## 🛠 Stack
+
+| Layer          | Teknologi                                                                   | Versi      |
+| -------------- | --------------------------------------------------------------------------- | ---------- |
+| **Framework**  | [Next.js](https://nextjs.org/) (App Router)                                 | 16.2+      |
+| **Frontend**   | [React](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) | 19.x / 5.x |
+| **Styling**    | [Tailwind CSS](https://tailwindcss.com/)                                    | 3.4+       |
+| **Database**   | [Supabase](https://supabase.com/) (PostgreSQL)                              | -          |
+| **Auth**       | Supabase Auth + Row Level Security                                          | -          |
+| **Charting**   | [Recharts](https://recharts.org/)                                           | 2.12+      |
+| **Icons**      | [lucide-react](https://lucide.dev/)                                         | 0.439+     |
+| **Validation** | [zod](https://zod.dev/)                                                     | 3.23+      |
+| **Date**       | date-fns + Intl.DateTimeFormat                                              | -          |
+| **Formatting** | ESLint                                                                      | 9.x        |
+
+---
+
+## 🚀 Panduan Cepat
+
+### 1. Prasyarat
+
+- Node.js 18+ (recommended: 20+)
+- npm atau yarn
+- Akun Supabase (free tier cukup)
+
+### 2. Clone & Install
+
 ```bash
+git clone https://github.com/yoga12-rgb/rekap-penjualan-online.git
+cd rekap-penjualan-online
 npm install
 ```
 
-### 2. Buat project Supabase
-- Buka https://supabase.com → New Project.
-- Copy: Project URL, anon key, service_role key.
+### 3. Setup Supabase
 
-### 3. Konfigurasi env
-Copy `.env.example` → `.env.local`, lalu isi:
+1. Buka [supabase.com](https://supabase.com) → New Project
+2. Catat **Project URL**, **anon key**, **service_role key** dari Settings → API
+3. Buka SQL Editor → paste isi `supabase/schema.sql` → Run
+4. (Opsional) Paste `supabase/seed.sql` untuk data contoh
+
+### 4. Konfigurasi Environment
+
+```bash
+cp .env.example .env.local
 ```
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
+
+Isi `.env.local`:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
 ```
 
-### 4. Jalankan SQL schema
-Di Supabase Dashboard → SQL Editor → tempel isi `supabase/schema.sql` → Run.
-Lalu (opsional) tempel `supabase/seed.sql` untuk data awal.
+### 5. Buat Super Admin Pertama
 
-### 5. Buat Super Admin pertama
-- Supabase Dashboard → Authentication → Users → Add user (email + password).
-- Salin UID user → di SQL Editor jalankan:
+1. Supabase Dashboard → Authentication → Users → Add User (email + password)
+2. Salin UID user yang baru dibuat
+3. Di SQL Editor, jalankan:
+
 ```sql
 insert into public.profiles (id, full_name, role)
 values ('USER-UID-DI-SINI', 'Super Admin', 'super_admin')
-on conflict (id) do update set role='super_admin';
+on conflict (id) do update set role = 'super_admin';
 ```
 
-### 6. Jalankan dev server
+### 6. Jalankan Development
+
 ```bash
 npm run dev
 ```
-Buka http://localhost:3000 dan login.
 
-## Hak Akses
+Buka [http://localhost:3000](http://localhost:3000) dan login.
 
-| Menu                        | Super Admin | Kasir |
-|----------------------------|:----------:|:-----:|
-| Dashboard (semua outlet)   | ✅ | hanya outletnya |
-| Transaksi (CRUD)           | ✅ semua | ✅ tapi terbatas outletnya |
-| Master Outlet/Merchant/Produk | ✅ | ❌ |
-| Akun Kasir                 | ✅ | ❌ |
+### 7. Build Production
 
-RLS Postgres yang menjaga akses data — bukan hanya UI.
+```bash
+npm run build
+npm start
+```
 
-## Logika Bisnis Penting
-- Harga di transaksi disimpan **statis** pada kolom `initial_price`. Mengubah master harga produk **tidak** mempengaruhi transaksi yang sudah tersimpan.
-- `net_profit` dihitung sebagai generated column: `(qty * initial_price) - deduction_fee`.
-- Potongan komisi diisi nominal manual per transaksi.
+---
 
-## Deploy
-Vercel: Import repo, set 3 env var di project settings, deploy.
+## 🔐 Hak Akses
+
+| Menu                     |   Super Admin   |        Kasir         |
+| ------------------------ | :-------------: | :------------------: |
+| Dashboard (semua outlet) |       ✅        | ❌ (hanya outletnya) |
+| Dashboard (filter)       |  Semua filter   | Tanpa filter outlet  |
+| Transaksi — Lihat        |    ✅ Semua     |  ✅ Outlet sendiri   |
+| Transaksi — Tambah       | ✅ Semua outlet | ✅ Outlet ditugaskan |
+| Transaksi — Edit         |       ✅        |  ✅ Outlet sendiri   |
+| Transaksi — Hapus        |       ✅        |  ✅ Outlet sendiri   |
+| Master Outlet            |       ✅        |          ❌          |
+| Master Merchant          |       ✅        |          ❌          |
+| Master Produk            |       ✅        |          ❌          |
+| Akun Kasir               |       ✅        |          ❌          |
+
+> Semua akses diamankan oleh **Row Level Security PostgreSQL** — bukan hanya UI.
+
+---
+
+## 📖 Logika Bisnis Penting
+
+- **Harga statis**: Harga di transaksi disimpan pada kolom `initial_price`. Mengubah master harga produk **tidak** mempengaruhi transaksi yang sudah tersimpan.
+- **Net profit otomatis**: `net_profit` adalah **generated column**: `(qty * initial_price) - deduction_fee`. Data selalu konsisten.
+- **Komisi proporsional**: Potongan komisi dibagi proporsional ke setiap item berdasarkan omset.
+- **Perbandingan periode**: Dashboard otomatis membandingkan periode saat ini dengan periode sebelumnya (panjang hari sama).
+
+---
+
+## 📂 Struktur Proyek
+
+```
+📁 src/
+├── 📁 app/              # Next.js App Router pages
+│   ├── login/           # Halaman login
+│   ├── (app)/           # Layout terotentikasi
+│   │   ├── dashboard/   # Dashboard analitik
+│   │   ├── transactions/ # CRUD transaksi
+│   │   └── masters/     # Master data (merchants, outlets, products, users)
+│   └── api/             # API Route Handlers
+├── 📁 components/       # Komponen reusable
+├── 📁 lib/              # Utility functions
+│   └── supabase/        # Supabase clients
+📁 supabase/
+├── schema.sql           # Full database schema
+├── seed.sql             # Data awal
+└── migrations/          # Migrasi
+```
+
+---
+
+## 📘 Dokumentasi Lengkap
+
+Lihat **[DOCUMENTATION.md](./DOCUMENTATION.md)** untuk dokumentasi lengkap yang mencakup:
+
+- Panduan instalasi detail
+- Struktur database & Entity Relationship Diagram
+- Panduan penggunaan fitur per fitur
+- API endpoints & Server Actions reference
+- Troubleshooting & maintenance
+- Checklist deploy production
+
+---
+
+## ☁️ Deploy ke Vercel
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fyoga12-rgb%2Frekap-penjualan-online)
+
+1. Push repository ke GitHub
+2. Buka [vercel.com](https://vercel.com) → Import repository
+3. Set environment variables:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=<url>
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
+   SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+   ```
+4. Deploy ✅
+
+---
+
+## 📞 Kontak & Support
+
+- **WhatsApp**: [085374748881](https://wa.me/6285374748881?text=Halo%2C%20saya%20ingin%20buat%20akun%20Rajaklana%20Sales%20Recap.)
+- **Repository**: [github.com/yoga12-rgb/rekap-penjualan-online](https://github.com/yoga12-rgb/rekap-penjualan-online)
+
+---
+
+> Dibuat dengan ❤️ untuk Rajaklana Abon Gulung

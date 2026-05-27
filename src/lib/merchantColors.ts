@@ -18,25 +18,79 @@ export type MerchantTheme = {
 const PRESETS: { match: RegExp; theme: MerchantTheme }[] = [
   {
     match: /gofood|go-food|gojek/i,
-    theme: { bg: "#e11d2a", fg: "#ffffff", ring: "#e11d2a40", soft: "#fee2e2", softFg: "#b91c1c" }
+    theme: {
+      bg: "#e11d2a",
+      fg: "#ffffff",
+      ring: "#e11d2a40",
+      soft: "#fee2e2",
+      softFg: "#b91c1c",
+    },
   },
   {
     match: /grabfood|grab-food|grab/i,
-    theme: { bg: "#00b14f", fg: "#ffffff", ring: "#00b14f40", soft: "#d1fae5", softFg: "#047857" }
+    theme: {
+      bg: "#00b14f",
+      fg: "#ffffff",
+      ring: "#00b14f40",
+      soft: "#d1fae5",
+      softFg: "#047857",
+    },
   },
   {
     match: /shopee/i,
-    theme: { bg: "#ee4d2d", fg: "#ffffff", ring: "#ee4d2d40", soft: "#ffedd5", softFg: "#c2410c" }
-  }
+    theme: {
+      bg: "#ee4d2d",
+      fg: "#ffffff",
+      ring: "#ee4d2d40",
+      soft: "#ffedd5",
+      softFg: "#c2410c",
+    },
+  },
 ];
 
 const FALLBACK_PALETTE: MerchantTheme[] = [
-  { bg: "#6366f1", fg: "#fff", ring: "#6366f140", soft: "#e0e7ff", softFg: "#4338ca" },
-  { bg: "#0ea5e9", fg: "#fff", ring: "#0ea5e940", soft: "#e0f2fe", softFg: "#0369a1" },
-  { bg: "#a855f7", fg: "#fff", ring: "#a855f740", soft: "#f3e8ff", softFg: "#7e22ce" },
-  { bg: "#f59e0b", fg: "#fff", ring: "#f59e0b40", soft: "#fef3c7", softFg: "#b45309" },
-  { bg: "#14b8a6", fg: "#fff", ring: "#14b8a640", soft: "#ccfbf1", softFg: "#0f766e" },
-  { bg: "#ec4899", fg: "#fff", ring: "#ec489940", soft: "#fce7f3", softFg: "#be185d" }
+  {
+    bg: "#6366f1",
+    fg: "#fff",
+    ring: "#6366f140",
+    soft: "#e0e7ff",
+    softFg: "#4338ca",
+  },
+  {
+    bg: "#0ea5e9",
+    fg: "#fff",
+    ring: "#0ea5e940",
+    soft: "#e0f2fe",
+    softFg: "#0369a1",
+  },
+  {
+    bg: "#a855f7",
+    fg: "#fff",
+    ring: "#a855f740",
+    soft: "#f3e8ff",
+    softFg: "#7e22ce",
+  },
+  {
+    bg: "#f59e0b",
+    fg: "#fff",
+    ring: "#f59e0b40",
+    soft: "#fef3c7",
+    softFg: "#b45309",
+  },
+  {
+    bg: "#14b8a6",
+    fg: "#fff",
+    ring: "#14b8a640",
+    soft: "#ccfbf1",
+    softFg: "#0f766e",
+  },
+  {
+    bg: "#ec4899",
+    fg: "#fff",
+    ring: "#ec489940",
+    soft: "#fce7f3",
+    softFg: "#be185d",
+  },
 ];
 
 function hashIdx(s: string, mod: number) {
@@ -64,18 +118,19 @@ function pickFg(bg: string) {
 /** Bangun theme dari hex tunggal: bg + fg auto + soft (dengan alpha) */
 function themeFromHex(hex: string): MerchantTheme {
   const fg = pickFg(hex);
+  const softFg = pickFg(hex);
   return {
     bg: hex,
     fg,
     ring: `${hex}40`,
     soft: `${hex}1f`,
-    softFg: hex
+    softFg,
   };
 }
 
 export function getMerchantTheme(
   name: string | null | undefined,
-  customHex?: string | null
+  customHex?: string | null,
 ): MerchantTheme {
   if (customHex && /^#[0-9a-fA-F]{6}$/.test(customHex)) {
     return themeFromHex(customHex.toLowerCase());
@@ -86,6 +141,9 @@ export function getMerchantTheme(
 }
 
 /** Util: dapatkan hex bg yang akan dipakai (untuk inisialisasi color picker) */
-export function resolvedHex(name: string | null | undefined, customHex?: string | null) {
+export function resolvedHex(
+  name: string | null | undefined,
+  customHex?: string | null,
+) {
   return getMerchantTheme(name, customHex).bg;
 }

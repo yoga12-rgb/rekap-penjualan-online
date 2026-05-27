@@ -9,11 +9,27 @@ export function formatIDR(n: number) {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
-    maximumFractionDigits: 0
+    maximumFractionDigits: 0,
   }).format(Number.isFinite(n) ? n : 0);
 }
 
 export function toISODateInput(d: Date) {
   const pad = (x: number) => String(x).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
+ * Generate UUID v4 yang aman di semua konteks (termasuk HTTP non-HTTPS).
+ * Fallback: crypto.randomUUID() → manual Math.random().
+ */
+export function generateUUID(): string {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    // Fallback untuk non-secure context (HTTP)
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+    });
+  }
 }

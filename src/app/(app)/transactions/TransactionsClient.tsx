@@ -47,6 +47,16 @@ type Group = {
   net: number;
 };
 type TransactionDatePreset = "today" | "7d" | "30d" | "ytd";
+type TransactionFilter = {
+  from: string;
+  to: string;
+  outlet: string;
+  merchant: string;
+  variant: string;
+  q: string;
+  rangeWasReversed?: boolean;
+};
+type TransactionFilterKey = "from" | "to" | "outlet" | "merchant" | "variant" | "q";
 const TRANSACTIONS_FILTER_STORAGE_KEY = "transactions-filters";
 const INITIAL_VISIBLE_GROUPS = 12;
 const GROUPS_PER_LOAD = 12;
@@ -60,7 +70,7 @@ export function TransactionsClient({
   merchants: Merchant[];
   variants: Variant[];
   rows: Row[];
-  filter: { from: string; to: string; outlet: string; merchant: string; variant: string; q: string; rangeWasReversed?: boolean };
+  filter: TransactionFilter;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -72,7 +82,14 @@ export function TransactionsClient({
   const [filterPending, startFilterTransition] = useTransition();
   const [deletePending, startDelete] = useTransition();
   const [deletingOrder, setDeletingOrder] = useState<Group | null>(null);
-  const [search, setSearch] = useState(filter.q);
+  const [draftFilter, setDraftFilter] = useState<TransactionFilter>({
+    from: filter.from,
+    to: filter.to,
+    outlet: filter.outlet,
+    merchant: filter.merchant,
+    variant: filter.variant,
+    q: filter.q,
+  });
   const [visibleGroupCount, setVisibleGroupCount] = useState(INITIAL_VISIBLE_GROUPS);
   const [showFloatingFilter, setShowFloatingFilter] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -97,8 +114,15 @@ export function TransactionsClient({
   }, [router, sp]);
 
   useEffect(() => {
-    setSearch(filter.q);
-  }, [filter.q]);
+    setDraftFilter({
+      from: filter.from,
+      to: filter.to,
+      outlet: filter.outlet,
+      merchant: filter.merchant,
+      variant: filter.variant,
+      q: filter.q,
+    });
+  }, [filter.from, filter.to, filter.outlet, filter.merchant, filter.variant, filter.q]);
 
   useEffect(() => {
     if (skipNextFilterSave.current) {
@@ -115,9 +139,21 @@ export function TransactionsClient({
     localStorage.setItem(TRANSACTIONS_FILTER_STORAGE_KEY, JSON.stringify(Object.fromEntries(params)));
   }, [filter.from, filter.to, filter.outlet, filter.merchant, filter.variant, filter.q]);
 
-  function setParam(key: string, value: string) {
-    const next = new URLSearchParams(sp.toString());
-    if (value) next.set(key, value); else next.delete(key);
+  function buildFilterParams(nextFilter: TransactionFilter) {
+    const next = new URLSearchParams();
+    next.set("from", nextFilter.from);
+    next.set("to", nextFilter.to);
+    if (nextFilter.outlet) next.set("outlet", nextFilter.outlet);
+    if (nextFilter.merchant) next.set("merchant", nextFilter.merchant);
+    if (nextFilter.variant) next.set("variant", nextFilter.variant);
+    if (nextFilter.q) next.set("q", nextFilter.q);
+    return next;
+  }
+  function setDraftParam(key: TransactionFilterKey, value: string) {
+    setDraftFilter((current) => ({ ...current, [key]: value }));
+  }
+  function applyFilter(nextFilter = draftFilter) {
+    const next = buildFilterParams(nextFilter);
     startFilterTransition(() => router.push(`/transactions?${next.toString()}`));
   }
   function getPresetRange(preset: TransactionDatePreset) {
@@ -133,16 +169,22 @@ export function TransactionsClient({
   }
 
   function setRangePreset(preset: TransactionDatePreset) {
-    const next = new URLSearchParams(sp.toString());
     const range = getPresetRange(preset);
-    next.set("from", range.from);
-    next.set("to", range.to);
-    startFilterTransition(() => router.push(`/transactions?${next.toString()}`));
+    const nextFilter = { ...draftFilter, from: range.from, to: range.to };
+    setDraftFilter(nextFilter);
+    applyFilter(nextFilter);
   }
   function clearFilter() {
     localStorage.removeItem(TRANSACTIONS_FILTER_STORAGE_KEY);
     startFilterTransition(() => router.push("/transactions"));
-    setSearch("");
+    setDraftFilter({
+      from: daysAgoWIBKey(6),
+      to: todayWIBKey(),
+      outlet: "",
+      merchant: "",
+      variant: "",
+      q: "",
+    });
   }
 
   const hasActiveFilter =
@@ -152,6 +194,13 @@ export function TransactionsClient({
     !!filter.merchant ||
     !!filter.variant ||
     !!filter.q;
+  const hasDraftChanges =
+    draftFilter.from !== filter.from ||
+    draftFilter.to !== filter.to ||
+    draftFilter.outlet !== filter.outlet ||
+    draftFilter.merchant !== filter.merchant ||
+    draftFilter.variant !== filter.variant ||
+    draftFilter.q !== filter.q;
 
   const filteredRows = useMemo(() => {
     if (!filter.q) return rows;
@@ -284,21 +333,21 @@ export function TransactionsClient({
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
           <div>
             <label className="label">Dari</label>
-            <input type="date" className="input" value={filter.from}
-                   onChange={(e) => setParam("from", e.target.value)} />
+            <input type="date" className="input" value={draftFilter.from}
+                   onChange={(e) => setDraftParam("from", e.target.value)} />
           </div>
           <div>
             <label className="label">Sampai</label>
-            <input type="date" className="input" value={filter.to}
-                   onChange={(e) => setParam("to", e.target.value)} />
+            <input type="date" className="input" value={draftFilter.to}
+                   onChange={(e) => setDraftParam("to", e.target.value)} />
           </div>
           {role === "super_admin" && (
             <div>
               <label className="label">Outlet</label>
               <Combobox
                 options={outlets.map((o) => ({ value: o.id, label: o.name }))}
-                value={filter.outlet}
-                onChange={(v) => setParam("outlet", v)}
+                value={draftFilter.outlet}
+                onChange={(v) => setDraftParam("outlet", v)}
                 placeholder="Semua"
                 clearable
               />
@@ -308,8 +357,8 @@ export function TransactionsClient({
             <label className="label">Merchant</label>
             <Combobox
               options={merchants.map((m) => ({ value: m.id, label: m.name }))}
-              value={filter.merchant}
-              onChange={(v) => setParam("merchant", v)}
+              value={draftFilter.merchant}
+              onChange={(v) => setDraftParam("merchant", v)}
               placeholder="Semua"
               clearable
             />
@@ -317,9 +366,9 @@ export function TransactionsClient({
           <div>
             <label className="label">Varian</label>
             <Combobox
-              options={variants.map((v) => ({ value: v.id, label: v.name, hint: getVariantHint(v, filter.merchant) }))}
-              value={filter.variant}
-              onChange={(v) => setParam("variant", v)}
+              options={variants.map((v) => ({ value: v.id, label: v.name, hint: getVariantHint(v, draftFilter.merchant) }))}
+              value={draftFilter.variant}
+              onChange={(v) => setDraftParam("variant", v)}
               placeholder="Semua"
               clearable
             />
@@ -330,13 +379,19 @@ export function TransactionsClient({
               type="text"
               className="input"
               placeholder="no. pesanan / produk / outlet..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") setParam("q", search); }}
-              onBlur={() => { if (search !== filter.q) setParam("q", search); }}
+              value={draftFilter.q}
+              onChange={(e) => setDraftParam("q", e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") applyFilter(); }}
             />
           </div>
         </div>
+        <button
+          className="btn-outline w-full sm:w-auto"
+          onClick={() => applyFilter()}
+          disabled={!hasDraftChanges || filterPending}
+        >
+          Terapkan Filter
+        </button>
         <div className="flex flex-wrap gap-2">
           <DatePresetButton active={isPresetActive("today")} onClick={() => setRangePreset("today")}>Hari ini</DatePresetButton>
           <DatePresetButton active={isPresetActive("7d")} onClick={() => setRangePreset("7d")}>7 Hari</DatePresetButton>

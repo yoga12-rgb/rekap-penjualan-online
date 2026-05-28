@@ -169,7 +169,7 @@ export async function updateOrder(payload: unknown) {
 }
 
 export async function deleteOrder(orderId: string) {
-  const profile = await requireProfile();
+  await requireProfile();
 
   // Validasi format UUID
   const uuidResult = z.string().uuid().safeParse(orderId);

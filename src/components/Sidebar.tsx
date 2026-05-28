@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   LayoutDashboard, ReceiptText, Store, UtensilsCrossed,
-  Package, Users, Menu, X, PanelLeftClose, PanelLeftOpen, type LucideIcon
+  Package, Users, Menu, X, PanelLeftClose, PanelLeftOpen, Megaphone, type LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -12,7 +12,8 @@ type Item = { href: string; label: string; icon: LucideIcon };
 
 const MAIN: Item[] = [
   { href: "/dashboard",    label: "Dashboard", icon: LayoutDashboard },
-  { href: "/transactions", label: "Transaksi", icon: ReceiptText }
+  { href: "/transactions", label: "Transaksi", icon: ReceiptText },
+  { href: "/ad-costs",     label: "Biaya Iklan", icon: Megaphone }
 ];
 
 const MASTERS: Item[] = [

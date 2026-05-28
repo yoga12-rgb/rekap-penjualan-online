@@ -60,12 +60,28 @@ create table if not exists public.transactions (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.daily_ad_costs (
+  id uuid primary key default gen_random_uuid(),
+  cost_date date not null,
+  outlet_id uuid not null references public.outlets(id) on delete restrict,
+  food_merchant_id uuid not null references public.food_merchants(id) on delete restrict,
+  amount numeric(12,2) not null default 0 check (amount >= 0),
+  note text,
+  created_by uuid not null references public.profiles(id) on delete restrict,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(cost_date, outlet_id, food_merchant_id)
+);
+
 create index if not exists idx_tx_date on public.transactions(transaction_date desc);
 create index if not exists idx_tx_order on public.transactions(order_id);
 create index if not exists idx_tx_order_number on public.transactions(order_number);
 create index if not exists idx_tx_outlet on public.transactions(outlet_id);
 create index if not exists idx_tx_merchant on public.transactions(food_merchant_id);
 create index if not exists idx_tx_variant on public.transactions(product_variant_id);
+create index if not exists idx_ad_costs_date on public.daily_ad_costs(cost_date desc);
+create index if not exists idx_ad_costs_outlet on public.daily_ad_costs(outlet_id);
+create index if not exists idx_ad_costs_merchant on public.daily_ad_costs(food_merchant_id);
 create index if not exists idx_variant_prices_product on public.product_variant_prices(product_variant_id);
 create index if not exists idx_variant_prices_merchant on public.product_variant_prices(food_merchant_id);
 
@@ -81,6 +97,10 @@ create trigger trg_tx_updated_at before update on public.transactions
 
 drop trigger if exists trg_variant_prices_updated_at on public.product_variant_prices;
 create trigger trg_variant_prices_updated_at before update on public.product_variant_prices
+  for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_ad_costs_updated_at on public.daily_ad_costs;
+create trigger trg_ad_costs_updated_at before update on public.daily_ad_costs
   for each row execute function public.set_updated_at();
 
 -- 3. HELPER FUNCTIONS (untuk RLS) -------------------------------------
@@ -103,6 +123,7 @@ alter table public.food_merchants   enable row level security;
 alter table public.product_variants enable row level security;
 alter table public.product_variant_prices enable row level security;
 alter table public.transactions     enable row level security;
+alter table public.daily_ad_costs   enable row level security;
 
 -- 5. POLICIES ----------------------------------------------------------
 
@@ -165,4 +186,28 @@ create policy "tx_update" on public.transactions for update
 
 drop policy if exists "tx_delete" on public.transactions;
 create policy "tx_delete" on public.transactions for delete
+  using ( public.is_super_admin() or outlet_id = public.my_outlet_id() );
+
+-- daily ad costs:
+--   super_admin: full access
+--   kasir: hanya outlet miliknya
+drop policy if exists "ad_costs_select" on public.daily_ad_costs;
+create policy "ad_costs_select" on public.daily_ad_costs for select
+  using ( public.is_super_admin() or outlet_id = public.my_outlet_id() );
+
+drop policy if exists "ad_costs_admin_write" on public.daily_ad_costs;
+drop policy if exists "ad_costs_insert" on public.daily_ad_costs;
+create policy "ad_costs_insert" on public.daily_ad_costs for insert
+  with check (
+    public.is_super_admin()
+    or (outlet_id = public.my_outlet_id() and created_by = auth.uid())
+  );
+
+drop policy if exists "ad_costs_update" on public.daily_ad_costs;
+create policy "ad_costs_update" on public.daily_ad_costs for update
+  using ( public.is_super_admin() or outlet_id = public.my_outlet_id() )
+  with check ( public.is_super_admin() or outlet_id = public.my_outlet_id() );
+
+drop policy if exists "ad_costs_delete" on public.daily_ad_costs;
+create policy "ad_costs_delete" on public.daily_ad_costs for delete
   using ( public.is_super_admin() or outlet_id = public.my_outlet_id() );

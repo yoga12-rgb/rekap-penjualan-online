@@ -29,6 +29,7 @@ Aplikasi ini dibuat untuk merekap dan menganalisis penjualan **Abon Gulung Rajak
 
 - 📊 **Dashboard Analitik** — 7 tab visualisasi data (tren harian, produk terlaris, profit merchant, performa outlet, jam ramai, insight otomatis, detail transaksi)
 - 📝 **Manajemen Transaksi** — Input multi-varian dengan perhitungan komisi otomatis
+- 📣 **Biaya Iklan Harian** — Catat biaya iklan per outlet + merchant, terpisah dari potongan admin transaksi
 - 🏪 **Master Data** — CRUD untuk outlet, food merchant, varian produk, dan akun kasir
 - 🔐 **Role-based Access** — Super Admin vs Kasir dengan RLS database
 - 🌙 **Dark/Light Mode** — Toggle tema
@@ -40,7 +41,7 @@ Aplikasi ini dibuat untuk merekap dan menganalisis penjualan **Abon Gulung Rajak
 | Role            | Kemampuan                                                               |
 | --------------- | ----------------------------------------------------------------------- |
 | **Super Admin** | Akses penuh: melihat semua data, analisis, mengelola master data & user |
-| **Kasir**       | Terbatas: input transaksi hanya untuk outlet yang ditugaskan            |
+| **Kasir**       | Terbatas: input transaksi dan biaya iklan hanya untuk outlet yang ditugaskan |
 
 ---
 
@@ -83,6 +84,7 @@ Aplikasi ini dibuat untuk merekap dan menganalisis penjualan **Abon Gulung Rajak
 │   │   │   │   ├── TransactionsClient.tsx # Client component (CRUD + filter)
 │   │   │   │   ├── actions.ts           # Server Actions (create/update/delete)
 │   │   │   │   └── loading.tsx
+│   │   │   ├── 📁 ad-costs/             # Biaya iklan harian
 │   │   │   └── 📁 masters/              # Master data CRUD
 │   │   │       ├── 📁 merchants/        # Food merchant
 │   │   │       ├── 📁 outlets/          # Outlet cabang
@@ -181,7 +183,8 @@ npm install
 1. Buka [supabase.com](https://supabase.com) → **New Project**
 2. Catat **Project URL**, **anon key**, dan **service_role key** dari Settings → API
 3. Buka SQL Editor → paste isi `supabase/schema.sql` → **Run**
-4. (Opsional) Paste `supabase/seed.sql` untuk data contoh
+4. Jika database sudah ada, jalankan migrasi bertahap di `supabase/migrations/` sesuai nomor versi, termasuk `007_daily_ad_costs.sql` untuk fitur biaya iklan harian
+5. (Opsional) Paste `supabase/seed.sql` untuk data contoh
 
 ### Langkah 3: Konfigurasi Environment
 
@@ -324,6 +327,20 @@ Buka `http://localhost:3000` dan login dengan email yang didaftarkan.
 | **net_profit**          | **NUMERIC(14,2)** | **GENERATED ALWAYS AS** `(qty * initial_price) - deduction_fee` |
 | created_at / updated_at | TIMESTAMPTZ       | Auto                                                            |
 
+#### `daily_ad_costs`
+
+| Kolom                   | Tipe          | Keterangan                                      |
+| ----------------------- | ------------- | ----------------------------------------------- |
+| id                      | UUID (PK)     | Auto-generate                                   |
+| cost_date               | DATE          | Tanggal biaya iklan                             |
+| outlet_id               | UUID (FK)     | Ref → outlets(id) RESTRICT                      |
+| food_merchant_id        | UUID (FK)     | Ref → food_merchants(id) RESTRICT               |
+| amount                  | NUMERIC(12,2) | Nominal biaya iklan harian (≥0)                 |
+| note                    | TEXT          | Catatan opsional                                |
+| created_by              | UUID (FK)     | Ref → profiles(id) RESTRICT                     |
+| created_at / updated_at | TIMESTAMPTZ   | Auto                                            |
+| UNIQUE                  | -             | `(cost_date, outlet_id, food_merchant_id)`      |
+
 ### Indexes
 
 ```sql
@@ -335,6 +352,9 @@ idx_tx_merchant (food_merchant_id)
 idx_tx_variant (product_variant_id)
 idx_variant_prices_product (product_variant_id)
 idx_variant_prices_merchant (food_merchant_id)
+idx_ad_costs_date (cost_date DESC)
+idx_ad_costs_outlet (outlet_id)
+idx_ad_costs_merchant (food_merchant_id)
 ```
 
 ### Row Level Security (RLS)
@@ -349,6 +369,11 @@ Kebijakan per tabel:
 - **Master tables** (outlets, food_merchants, product_variants, product_variant_prices): semua login bisa SELECT, hanya super_admin yang INSERT/UPDATE/DELETE
 - **Profiles**: user bisa SELECT profil sendiri, super_admin bisa SELECT semua; hanya super_admin yang bisa menulis
 - **Transactions**:
+  - **SELECT**: super_admin semua, kasir hanya outlet sendiri
+  - **INSERT**: super_admin semua, kasir hanya untuk outlet sendiri & `created_by = auth.uid()`
+  - **UPDATE**: super_admin semua, kasir hanya outlet sendiri
+  - **DELETE**: super_admin semua, kasir hanya outlet sendiri
+- **Daily ad costs**:
   - **SELECT**: super_admin semua, kasir hanya outlet sendiri
   - **INSERT**: super_admin semua, kasir hanya untuk outlet sendiri & `created_by = auth.uid()`
   - **UPDATE**: super_admin semua, kasir hanya outlet sendiri
@@ -368,6 +393,10 @@ Kebijakan per tabel:
 | Transaksi — Tambah       | ✅ Semua outlet | ✅ Outlet ditugaskan |
 | Transaksi — Edit         |       ✅        |  ✅ Outlet sendiri   |
 | Transaksi — Hapus        |       ✅        |  ✅ Outlet sendiri   |
+| Biaya Iklan — Lihat      |    ✅ Semua     |  ✅ Outlet sendiri   |
+| Biaya Iklan — Tambah     | ✅ Semua outlet | ✅ Outlet ditugaskan |
+| Biaya Iklan — Edit       |       ✅        |  ✅ Outlet sendiri   |
+| Biaya Iklan — Hapus      |       ✅        |  ✅ Outlet sendiri   |
 | Master Outlet            |       ✅        |          ❌          |
 | Master Merchant          |       ✅        |          ❌          |
 | Master Produk            |       ✅        |          ❌          |
@@ -398,7 +427,7 @@ Tampilkan UI sesuai role
 #### Filter Data
 
 ```
-[ Dari ▼ ] [ Sampai ▼ ] [ Outlet ▼ ] [ Merchant ▼ ] [ Varian ▼ ] [ Export CSV ]
+[ Dari ▼ ] [ Sampai ▼ ] [ Outlet ▼ ] [ Merchant ▼ ] [ Varian ▼ ] [ Terapkan Filter ] [ Export CSV ]
 [Hari ini] [7H] [30H] [Bulan ini] [Bulan lalu] [YTD] [Tahun] [Reset]
 ```
 
@@ -406,16 +435,17 @@ Tampilkan UI sesuai role
 
 1. Pilih rentang tanggal (atau gunakan preset cepat)
 2. Filter berdasarkan outlet, merchant, varian produk (atau biarkan "Semua")
-3. Klik **Export** untuk download CSV tab yang aktif
+3. Klik **Terapkan Filter** untuk mengambil data baru. Preset tanggal langsung diterapkan.
+4. Klik **Export** untuk download CSV tab yang aktif
 
 #### Tab Analitik
 
 | Tab                  | Fungsi                                                       | Visualisasi       |
 | -------------------- | ------------------------------------------------------------ | ----------------- |
-| **Tren Harian**      | Grafik garis omset, net profit, potongan per hari            | Line Chart        |
+| **Tren Harian**      | Grafik garis omset, net profit, profit bersih, potongan, dan biaya iklan per hari | Line Chart        |
 | **Produk Terlaris**  | Top 10 produk berdasarkan quantity                           | Bar Chart + Tabel |
-| **Profit Merchant**  | Net profit per food merchant dengan warna badge              | Bar Chart (warna) |
-| **Outlet**           | Performa per outlet (omset, net, qty, transaksi)             | Bar Chart + Tabel |
+| **Profit Merchant**  | Profit bersih per food merchant dengan warna badge           | Bar Chart (warna) |
+| **Outlet**           | Performa per outlet (omset, net, biaya iklan, profit bersih, qty, transaksi) | Bar Chart + Tabel |
 | **Jam Ramai**        | Distribusi transaksi per jam (24 jam)                        | Bar Chart + Tabel |
 | **Insight**          | Perbandingan periode + insight otomatis + penurunan performa | Kartu + Tabel     |
 | **Detail Transaksi** | List semua transaksi (infinite scroll)                       | Tabel             |
@@ -426,6 +456,8 @@ Tampilkan UI sesuai role
 - Total Potongan Admin
 - Potongan Admin (%)
 - Net Profit
+- Biaya Iklan
+- Profit Bersih
 - Total Qty
 - Total Transaksi
 - Rata-rata Omset
@@ -469,9 +501,21 @@ Tampilkan UI sesuai role
 - Rentang tanggal (dengan preset cepat: Hari ini, 7H, 30H, YTD)
 - Filter outlet, merchant, varian
 - Pencarian teks (no. pesanan / produk / outlet / merchant)
+- Klik **Terapkan Filter** untuk mengambil data baru; preset tanggal langsung diterapkan
 - Filter tersimpan ke localStorage & URL
 
-### 6.3 Master Data
+### 6.3 Biaya Iklan Harian
+
+Biaya iklan harian dipakai untuk menghitung **Profit Bersih** dan tidak masuk ke potongan/komisi per transaksi.
+
+- Satu record mewakili kombinasi `tanggal + outlet + merchant`
+- Nominal dapat ditambah, diedit, dan dihapus oleh super admin; kasir hanya untuk outlet yang ditugaskan
+- Jika input kombinasi yang sama sudah ada, sistem memperbarui record lama
+- Dashboard menghitung **Profit Bersih = Net Profit - Biaya Iklan**
+- Saat filter varian produk aktif di Dashboard, biaya iklan tidak dikurangkan karena biaya iklan tidak melekat ke varian tertentu
+- Filter tanggal/outlet/merchant memakai tombol **Terapkan Filter**; preset tanggal langsung diterapkan
+
+### 6.4 Master Data
 
 Akses dari sidebar → **Master Data** (hanya Super Admin).
 

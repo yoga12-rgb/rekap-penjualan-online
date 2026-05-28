@@ -8,6 +8,7 @@
 
 - 📊 **Dashboard Analitik** — 7 tab visualisasi interaktif (tren harian, produk terlaris, profit merchant, performa outlet, jam ramai, insight otomatis, detail transaksi)
 - 📝 **Manajemen Transaksi** — Input multi-varian dengan perhitungan komisi otomatis
+- 📣 **Biaya Iklan Harian** — Catat biaya iklan per outlet + merchant, terpisah dari potongan admin transaksi
 - 🏪 **Master Data CRUD** — Outlet, food merchant (dengan warna badge), varian produk & pricing matrix, akun kasir
 - 🔐 **Role-based Access** — Super Admin & Kasir, diamankan dengan Row Level Security PostgreSQL
 - 🌙 **Dark/Light Mode** — Toggle tema dengan anti-flicker script
@@ -55,7 +56,8 @@ npm install
 1. Buka [supabase.com](https://supabase.com) → New Project
 2. Catat **Project URL**, **anon key**, **service_role key** dari Settings → API
 3. Buka SQL Editor → paste isi `supabase/schema.sql` → Run
-4. (Opsional) Paste `supabase/seed.sql` untuk data contoh
+4. Jika database sudah ada, jalankan migrasi bertahap di `supabase/migrations/` sesuai nomor versi, termasuk `007_daily_ad_costs.sql` untuk fitur biaya iklan harian
+5. (Opsional) Paste `supabase/seed.sql` untuk data contoh
 
 ### 4. Konfigurasi Environment
 
@@ -110,6 +112,10 @@ npm start
 | Transaksi — Tambah       | ✅ Semua outlet | ✅ Outlet ditugaskan |
 | Transaksi — Edit         |       ✅        |  ✅ Outlet sendiri   |
 | Transaksi — Hapus        |       ✅        |  ✅ Outlet sendiri   |
+| Biaya Iklan — Lihat      |    ✅ Semua     |  ✅ Outlet sendiri   |
+| Biaya Iklan — Tambah     | ✅ Semua outlet | ✅ Outlet ditugaskan |
+| Biaya Iklan — Edit       |       ✅        |  ✅ Outlet sendiri   |
+| Biaya Iklan — Hapus      |       ✅        |  ✅ Outlet sendiri   |
 | Master Outlet            |       ✅        |          ❌          |
 | Master Merchant          |       ✅        |          ❌          |
 | Master Produk            |       ✅        |          ❌          |
@@ -123,8 +129,11 @@ npm start
 
 - **Harga statis**: Harga di transaksi disimpan pada kolom `initial_price`. Mengubah master harga produk **tidak** mempengaruhi transaksi yang sudah tersimpan.
 - **Net profit otomatis**: `net_profit` adalah **generated column**: `(qty * initial_price) - deduction_fee`. Data selalu konsisten.
+- **Biaya iklan harian**: biaya iklan dicatat per `tanggal + outlet + merchant`, terpisah dari potongan/komisi transaksi.
+- **Profit Bersih**: Dashboard menghitung **Profit Bersih = Net Profit - Biaya Iklan**. Saat filter varian aktif, biaya iklan tidak dikurangkan karena biaya iklan tidak melekat ke varian tertentu.
 - **Komisi proporsional**: Potongan komisi dibagi proporsional ke setiap item berdasarkan omset.
 - **Perbandingan periode**: Dashboard otomatis membandingkan periode saat ini dengan periode sebelumnya (panjang hari sama).
+- **Filter manual**: perubahan filter tanggal/outlet/merchant/varian tidak langsung query; klik **Terapkan Filter** untuk mengambil data baru. Preset tanggal tetap langsung diterapkan.
 
 ---
 
@@ -137,6 +146,7 @@ npm start
 │   ├── (app)/           # Layout terotentikasi
 │   │   ├── dashboard/   # Dashboard analitik
 │   │   ├── transactions/ # CRUD transaksi
+│   │   ├── ad-costs/     # CRUD biaya iklan harian
 │   │   └── masters/     # Master data (merchants, outlets, products, users)
 │   └── api/             # API Route Handlers
 ├── 📁 components/       # Komponen reusable

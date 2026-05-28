@@ -58,24 +58,49 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     .lte("transaction_date", wibEndOfDay(previousRange.to))
     .order("transaction_date", { ascending: true });
 
+  let adCostsQ = supabase
+    .from("daily_ad_costs")
+    .select("id,cost_date,outlet_id,food_merchant_id,amount,outlets(name),food_merchants(name,color)")
+    .gte("cost_date", fromStr)
+    .lte("cost_date", toStr)
+    .order("cost_date", { ascending: true });
+
+  let previousAdCostsQ = supabase
+    .from("daily_ad_costs")
+    .select("id,cost_date,outlet_id,food_merchant_id,amount,outlets(name),food_merchants(name,color)")
+    .gte("cost_date", previousRange.from)
+    .lte("cost_date", previousRange.to)
+    .order("cost_date", { ascending: true });
+
   if (profile.role === "kasir") {
     q = profile.outlet_id ? q.eq("outlet_id", profile.outlet_id) : q.is("outlet_id", null);
     previousQ = profile.outlet_id ? previousQ.eq("outlet_id", profile.outlet_id) : previousQ.is("outlet_id", null);
+    adCostsQ = profile.outlet_id ? adCostsQ.eq("outlet_id", profile.outlet_id) : adCostsQ.is("outlet_id", null);
+    previousAdCostsQ = profile.outlet_id ? previousAdCostsQ.eq("outlet_id", profile.outlet_id) : previousAdCostsQ.is("outlet_id", null);
   }
   if (outlet) {
     q = q.eq("outlet_id", outlet);
     previousQ = previousQ.eq("outlet_id", outlet);
+    adCostsQ = adCostsQ.eq("outlet_id", outlet);
+    previousAdCostsQ = previousAdCostsQ.eq("outlet_id", outlet);
   }
   if (merchant) {
     q = q.eq("food_merchant_id", merchant);
     previousQ = previousQ.eq("food_merchant_id", merchant);
+    adCostsQ = adCostsQ.eq("food_merchant_id", merchant);
+    previousAdCostsQ = previousAdCostsQ.eq("food_merchant_id", merchant);
   }
   if (variant) {
     q = q.eq("product_variant_id", variant);
     previousQ = previousQ.eq("product_variant_id", variant);
   }
 
-  const [{ data: rows }, { data: previousRows }] = await Promise.all([q, previousQ]);
+  const [{ data: rows }, { data: previousRows }, { data: adCosts }, { data: previousAdCosts }] = await Promise.all([
+    q,
+    previousQ,
+    adCostsQ,
+    previousAdCostsQ
+  ]);
 
   return (
     <DashboardClient
@@ -85,6 +110,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       variants={(variants ?? []) as any}
       rows={(rows ?? []) as any}
       previousRows={(previousRows ?? []) as any}
+      adCosts={(variant ? [] : (adCosts ?? [])) as any}
+      previousAdCosts={(variant ? [] : (previousAdCosts ?? [])) as any}
       previousRange={previousRange}
       filter={{ from: fromStr, to: toStr, outlet, merchant, variant, rangeWasReversed }}
     />

@@ -51,6 +51,7 @@ type DashboardFilter = {
   variant: string;
   rangeWasReversed?: boolean;
 };
+type DashboardFilterKey = "from" | "to" | "outlet" | "merchant" | "variant";
 type SummaryRow = {
   id: string;
   order_id: string;
@@ -66,6 +67,15 @@ type SummaryRow = {
   outlets: { name: string } | null;
   food_merchants: { name: string; color: string | null } | null;
   product_variants: { name: string } | null;
+};
+type AdCostRow = {
+  id: string;
+  cost_date: string;
+  outlet_id: string;
+  food_merchant_id: string;
+  amount: number;
+  outlets: { name: string } | null;
+  food_merchants: { name: string; color: string | null } | null;
 };
 type DetailRow = SummaryRow;
 
@@ -107,6 +117,8 @@ type Totals = {
   fee: number;
   feePercent: number;
   net: number;
+  adCost: number;
+  cleanProfit: number;
   qty: number;
   transactionCount: number;
   avgGross: number;
@@ -123,6 +135,8 @@ export function DashboardClient({
   variants,
   rows,
   previousRows,
+  adCosts,
+  previousAdCosts,
   previousRange,
   filter,
 }: {
@@ -132,6 +146,8 @@ export function DashboardClient({
   variants: Variant[];
   rows: SummaryRow[];
   previousRows: SummaryRow[];
+  adCosts: AdCostRow[];
+  previousAdCosts: AdCostRow[];
   previousRange: { from: string; to: string };
   filter: DashboardFilter;
 }) {
@@ -141,6 +157,13 @@ export function DashboardClient({
   const [isExporting, setIsExporting] = useState(false);
   const [filterPending, startFilterTransition] = useTransition();
   const [activeTab, setActiveTab] = useState<DashboardTab>("trend");
+  const [draftFilter, setDraftFilter] = useState<DashboardFilter>({
+    from: filter.from,
+    to: filter.to,
+    outlet: filter.outlet,
+    merchant: filter.merchant,
+    variant: filter.variant,
+  });
 
   useEffect(() => {
     const hasUrlFilter = sp.toString().length > 0;
@@ -164,6 +187,16 @@ export function DashboardClient({
   }, [router, sp]);
 
   useEffect(() => {
+    setDraftFilter({
+      from: filter.from,
+      to: filter.to,
+      outlet: filter.outlet,
+      merchant: filter.merchant,
+      variant: filter.variant,
+    });
+  }, [filter.from, filter.to, filter.outlet, filter.merchant, filter.variant]);
+
+  useEffect(() => {
     if (skipNextFilterSave.current) {
       skipNextFilterSave.current = false;
       return;
@@ -180,30 +213,47 @@ export function DashboardClient({
     );
   }, [filter.from, filter.to, filter.outlet, filter.merchant, filter.variant]);
 
-  function setParam(key: string, value: string) {
-    const next = new URLSearchParams(sp.toString());
-    if (value) next.set(key, value);
-    else next.delete(key);
+  function buildFilterParams(nextFilter: DashboardFilter) {
+    const next = new URLSearchParams();
+    next.set("from", nextFilter.from);
+    next.set("to", nextFilter.to);
+    if (nextFilter.outlet) next.set("outlet", nextFilter.outlet);
+    if (nextFilter.merchant) next.set("merchant", nextFilter.merchant);
+    if (nextFilter.variant) next.set("variant", nextFilter.variant);
+    return next;
+  }
+
+  function setDraftParam(key: DashboardFilterKey, value: string) {
+    setDraftFilter((current) => ({ ...current, [key]: value }));
+  }
+
+  function applyFilter(nextFilter = draftFilter) {
+    const next = buildFilterParams(nextFilter);
     startFilterTransition(() => router.push(`/dashboard?${next.toString()}`));
   }
 
   function setRange(from: string, to: string) {
-    const next = new URLSearchParams(sp.toString());
-    next.set("from", from);
-    next.set("to", to);
-    startFilterTransition(() => router.push(`/dashboard?${next.toString()}`));
+    const nextFilter = { ...draftFilter, from, to };
+    setDraftFilter(nextFilter);
+    applyFilter(nextFilter);
   }
 
-  const totals = useMemo(() => buildTotals(rows), [rows]);
+  const totals = useMemo(() => buildTotals(rows, adCosts), [adCosts, rows]);
   const previousTotals = useMemo(
-    () => buildTotals(previousRows),
-    [previousRows],
+    () => buildTotals(previousRows, previousAdCosts),
+    [previousAdCosts, previousRows],
   );
 
   const comparison = useMemo(
     () => [
       buildComparison("Omset", totals.gross, previousTotals.gross, "currency"),
       buildComparison("Net Profit", totals.net, previousTotals.net, "currency"),
+      buildComparison(
+        "Profit Bersih",
+        totals.cleanProfit,
+        previousTotals.cleanProfit,
+        "currency",
+      ),
       buildComparison("Qty", totals.qty, previousTotals.qty, "number"),
       buildComparison(
         "Transaksi",
@@ -215,10 +265,12 @@ export function DashboardClient({
     [
       previousTotals.gross,
       previousTotals.net,
+      previousTotals.cleanProfit,
       previousTotals.qty,
       previousTotals.transactionCount,
       totals.gross,
       totals.net,
+      totals.cleanProfit,
       totals.qty,
       totals.transactionCount,
     ],
@@ -227,20 +279,27 @@ export function DashboardClient({
   const daily = useMemo(() => {
     const map = new Map<
       string,
-      { date: string; gross: number; fee: number; net: number }
+      { date: string; gross: number; fee: number; net: number; adCost: number; cleanProfit: number }
     >();
     for (const r of rows) {
       const d = isoToWIBDateKey(r.transaction_date);
-      const cur = map.get(d) ?? { date: d, gross: 0, fee: 0, net: 0 };
+      const cur = map.get(d) ?? { date: d, gross: 0, fee: 0, net: 0, adCost: 0, cleanProfit: 0 };
       cur.gross += r.qty * r.initial_price;
       cur.fee += Number(r.deduction_fee || 0);
       cur.net += Number(r.net_profit || 0);
+      cur.cleanProfit = cur.net - cur.adCost;
       map.set(d, cur);
+    }
+    for (const cost of adCosts) {
+      const cur = map.get(cost.cost_date) ?? { date: cost.cost_date, gross: 0, fee: 0, net: 0, adCost: 0, cleanProfit: 0 };
+      cur.adCost += Number(cost.amount || 0);
+      cur.cleanProfit = cur.net - cur.adCost;
+      map.set(cost.cost_date, cur);
     }
     return Array.from(map.values()).sort((a, b) =>
       a.date.localeCompare(b.date),
     );
-  }, [rows]);
+  }, [adCosts, rows]);
 
   const leaderboard = useMemo(() => {
     const map = new Map<
@@ -268,7 +327,7 @@ export function DashboardClient({
   const merchantBreakdown = useMemo(() => {
     const map = new Map<
       string,
-      { name: string; net: number; color: string | null }
+      { name: string; net: number; adCost: number; cleanProfit: number; color: string | null }
     >();
     for (const r of rows) {
       const key = r.food_merchant_id;
@@ -276,12 +335,28 @@ export function DashboardClient({
         name: r.food_merchants?.name ?? "-",
         color: r.food_merchants?.color ?? null,
         net: 0,
+        adCost: 0,
+        cleanProfit: 0,
       };
       cur.net += Number(r.net_profit || 0);
+      cur.cleanProfit = cur.net - cur.adCost;
       map.set(key, cur);
     }
-    return Array.from(map.values()).sort((a, b) => b.net - a.net);
-  }, [rows]);
+    for (const cost of adCosts) {
+      const key = cost.food_merchant_id;
+      const cur = map.get(key) ?? {
+        name: cost.food_merchants?.name ?? "-",
+        color: cost.food_merchants?.color ?? null,
+        net: 0,
+        adCost: 0,
+        cleanProfit: 0,
+      };
+      cur.adCost += Number(cost.amount || 0);
+      cur.cleanProfit = cur.net - cur.adCost;
+      map.set(key, cur);
+    }
+    return Array.from(map.values()).sort((a, b) => b.cleanProfit - a.cleanProfit);
+  }, [adCosts, rows]);
 
   const outletBreakdown = useMemo(() => {
     const map = new Map<
@@ -290,6 +365,8 @@ export function DashboardClient({
         name: string;
         gross: number;
         net: number;
+        adCost: number;
+        cleanProfit: number;
         qty: number;
         transactionKeys: Set<string>;
       }
@@ -300,19 +377,37 @@ export function DashboardClient({
         name: r.outlets?.name ?? "-",
         gross: 0,
         net: 0,
+        adCost: 0,
+        cleanProfit: 0,
         qty: 0,
         transactionKeys: new Set<string>(),
       };
       cur.gross += getGross(r);
       cur.net += Number(r.net_profit || 0);
+      cur.cleanProfit = cur.net - cur.adCost;
       cur.qty += r.qty;
       cur.transactionKeys.add(getTransactionKey(r));
       map.set(key, cur);
     }
+    for (const cost of adCosts) {
+      const key = cost.outlet_id || "unknown";
+      const cur = map.get(key) ?? {
+        name: cost.outlets?.name ?? "-",
+        gross: 0,
+        net: 0,
+        adCost: 0,
+        cleanProfit: 0,
+        qty: 0,
+        transactionKeys: new Set<string>(),
+      };
+      cur.adCost += Number(cost.amount || 0);
+      cur.cleanProfit = cur.net - cur.adCost;
+      map.set(key, cur);
+    }
     return Array.from(map.values())
       .map((o) => ({ ...o, transactionCount: o.transactionKeys.size }))
-      .sort((a, b) => b.gross - a.gross);
-  }, [rows]);
+      .sort((a, b) => b.cleanProfit - a.cleanProfit);
+  }, [adCosts, rows]);
 
   const hourly = useMemo(() => {
     const buckets = Array.from({ length: 24 }, (_, hour) => ({
@@ -363,10 +458,13 @@ export function DashboardClient({
         ? `Produk terlaris periode ini: ${topProduct.name} (${topProduct.qty.toLocaleString("id-ID")} qty).`
         : "",
       topMerchant
-        ? `Merchant dengan net profit tertinggi: ${topMerchant.name} (${formatIDR(topMerchant.net)}).`
+        ? `Merchant dengan profit bersih tertinggi: ${topMerchant.name} (${formatIDR(topMerchant.cleanProfit)}).`
         : "",
       topOutlet
-        ? `Outlet dengan omset tertinggi: ${topOutlet.name} (${formatIDR(topOutlet.gross)}).`
+        ? `Outlet dengan profit bersih tertinggi: ${topOutlet.name} (${formatIDR(topOutlet.cleanProfit)}).`
+        : "",
+      totals.adCost > 0
+        ? `Biaya iklan periode ini: ${formatIDR(totals.adCost)}.`
         : "",
       totals.gross > 0
         ? `Potongan admin setara ${formatPercent(totals.feePercent)} dari total omset.`
@@ -385,6 +483,7 @@ export function DashboardClient({
     merchantBreakdown,
     outletBreakdown,
     totals.feePercent,
+    totals.adCost,
     totals.gross,
   ]);
 
@@ -393,8 +492,8 @@ export function DashboardClient({
     try {
       if (activeTab === "trend") {
         downloadCsv(
-          ["Tanggal", "Omset", "Potongan", "NetProfit"],
-          daily.map((r) => [r.date, r.gross, r.fee, r.net]),
+          ["Tanggal", "Omset", "Potongan", "NetProfit", "BiayaIklan", "ProfitBersih"],
+          daily.map((r) => [r.date, r.gross, r.fee, r.net, r.adCost, r.cleanProfit]),
           `tren_harian_${filter.from}_to_${filter.to}.csv`,
         );
         return;
@@ -411,8 +510,8 @@ export function DashboardClient({
 
       if (activeTab === "merchants") {
         downloadCsv(
-          ["Merchant", "NetProfit"],
-          merchantBreakdown.map((r) => [r.name, r.net]),
+          ["Merchant", "NetProfit", "BiayaIklan", "ProfitBersih"],
+          merchantBreakdown.map((r) => [r.name, r.net, r.adCost, r.cleanProfit]),
           `profit_merchant_${filter.from}_to_${filter.to}.csv`,
         );
         return;
@@ -420,13 +519,15 @@ export function DashboardClient({
 
       if (activeTab === "outlets") {
         downloadCsv(
-          ["Outlet", "Transaksi", "Qty", "Omset", "NetProfit"],
+          ["Outlet", "Transaksi", "Qty", "Omset", "NetProfit", "BiayaIklan", "ProfitBersih"],
           outletBreakdown.map((r) => [
             r.name,
             r.transactionCount,
             r.qty,
             r.gross,
             r.net,
+            r.adCost,
+            r.cleanProfit,
           ]),
           `top_outlet_${filter.from}_to_${filter.to}.csv`,
         );
@@ -567,6 +668,12 @@ export function DashboardClient({
     !!filter.outlet ||
     !!filter.merchant ||
     !!filter.variant;
+  const hasDraftChanges =
+    draftFilter.from !== filter.from ||
+    draftFilter.to !== filter.to ||
+    draftFilter.outlet !== filter.outlet ||
+    draftFilter.merchant !== filter.merchant ||
+    draftFilter.variant !== filter.variant;
 
   return (
     <div className="space-y-3 sm:space-y-4">
@@ -586,29 +693,29 @@ export function DashboardClient({
             </span>
           )}
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-6 gap-2.5 items-end">
+        <div className="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-7 gap-2.5 items-end">
           <Field label="Dari">
             <input
               type="date"
               className="input"
-              value={filter.from}
-              onChange={(e) => setParam("from", e.target.value)}
+              value={draftFilter.from}
+              onChange={(e) => setDraftParam("from", e.target.value)}
             />
           </Field>
           <Field label="Sampai">
             <input
               type="date"
               className="input"
-              value={filter.to}
-              onChange={(e) => setParam("to", e.target.value)}
+              value={draftFilter.to}
+              onChange={(e) => setDraftParam("to", e.target.value)}
             />
           </Field>
           {role === "super_admin" && (
             <Field label="Outlet">
               <Combobox
                 options={outlets.map((o) => ({ value: o.id, label: o.name }))}
-                value={filter.outlet}
-                onChange={(v) => setParam("outlet", v)}
+                value={draftFilter.outlet}
+                onChange={(v) => setDraftParam("outlet", v)}
                 placeholder="Semua Outlet"
                 clearable
               />
@@ -617,8 +724,8 @@ export function DashboardClient({
           <Field label="Merchant">
             <Combobox
               options={merchants.map((m) => ({ value: m.id, label: m.name }))}
-              value={filter.merchant}
-              onChange={(v) => setParam("merchant", v)}
+              value={draftFilter.merchant}
+              onChange={(v) => setDraftParam("merchant", v)}
               placeholder="Semua Merchant"
               clearable
             />
@@ -631,12 +738,21 @@ export function DashboardClient({
                 hint:
                   v.base_price != null ? formatIDR(v.base_price) : undefined,
               }))}
-              value={filter.variant}
-              onChange={(v) => setParam("variant", v)}
+              value={draftFilter.variant}
+              onChange={(v) => setDraftParam("variant", v)}
               placeholder="Semua Varian"
               clearable
             />
           </Field>
+          <div className="col-span-2 md:col-span-1 min-w-0">
+            <button
+              className="btn-outline w-full h-10 px-3 whitespace-nowrap"
+              onClick={() => applyFilter()}
+              disabled={!hasDraftChanges || filterPending}
+            >
+              Terapkan Filter
+            </button>
+          </div>
           <div className="col-span-2 md:col-span-1 min-w-0">
             <button
               className="btn-primary w-full h-10 px-3 whitespace-nowrap"
@@ -713,7 +829,7 @@ export function DashboardClient({
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2.5">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5">
         <KPI
           title="Total Omset"
           value={formatIDR(totals.gross)}
@@ -730,10 +846,12 @@ export function DashboardClient({
           variant="percent"
         />
         <KPI title="Net Profit" value={formatIDR(totals.net)} variant="net" />
-        <KPI title="Total Qty" value={totals.qty.toLocaleString("id-ID")} />
+        <KPI title="Biaya Iklan" value={formatIDR(totals.adCost)} variant="ad" />
+        <KPI title="Profit Bersih" value={formatIDR(totals.cleanProfit)} variant="clean" />
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+        <KPI title="Total Qty" value={totals.qty.toLocaleString("id-ID")} />
         <KPI
           title="Total Transaksi"
           value={totals.transactionCount.toLocaleString("id-ID")}
@@ -897,7 +1015,7 @@ function PresetButton({
 function TrendTab({
   daily,
 }: {
-  daily: Array<{ date: string; gross: number; fee: number; net: number }>;
+  daily: Array<{ date: string; gross: number; fee: number; net: number; adCost: number; cleanProfit: number }>;
 }) {
   return (
     <div className="card p-3">
@@ -943,9 +1061,25 @@ function TrendTab({
               />
               <Line
                 type="monotone"
+                dataKey="cleanProfit"
+                name="Profit Bersih"
+                stroke="#8b5cf6"
+                dot={daily.length === 1}
+                strokeWidth={2}
+              />
+              <Line
+                type="monotone"
                 dataKey="fee"
                 name="Potongan"
                 stroke="#ef4444"
+                dot={daily.length === 1}
+                strokeWidth={2}
+              />
+              <Line
+                type="monotone"
+                dataKey="adCost"
+                name="Biaya Iklan"
+                stroke="#f97316"
                 dot={daily.length === 1}
                 strokeWidth={2}
               />
@@ -1024,11 +1158,11 @@ function ProductsTab({
 function MerchantsTab({
   merchantBreakdown,
 }: {
-  merchantBreakdown: Array<{ name: string; net: number; color: string | null }>;
+  merchantBreakdown: Array<{ name: string; net: number; adCost: number; cleanProfit: number; color: string | null }>;
 }) {
   return (
     <div className="card p-3">
-      <h3 className="text-sm font-semibold mb-2">Net Profit per Merchant</h3>
+      <h3 className="text-sm font-semibold mb-2">Profit Bersih per Merchant</h3>
       <div className="h-52 sm:h-60 lg:h-64">
         {merchantBreakdown.length === 0 ? (
           <EmptyChart />
@@ -1051,7 +1185,7 @@ function MerchantsTab({
                 }}
                 formatter={(v: any) => formatIDR(Number(v))}
               />
-              <Bar dataKey="net">
+              <Bar dataKey="cleanProfit">
                 {merchantBreakdown.map((m) => (
                   <Cell
                     key={m.name}
@@ -1079,6 +1213,8 @@ function OutletsTab({
     name: string;
     gross: number;
     net: number;
+    adCost: number;
+    cleanProfit: number;
     qty: number;
     transactionCount: number;
   }>;
@@ -1107,7 +1243,7 @@ function OutletsTab({
                   color: "var(--fg)",
                 }}
                 formatter={(v: any, name) =>
-                  name === "gross" || name === "net"
+                  name === "gross" || name === "net" || name === "cleanProfit" || name === "adCost"
                     ? formatIDR(Number(v))
                     : Number(v).toLocaleString("id-ID")
                 }
@@ -1115,6 +1251,7 @@ function OutletsTab({
               <Legend />
               <Bar dataKey="gross" name="Omset" fill="#3b82f6" />
               <Bar dataKey="net" name="Net Profit" fill="#22c55e" />
+              <Bar dataKey="cleanProfit" name="Profit Bersih" fill="#8b5cf6" />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -1128,6 +1265,8 @@ function OutletsTab({
               <th className="text-right">Qty</th>
               <th className="text-right">Omset</th>
               <th className="text-right">Net</th>
+              <th className="text-right">Iklan</th>
+              <th className="text-right">Profit Bersih</th>
             </tr>
           </thead>
           <tbody>
@@ -1140,12 +1279,14 @@ function OutletsTab({
                 <td className="text-right">{o.qty.toLocaleString("id-ID")}</td>
                 <td className="text-right">{formatIDR(o.gross)}</td>
                 <td className="text-right font-medium">{formatIDR(o.net)}</td>
+                <td className="text-right">{formatIDR(o.adCost)}</td>
+                <td className="text-right font-medium">{formatIDR(o.cleanProfit)}</td>
               </tr>
             ))}
             {!outletBreakdown.length && (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={7}
                   className="text-center py-4"
                   style={{ color: "var(--muted)" }}
                 >
@@ -1413,7 +1554,7 @@ function getTransactionKey(row: SummaryRow) {
   return row.order_id || row.id;
 }
 
-function buildTotals(rows: SummaryRow[]): Totals {
+function buildTotals(rows: SummaryRow[], adCosts: AdCostRow[] = []): Totals {
   const transactionKeys = new Set<string>();
   const gross = rows.reduce((a, r) => {
     transactionKeys.add(getTransactionKey(r));
@@ -1421,6 +1562,8 @@ function buildTotals(rows: SummaryRow[]): Totals {
   }, 0);
   const fee = rows.reduce((a, r) => a + Number(r.deduction_fee || 0), 0);
   const net = rows.reduce((a, r) => a + Number(r.net_profit || 0), 0);
+  const adCost = adCosts.reduce((a, r) => a + Number(r.amount || 0), 0);
+  const cleanProfit = net - adCost;
   const qty = rows.reduce((a, r) => a + r.qty, 0);
   const transactionCount = transactionKeys.size;
   const feePercent = gross > 0 ? (fee / gross) * 100 : 0;
@@ -1429,6 +1572,8 @@ function buildTotals(rows: SummaryRow[]): Totals {
     fee,
     feePercent,
     net,
+    adCost,
+    cleanProfit,
     qty,
     transactionCount,
     avgGross: transactionCount > 0 ? gross / transactionCount : 0,
@@ -1445,7 +1590,7 @@ function buildComparison(
 ) {
   const delta = current - previous;
   const percentChange =
-    previous > 0 ? (delta / previous) * 100 : current > 0 ? 100 : 0;
+    previous !== 0 ? (delta / Math.abs(previous)) * 100 : current > 0 ? 100 : current < 0 ? -100 : 0;
   return { label, current, previous, delta, percentChange, format };
 }
 
@@ -1750,7 +1895,7 @@ function DetailTransactions({ filter }: { filter: DashboardFilter }) {
   );
 }
 
-type KPIVariant = "default" | "gross" | "fee" | "percent" | "net";
+type KPIVariant = "default" | "gross" | "fee" | "percent" | "net" | "ad" | "clean";
 
 const KPI_VARIANTS: Record<KPIVariant, { card: string; value: string }> = {
   default: {
@@ -1772,6 +1917,14 @@ const KPI_VARIANTS: Record<KPIVariant, { card: string; value: string }> = {
   net: {
     card: "border-l-4 border-l-emerald-500 bg-emerald-50/80 dark:bg-emerald-950/20",
     value: "text-emerald-700 dark:text-emerald-300",
+  },
+  ad: {
+    card: "border-l-4 border-l-orange-500 bg-orange-50/80 dark:bg-orange-950/20",
+    value: "text-orange-700 dark:text-orange-300",
+  },
+  clean: {
+    card: "border-l-4 border-l-violet-500 bg-violet-50/80 dark:bg-violet-950/20",
+    value: "text-violet-700 dark:text-violet-300",
   },
 };
 

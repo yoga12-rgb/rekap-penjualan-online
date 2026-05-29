@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
 import { formatIDR } from "@/lib/utils";
 import { toast } from "@/components/Toast";
@@ -25,9 +25,11 @@ import {
   startOfYearWIBKey,
 } from "@/lib/date";
 import {
-  setTransactionFilterCookie,
-  clearTransactionFilterCookie,
-} from "@/lib/filterCookies";
+  clearScopedFilterParams,
+  copyPersistentUrlParams,
+  queryString,
+  setScopedFilterParams,
+} from "@/lib/urlParams";
 
 type Option = { id: string; name: string };
 type Merchant = Option & { color?: string | null };
@@ -103,6 +105,7 @@ export function TransactionsClient({
   filter: TransactionFilter;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const addTransactionButtonRef = useRef<HTMLButtonElement>(null);
   const filterBarRef = useRef<HTMLDivElement>(null);
   const [openCreate, setOpenCreate] = useState(false);
@@ -124,8 +127,7 @@ export function TransactionsClient({
   const [showFloatingFilter, setShowFloatingFilter] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  // NOTE: Restore filter dari cookie ditangani server-side di page.tsx
-  // (redirect sebelum render), jadi client tidak perlu restore dari localStorage.
+  // Filter hidup di query string agar URL bisa dibagikan dan tidak perlu cookie.
 
   useEffect(() => {
     setDraftFilter({
@@ -145,45 +147,23 @@ export function TransactionsClient({
     filter.q,
   ]);
 
-  // Simpan filter ke cookie saat berubah (agar server component bisa redirect)
-  useEffect(() => {
-    const isDefaultFilter =
-      filter.from === daysAgoWIBKey(6) &&
-      filter.to === todayWIBKey() &&
-      !filter.outlet &&
-      !filter.merchant &&
-      !filter.variant &&
-      !filter.q;
-
-    if (isDefaultFilter) {
-      clearTransactionFilterCookie();
-    } else {
-      setTransactionFilterCookie({
-        from: filter.from,
-        to: filter.to,
-        outlet: filter.outlet,
-        merchant: filter.merchant,
-        variant: filter.variant,
-        q: filter.q,
-      });
-    }
-  }, [
-    filter.from,
-    filter.to,
-    filter.outlet,
-    filter.merchant,
-    filter.variant,
-    filter.q,
-  ]);
-
   function buildFilterParams(nextFilter: TransactionFilter) {
     const next = new URLSearchParams();
+    copyPersistentUrlParams(searchParams, next);
     next.set("from", nextFilter.from);
     next.set("to", nextFilter.to);
     if (nextFilter.outlet) next.set("outlet", nextFilter.outlet);
     if (nextFilter.merchant) next.set("merchant", nextFilter.merchant);
     if (nextFilter.variant) next.set("variant", nextFilter.variant);
     if (nextFilter.q) next.set("q", nextFilter.q);
+    setScopedFilterParams("transactions", next, {
+      from: nextFilter.from,
+      to: nextFilter.to,
+      outlet: nextFilter.outlet,
+      merchant: nextFilter.merchant,
+      variant: nextFilter.variant,
+      q: nextFilter.q,
+    });
     return next;
   }
   function setDraftParam(key: TransactionFilterKey, value: string) {
@@ -192,7 +172,7 @@ export function TransactionsClient({
   function applyFilter(nextFilter = draftFilter) {
     const next = buildFilterParams(nextFilter);
     startFilterTransition(() =>
-      router.push(`/transactions?${next.toString()}`),
+      router.push(`/transactions${queryString(next)}`),
     );
   }
   function getPresetRange(preset: TransactionDatePreset) {
@@ -214,8 +194,12 @@ export function TransactionsClient({
     applyFilter(nextFilter);
   }
   function clearFilter() {
-    clearTransactionFilterCookie();
-    startFilterTransition(() => router.push("/transactions"));
+    const next = new URLSearchParams();
+    copyPersistentUrlParams(searchParams, next);
+    clearScopedFilterParams("transactions", next);
+    startFilterTransition(() =>
+      router.push(`/transactions${queryString(next)}`),
+    );
     setDraftFilter({
       from: daysAgoWIBKey(6),
       to: todayWIBKey(),
@@ -730,6 +714,7 @@ export function TransactionsClient({
         onClose={() => setOpenCreate(false)}
         title="Tambah Transaksi"
         size="xl"
+        bodyScroll={false}
       >
         <CreateOrderForm
           role={role}
@@ -1072,15 +1057,17 @@ function CreateOrderForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} className="flex h-full min-h-0 min-w-0 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row">
+        <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div
-        className="grid grid-cols-1 md:grid-cols-3 gap-3 rounded-md border p-3 min-w-0"
+        className="grid grid-cols-1 gap-3 rounded-md border p-3 min-w-0 sm:grid-cols-2 sm:p-4 md:grid-cols-3"
         style={{
           borderColor: "var(--border)",
           backgroundColor: "color-mix(in oklab, var(--bg) 55%, var(--card))",
         }}
       >
-        <div className="md:col-span-3 min-w-0">
+        <div className="min-w-0 sm:col-span-2 md:col-span-3">
           <label className="label">Outlet</label>
           {role === "kasir" ? (
             <input
@@ -1107,7 +1094,7 @@ function CreateOrderForm({
             </select>
           )}
         </div>
-        <div>
+        <div className="min-w-0">
           <label className="label">Nomor Pesanan</label>
           <input
             className="input"
@@ -1146,7 +1133,7 @@ function CreateOrderForm({
       </div>
 
       <div
-        className="rounded-md border p-3 min-w-0"
+        className="flex min-h-0 flex-1 flex-col rounded-md border p-3 min-w-0 sm:p-4"
         style={{
           borderColor: "var(--border)",
           backgroundColor: "color-mix(in oklab, var(--bg) 55%, var(--card))",
@@ -1162,17 +1149,17 @@ function CreateOrderForm({
             <Plus size={14} /> Tambah Varian
           </button>
         </div>
-        <div className="space-y-2">
+        <div className="-mr-1 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1">
           {items.map((it, i) => (
             <div
               key={it.key}
-              className="relative grid grid-cols-1 sm:grid-cols-12 gap-2 items-end rounded-md border p-2.5 min-w-0"
+              className="relative grid grid-cols-2 gap-2 items-end rounded-md border p-2.5 min-w-0 sm:grid-cols-12"
               style={{
                 borderColor: "var(--border)",
                 backgroundColor: "var(--card)",
               }}
             >
-              <div className="min-w-0 pr-11 sm:col-span-12 md:col-span-5 md:pr-0">
+              <div className="col-span-2 min-w-0 pr-11 sm:col-span-12 md:col-span-5 md:pr-0">
                 <label className="text-xs" style={{ color: "var(--muted)" }}>
                   Varian
                 </label>
@@ -1187,7 +1174,7 @@ function CreateOrderForm({
                   placeholder="-- pilih --"
                 />
               </div>
-              <div className="min-w-0 sm:col-span-4 md:col-span-2">
+              <div className="col-span-1 min-w-0 sm:col-span-4 md:col-span-2">
                 <label className="text-xs" style={{ color: "var(--muted)" }}>
                   Qty
                 </label>
@@ -1201,7 +1188,7 @@ function CreateOrderForm({
                   required
                 />
               </div>
-              <div className="min-w-0 sm:col-span-8 md:col-span-4">
+              <div className="col-span-1 min-w-0 sm:col-span-8 md:col-span-4">
                 <label className="text-xs" style={{ color: "var(--muted)" }}>
                   Harga
                 </label>
@@ -1226,9 +1213,13 @@ function CreateOrderForm({
           ))}
         </div>
       </div>
+        </div>
 
       <div
-        className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-md border p-3 min-w-0"
+        className="min-w-0 shrink-0 space-y-3 lg:sticky lg:top-0 lg:w-80"
+      >
+      <div
+        className="grid grid-cols-1 gap-3 rounded-md border p-3 min-w-0 sm:p-4"
         style={{
           borderColor: "var(--border)",
           backgroundColor: "color-mix(in oklab, var(--bg) 55%, var(--card))",
@@ -1244,44 +1235,79 @@ function CreateOrderForm({
             pendapatan bersih.
           </p>
         </div>
-        <div className="min-w-0 text-left sm:text-right space-y-1">
-          <div className="text-sm" style={{ color: "var(--muted)" }}>
-            Total Omset
-          </div>
-          <div className="text-base sm:text-lg font-semibold">
-            {formatIDR(totals.gross)}
-          </div>
-          <div className="text-sm" style={{ color: "var(--muted)" }}>
-            Potongan/Komisi
-          </div>
-          <div
-            className={`text-base sm:text-lg font-semibold ${totals.isNetTooHigh ? "text-red-700 dark:text-red-300" : ""}`}
-          >
-            {formatIDR(totals.fee)}
-          </div>
-          <div className="text-xs" style={{ color: "var(--muted)" }}>
-            {formatPercent(totals.feePercent)} dari total omset
-          </div>
-          <div className="text-sm" style={{ color: "var(--muted)" }}>
-            Pendapatan Bersih
-          </div>
-          <div className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
-            {formatIDR(totals.net)}
-          </div>
+        <div className="grid grid-cols-2 gap-2 min-w-0 lg:grid-cols-1">
+          <SummaryMetric label="Total Omset" value={formatIDR(totals.gross)} />
+          <SummaryMetric
+            label="Potongan/Komisi"
+            value={formatIDR(totals.fee)}
+            sub={`${formatPercent(totals.feePercent)} dari total omset`}
+            danger={totals.isNetTooHigh}
+          />
+          <SummaryMetric
+            label="Pendapatan Bersih"
+            value={formatIDR(totals.net)}
+            valueClassName="text-emerald-700 dark:text-emerald-400"
+            wide
+          />
           {totals.isNetTooHigh && (
-            <div className="text-xs text-red-700 dark:text-red-300">
+            <div className="col-span-2 text-xs text-red-700 dark:text-red-300 lg:col-span-1">
               Pendapatan bersih tidak boleh lebih besar dari total omset.
             </div>
           )}
         </div>
       </div>
 
-      <div className="flex justify-end pt-1">
-        <button className="btn-primary" disabled={pending}>
+      <div
+        className="sticky bottom-0 z-10 -mx-4 border-t px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:static sm:mx-0 sm:border-0 sm:p-0"
+        style={{
+          backgroundColor: "var(--card)",
+          borderColor: "var(--border)",
+        }}
+      >
+        <button type="submit" className="btn-primary h-11 w-full" disabled={pending}>
           {pending ? "Menyimpan..." : "Simpan Transaksi"}
         </button>
       </div>
+        </div>
+      </div>
     </form>
+  );
+}
+
+function SummaryMetric({
+  label,
+  value,
+  sub,
+  danger = false,
+  wide = false,
+  valueClassName = "",
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  danger?: boolean;
+  wide?: boolean;
+  valueClassName?: string;
+}) {
+  return (
+    <div
+      className={`min-w-0 rounded-md border p-2.5 ${wide ? "col-span-2 lg:col-span-1" : ""}`}
+      style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}
+    >
+      <div className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+        {label}
+      </div>
+      <div
+        className={`mt-0.5 break-words text-base font-bold ${danger ? "text-red-700 dark:text-red-300" : valueClassName}`}
+      >
+        {value}
+      </div>
+      {sub && (
+        <div className="mt-0.5 text-[11px]" style={{ color: "var(--muted)" }}>
+          {sub}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1513,7 +1539,7 @@ function EditOrderForm({
             <Plus size={14} /> Tambah Varian
           </button>
         </div>
-        <div className="space-y-2">
+        <div className="-mr-1 max-h-[34vh] space-y-2 overflow-y-auto overscroll-contain pr-1 sm:max-h-[22rem] lg:max-h-[calc(92vh-18rem)]">
           {items.map((it, i) => (
             <div
               key={it.key}

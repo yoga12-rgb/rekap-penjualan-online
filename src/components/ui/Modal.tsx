@@ -7,7 +7,8 @@ export function Modal({
   title,
   children,
   closeOnBackdrop = false,
-  size = "md"
+  size = "md",
+  bodyScroll = true,
 }: {
   open: boolean;
   onClose: () => void;
@@ -15,20 +16,27 @@ export function Modal({
   children: React.ReactNode;
   closeOnBackdrop?: boolean;
   size?: "md" | "lg" | "xl";
+  bodyScroll?: boolean;
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
+  const previousBodyOverflow = useRef<string | null>(null);
 
   useEffect(() => {
+    if (!open) return;
+
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
     }
-    if (open) {
-      document.addEventListener("keydown", onKey);
-      document.body.style.overflow = "hidden";
-    }
+    previousBodyOverflow.current = document.body.style.overflow;
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
+      if (previousBodyOverflow.current != null) {
+        document.body.style.overflow = previousBodyOverflow.current;
+        previousBodyOverflow.current = null;
+      }
     };
   }, [open, onClose]);
 
@@ -56,12 +64,12 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/65 sm:p-4"
+      className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/65 sm:p-4"
       onClick={() => { if (closeOnBackdrop) onClose(); }}
     >
       <div
         ref={contentRef}
-        className="card w-screen max-w-[100vw] p-4 sm:w-full sm:max-w-[var(--modal-max-width)] sm:p-5 max-h-[92vh] overflow-y-auto overflow-x-hidden rounded-b-none sm:rounded-lg shadow-2xl"
+        className={`card flex w-screen max-w-[100vw] flex-col overflow-hidden p-4 sm:w-full sm:max-w-[var(--modal-max-width)] sm:p-5 max-h-[92dvh] rounded-b-none sm:rounded-lg shadow-2xl ${bodyScroll ? "" : "h-[92dvh]"}`}
         style={{ "--modal-max-width": maxWidth } as CSSProperties}
         onClick={(e) => e.stopPropagation()}
       >
@@ -79,7 +87,15 @@ export function Modal({
             x
           </button>
         </div>
-        {children}
+        <div
+          className={
+            bodyScroll
+              ? "min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+              : "min-h-0 flex-1 overflow-hidden"
+          }
+        >
+          {children}
+        </div>
       </div>
     </div>
   );

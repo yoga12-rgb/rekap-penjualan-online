@@ -6,7 +6,6 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { NavProgress } from "@/components/NavProgress";
 import { PresenceHeartbeat } from "@/components/PresenceHeartbeat";
 import { MobileNavbar } from "@/components/MobileNavbar";
-import { cookies } from "next/headers";
 import { Suspense } from "react";
 
 export const dynamic = "force-dynamic";
@@ -18,17 +17,14 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const profile = await requireProfile();
-  const cookieStore = await cookies();
   const isAdmin = profile.role === "super_admin";
-  const initialSidebarCollapsed =
-    cookieStore.get("sidebar-collapsed")?.value === "1";
   return (
     <div className="min-h-screen flex">
       <Suspense fallback={null}>
         <NavProgress />
       </Suspense>
       <PresenceHeartbeat />
-      <Sidebar isAdmin={isAdmin} initialCollapsed={initialSidebarCollapsed} />
+      <Sidebar isAdmin={isAdmin} />
       <main className="flex-1 min-w-0 w-full">
         <header
           className="sticky top-0 z-20 flex items-center justify-between border-b backdrop-blur px-4 sm:px-6 py-3 pl-14 md:pl-6"
@@ -45,7 +41,9 @@ export default async function AppLayout({
             <span className="badge ml-2">{profile.role}</span>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            <ThemeToggle />
+            <Suspense fallback={<div className="w-[110px] h-9" aria-hidden />}>
+              <ThemeToggle />
+            </Suspense>
             <LogoutButton />
           </div>
         </header>

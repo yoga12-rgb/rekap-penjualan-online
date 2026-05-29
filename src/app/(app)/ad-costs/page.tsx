@@ -7,6 +7,7 @@ import {
   firstParam,
   isValidDateKey,
 } from "@/lib/date";
+import { uuidParam } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 type SP = {
@@ -14,6 +15,10 @@ type SP = {
   to?: string | string[];
   outlet?: string | string[];
   merchant?: string | string[];
+  ad_from?: string | string[];
+  ad_to?: string | string[];
+  ad_outlet?: string | string[];
+  ad_merchant?: string | string[];
 };
 
 export default async function AdCostsPage({
@@ -25,8 +30,8 @@ export default async function AdCostsPage({
   const supabase = await createClient();
   const params = await searchParams;
 
-  const rawFrom = firstParam(params.from);
-  const rawTo = firstParam(params.to);
+  const rawFrom = firstParam(params.from) || firstParam(params.ad_from);
+  const rawTo = firstParam(params.to) || firstParam(params.ad_to);
   let from = isValidDateKey(rawFrom) ? rawFrom : daysAgoWIBKey(29);
   let to = isValidDateKey(rawTo) ? rawTo : todayWIBKey();
   let rangeWasReversed = false;
@@ -36,8 +41,12 @@ export default async function AdCostsPage({
   }
 
   const outlet =
-    profile.role === "super_admin" ? firstParam(params.outlet) : "";
-  const merchant = firstParam(params.merchant);
+    profile.role === "super_admin"
+      ? uuidParam(firstParam(params.outlet) || firstParam(params.ad_outlet))
+      : "";
+  const merchant = uuidParam(
+    firstParam(params.merchant) || firstParam(params.ad_merchant),
+  );
 
   let rowsQuery = supabase
     .from("daily_ad_costs")

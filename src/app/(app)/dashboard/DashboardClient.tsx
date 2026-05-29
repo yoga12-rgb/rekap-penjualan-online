@@ -7,7 +7,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { formatIDR } from "@/lib/utils";
 import {
   ResponsiveContainer,
@@ -40,9 +40,11 @@ import {
 } from "@/lib/date";
 import { AlertCircle, Loader2, X } from "lucide-react";
 import {
-  setDashboardFilterCookie,
-  clearDashboardFilterCookie,
-} from "@/lib/filterCookies";
+  clearScopedFilterParams,
+  copyPersistentUrlParams,
+  queryString,
+  setScopedFilterParams,
+} from "@/lib/urlParams";
 
 type Option = { id: string; name: string };
 type Merchant = Option & { color?: string | null };
@@ -155,6 +157,7 @@ export function DashboardClient({
   filter: DashboardFilter;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isExporting, setIsExporting] = useState(false);
   const [filterPending, startFilterTransition] = useTransition();
   const [activeTab, setActiveTab] = useState<DashboardTab>("trend");
@@ -166,8 +169,7 @@ export function DashboardClient({
     variant: filter.variant,
   });
 
-  // NOTE: Restore filter dari cookie ditangani di updateSession (middleware)
-  // sebelum page di-render, jadi client tidak perlu restore dari localStorage.
+  // Filter hidup di query string agar URL bisa dibagikan dan tidak perlu cookie.
 
   useEffect(() => {
     setDraftFilter({
@@ -179,35 +181,21 @@ export function DashboardClient({
     });
   }, [filter.from, filter.to, filter.outlet, filter.merchant, filter.variant]);
 
-  // Simpan filter ke cookie setiap kali berubah (agar middleware bisa restore)
-  useEffect(() => {
-    const isDefaultFilter =
-      filter.from === daysAgoWIBKey(6) &&
-      filter.to === todayWIBKey() &&
-      !filter.outlet &&
-      !filter.merchant &&
-      !filter.variant;
-
-    if (isDefaultFilter) {
-      clearDashboardFilterCookie();
-    } else {
-      setDashboardFilterCookie({
-        from: filter.from,
-        to: filter.to,
-        outlet: filter.outlet,
-        merchant: filter.merchant,
-        variant: filter.variant,
-      });
-    }
-  }, [filter.from, filter.to, filter.outlet, filter.merchant, filter.variant]);
-
   function buildFilterParams(nextFilter: DashboardFilter) {
     const next = new URLSearchParams();
+    copyPersistentUrlParams(searchParams, next);
     next.set("from", nextFilter.from);
     next.set("to", nextFilter.to);
     if (nextFilter.outlet) next.set("outlet", nextFilter.outlet);
     if (nextFilter.merchant) next.set("merchant", nextFilter.merchant);
     if (nextFilter.variant) next.set("variant", nextFilter.variant);
+    setScopedFilterParams("dashboard", next, {
+      from: nextFilter.from,
+      to: nextFilter.to,
+      outlet: nextFilter.outlet,
+      merchant: nextFilter.merchant,
+      variant: nextFilter.variant,
+    });
     return next;
   }
 
@@ -217,7 +205,7 @@ export function DashboardClient({
 
   function applyFilter(nextFilter = draftFilter) {
     const next = buildFilterParams(nextFilter);
-    startFilterTransition(() => router.push(`/dashboard?${next.toString()}`));
+    startFilterTransition(() => router.push(`/dashboard${queryString(next)}`));
   }
 
   function setRange(from: string, to: string) {
@@ -702,7 +690,9 @@ export function DashboardClient({
   }
 
   function clearFilter() {
-    clearDashboardFilterCookie();
+    const next = new URLSearchParams();
+    copyPersistentUrlParams(searchParams, next);
+    clearScopedFilterParams("dashboard", next);
     setDraftFilter({
       from: daysAgoWIBKey(6),
       to: todayWIBKey(),
@@ -710,7 +700,7 @@ export function DashboardClient({
       merchant: "",
       variant: "",
     });
-    startFilterTransition(() => router.push("/dashboard"));
+    startFilterTransition(() => router.push(`/dashboard${queryString(next)}`));
   }
 
   const hasActiveFilter =

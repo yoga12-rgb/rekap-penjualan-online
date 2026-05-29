@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
   ReceiptText,
@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { hrefWithCurrentOrPersistentParams } from "@/lib/urlParams";
 
 type TabItem = {
   href?: string;
@@ -19,6 +20,7 @@ type TabItem = {
 
 export function MobileNavbar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   function openSidebarDrawer() {
     window.dispatchEvent(new CustomEvent("sidebar:open"));
@@ -61,7 +63,11 @@ export function MobileNavbar() {
             return (
               <Link
                 key={tab.href}
-                href={tab.href}
+                href={hrefWithCurrentOrPersistentParams(
+                  tab.href,
+                  pathname,
+                  searchParams,
+                )}
                 aria-current={isActive ? "page" : undefined}
                 className={className}
               >

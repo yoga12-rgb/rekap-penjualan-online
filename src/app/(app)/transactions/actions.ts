@@ -127,15 +127,6 @@ export async function updateOrder(payload: unknown) {
   const existingIds = new Set(existingRows.map((row) => row.id));
   const keptIds = new Set(items.map((item) => item.id).filter(Boolean));
 
-  const removedIds = [...existingIds].filter((id) => !keptIds.has(id));
-  if (removedIds.length) {
-    const { error } = await supabase
-      .from("transactions")
-      .delete()
-      .in("id", removedIds);
-    if (error) return { error: error.message };
-  }
-
   for (const [i, item] of items.entries()) {
     const row = {
       order_id,
@@ -161,6 +152,15 @@ export async function updateOrder(payload: unknown) {
         .insert({ ...row, created_by: profile.id });
       if (error) return { error: error.message };
     }
+  }
+
+  const removedIds = [...existingIds].filter((id) => !keptIds.has(id));
+  if (removedIds.length) {
+    const { error } = await supabase
+      .from("transactions")
+      .delete()
+      .in("id", removedIds);
+    if (error) return { error: error.message };
   }
 
   revalidatePath("/transactions");

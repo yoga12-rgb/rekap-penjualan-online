@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { firstParam, isValidDateKey, wibEndOfDay, wibStartOfDay } from "@/lib/date";
+import { uuidParam } from "@/lib/utils";
 
 const DEFAULT_LIMIT = 30;
 const MAX_LIMIT = 100;
@@ -29,13 +30,14 @@ export async function GET(request: Request) {
     : DEFAULT_LIMIT;
   const offset = Number.isFinite(requestedOffset) ? Math.max(Math.trunc(requestedOffset), 0) : 0;
 
-  const outlet = profile.role === "super_admin" ? firstParam(searchParams.outlet) : "";
-  const merchant = firstParam(searchParams.merchant);
-  const variant = firstParam(searchParams.variant);
+  const outlet =
+    profile.role === "super_admin" ? uuidParam(firstParam(searchParams.outlet)) : "";
+  const merchant = uuidParam(firstParam(searchParams.merchant));
+  const variant = uuidParam(firstParam(searchParams.variant));
 
   let query = supabase
     .from("transactions")
-    .select("id, order_number, transaction_date, qty, initial_price, deduction_fee, net_profit, outlet_id, food_merchant_id, product_variant_id, outlets(name), food_merchants(name,color), product_variants(name)")
+    .select("id, order_id, order_number, transaction_date, qty, initial_price, deduction_fee, net_profit, outlet_id, food_merchant_id, product_variant_id, outlets(name), food_merchants(name,color), product_variants(name)")
     .gte("transaction_date", wibStartOfDay(fromStr))
     .lte("transaction_date", wibEndOfDay(toStr))
     .order("transaction_date", { ascending: false })

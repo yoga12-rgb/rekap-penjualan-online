@@ -9,6 +9,7 @@ import {
   firstParam,
   isValidDateKey,
 } from "@/lib/date";
+import { uuidParam } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,12 @@ type SP = {
   merchant?: string | string[];
   variant?: string | string[];
   q?: string | string[];
+  tx_from?: string | string[];
+  tx_to?: string | string[];
+  tx_outlet?: string | string[];
+  tx_merchant?: string | string[];
+  tx_variant?: string | string[];
+  tx_q?: string | string[];
 };
 
 const EMPTY_UUID = "00000000-0000-0000-0000-000000000000";
@@ -51,8 +58,8 @@ export default async function TransactionsPage({
   const supabase = await createClient();
   const params = await searchParams;
 
-  const rawFrom = firstParam(params.from);
-  const rawTo = firstParam(params.to);
+  const rawFrom = firstParam(params.from) || firstParam(params.tx_from);
+  const rawTo = firstParam(params.to) || firstParam(params.tx_to);
   let fromStr = isValidDateKey(rawFrom) ? rawFrom : daysAgoWIBKey(6);
   let toStr = isValidDateKey(rawTo) ? rawTo : todayWIBKey();
   let rangeWasReversed = false;
@@ -61,13 +68,22 @@ export default async function TransactionsPage({
     rangeWasReversed = true;
   }
 
-  const searchTerm = sanitizeSearchTerm(firstParam(params.q));
+  const searchTerm = sanitizeSearchTerm(
+    firstParam(params.q) || firstParam(params.tx_q),
+  );
   const filter = {
     from: fromStr,
     to: toStr,
-    outlet: profile.role === "super_admin" ? firstParam(params.outlet) : "",
-    merchant: firstParam(params.merchant),
-    variant: firstParam(params.variant),
+    outlet:
+      profile.role === "super_admin"
+        ? uuidParam(firstParam(params.outlet) || firstParam(params.tx_outlet))
+        : "",
+    merchant: uuidParam(
+      firstParam(params.merchant) || firstParam(params.tx_merchant),
+    ),
+    variant: uuidParam(
+      firstParam(params.variant) || firstParam(params.tx_variant),
+    ),
     q: searchTerm,
     rangeWasReversed,
   };

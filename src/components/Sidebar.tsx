@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   LayoutDashboard,
@@ -17,6 +17,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  SIDEBAR_PARAM,
+  hrefWithCurrentOrPersistentParams,
+  queryString,
+} from "@/lib/urlParams";
 
 type Item = { href: string; label: string; icon: LucideIcon };
 type BodyWithSidebarLock = HTMLElement & {
@@ -39,15 +44,20 @@ const MASTERS: Item[] = [
 
 export function Sidebar({
   isAdmin,
-  initialCollapsed,
 }: {
   isAdmin: boolean;
-  initialCollapsed: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(initialCollapsed);
   const previousBodyOverflow = useRef<string | null>(null);
+  const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const collapsedFromQuery = searchParams.get(SIDEBAR_PARAM) === "collapsed";
+  const [collapsed, setCollapsed] = useState(collapsedFromQuery);
+
+  useEffect(() => {
+    setCollapsed(collapsedFromQuery);
+  }, [collapsedFromQuery]);
 
   // Expose fungsi openSidebar via custom DOM event (dipakai MobileNavbar)
   useEffect(() => {
@@ -96,7 +106,13 @@ export function Sidebar({
   function toggleCollapsed() {
     setCollapsed((current) => {
       const next = !current;
-      document.cookie = `sidebar-collapsed=${next ? "1" : "0"}; path=/; max-age=31536000; SameSite=Lax`;
+      const params = new URLSearchParams(searchParams.toString());
+      if (next) {
+        params.set(SIDEBAR_PARAM, "collapsed");
+      } else {
+        params.delete(SIDEBAR_PARAM);
+      }
+      router.replace(`${pathname}${queryString(params)}`, { scroll: false });
       return next;
     });
   }
@@ -203,10 +219,11 @@ function NavItem({
   collapsed,
 }: Item & { collapsed: boolean }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const active = pathname === href || pathname.startsWith(href + "/");
   return (
     <Link
-      href={href}
+      href={hrefWithCurrentOrPersistentParams(href, pathname, searchParams)}
       title={collapsed ? label : undefined}
       aria-current={active ? "page" : undefined}
       className={cn(

@@ -1,44 +1,18 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { copyPersistentUrlParams, queryString } from "@/lib/urlParams";
 
-/**
- * Path filter yang perlu restore filter dari cookie.
- */
-const FILTER_PATHS = ["/dashboard", "/transactions", "/ad-costs"];
-const COOKIE_MAP: Record<string, string> = {
-  "/dashboard": "dashboard-filters",
-  "/transactions": "transactions-filters",
-  "/ad-costs": "adcosts-filters",
-};
+function redirectWithPersistentParams(request: NextRequest, pathname: string) {
+  const url = request.nextUrl.clone();
+  const params = new URLSearchParams();
+  copyPersistentUrlParams(request.nextUrl.searchParams, params);
+  url.pathname = pathname;
+  url.search = queryString(params);
+  return NextResponse.redirect(url);
+}
 
 export async function updateSession(request: NextRequest) {
-  const { pathname, search } = request.nextUrl;
-
-  // Restore filter dari cookie sebelum page di-render
-  // Dilakukan di sini agar seamless (tidak ada skeleton flash)
-  if (FILTER_PATHS.includes(pathname) && !search) {
-    const cookieName = COOKIE_MAP[pathname];
-    const rawCookie = request.cookies.get(cookieName)?.value;
-
-    if (rawCookie) {
-      try {
-        const parsed = JSON.parse(decodeURIComponent(rawCookie)) as Record<
-          string,
-          string
-        >;
-        const validParams = Object.entries(parsed).filter(([, v]) => v);
-
-        if (validParams.length > 0) {
-          const qs = new URLSearchParams(validParams).toString();
-          const url = request.nextUrl.clone();
-          url.search = qs;
-          return NextResponse.redirect(url);
-        }
-      } catch {
-        // Malformed cookie — lewatkan
-      }
-    }
-  }
+  const { pathname } = request.nextUrl;
 
   let response = NextResponse.next({ request: { headers: request.headers } });
 
@@ -75,14 +49,11 @@ export async function updateSession(request: NextRequest) {
     isAuthPage || pathname.startsWith("/_next") || pathname === "/favicon.ico";
 
   if (!user && !isPublic) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
+    return redirectWithPersistentParams(request, "/login");
   }
   if (user && isAuthPage) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
+    return redirectWithPersistentParams(request, "/dashboard");
   }
+
   return response;
 }

@@ -1,28 +1,33 @@
 "use client";
 import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Sun, Moon, Monitor } from "lucide-react";
+import {
+  THEME_PARAM,
+  queryString,
+  themeParam,
+  type ThemeParam,
+} from "@/lib/urlParams";
 
-type Theme = "light" | "dark" | "system";
-
-function applyTheme(theme: Theme) {
+function applyTheme(theme: ThemeParam) {
   const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
   const dark = theme === "dark" || (theme === "system" && prefersDark);
   document.documentElement.classList.toggle("dark", dark);
 }
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>("system");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const theme = themeParam(searchParams.get(THEME_PARAM));
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const stored = (localStorage.getItem("theme") as Theme) || "system";
-    setTheme(stored);
     setMounted(true);
   }, []);
 
   useEffect(() => {
     if (!mounted) return;
-    localStorage.setItem("theme", theme);
     applyTheme(theme);
     if (theme === "system") {
       const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -32,11 +37,17 @@ export function ThemeToggle() {
     }
   }, [theme, mounted]);
 
+  function setTheme(nextTheme: ThemeParam) {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set(THEME_PARAM, nextTheme);
+    router.replace(`${pathname}${queryString(next)}`, { scroll: false });
+  }
+
   if (!mounted) {
     return <div className="w-[110px] h-9" aria-hidden />;
   }
 
-  const opts: { v: Theme; icon: any; label: string }[] = [
+  const opts: { v: ThemeParam; icon: any; label: string }[] = [
     { v: "light", icon: Sun, label: "Light" },
     { v: "dark", icon: Moon, label: "Dark" },
     { v: "system", icon: Monitor, label: "System" }

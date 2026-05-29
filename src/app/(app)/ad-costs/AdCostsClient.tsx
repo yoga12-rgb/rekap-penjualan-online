@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
 import { toast } from "@/components/Toast";
 import { formatIDR } from "@/lib/utils";
@@ -25,9 +25,11 @@ import {
 } from "lucide-react";
 import { deleteAdCost, updateAdCost, upsertAdCost } from "./actions";
 import {
-  setAdCostsFilterCookie,
-  clearAdCostsFilterCookie,
-} from "@/lib/filterCookies";
+  clearScopedFilterParams,
+  copyPersistentUrlParams,
+  queryString,
+  setScopedFilterParams,
+} from "@/lib/urlParams";
 
 type Option = { id: string; name: string };
 type Merchant = Option & { color?: string | null };
@@ -115,6 +117,7 @@ export function AdCostsClient({
   filter: AdCostsFilter;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
   const [pending, start] = useTransition();
@@ -130,7 +133,7 @@ export function AdCostsClient({
     [rows],
   );
 
-  // NOTE: Restore filter dari cookie ditangani server-side di page.tsx
+  // Filter hidup di query string agar URL bisa dibagikan dan tidak perlu cookie.
 
   useEffect(() => {
     setDraftFilter({
@@ -141,32 +144,19 @@ export function AdCostsClient({
     });
   }, [filter.from, filter.to, filter.outlet, filter.merchant]);
 
-  // Simpan filter ke cookie saat berubah (agar server component bisa redirect)
-  useEffect(() => {
-    const isDefaultFilter =
-      filter.from === daysAgoWIBKey(29) &&
-      filter.to === todayWIBKey() &&
-      !filter.outlet &&
-      !filter.merchant;
-
-    if (isDefaultFilter) {
-      clearAdCostsFilterCookie();
-    } else {
-      setAdCostsFilterCookie({
-        from: filter.from,
-        to: filter.to,
-        outlet: filter.outlet,
-        merchant: filter.merchant,
-      });
-    }
-  }, [filter.from, filter.to, filter.outlet, filter.merchant]);
-
   function buildFilterParams(nextFilter: AdCostsFilter) {
     const next = new URLSearchParams();
+    copyPersistentUrlParams(searchParams, next);
     next.set("from", nextFilter.from);
     next.set("to", nextFilter.to);
     if (nextFilter.outlet) next.set("outlet", nextFilter.outlet);
     if (nextFilter.merchant) next.set("merchant", nextFilter.merchant);
+    setScopedFilterParams("adCosts", next, {
+      from: nextFilter.from,
+      to: nextFilter.to,
+      outlet: nextFilter.outlet,
+      merchant: nextFilter.merchant,
+    });
     return next;
   }
 
@@ -176,18 +166,20 @@ export function AdCostsClient({
 
   function applyFilter(nextFilter = draftFilter) {
     const next = buildFilterParams(nextFilter);
-    startFilterTransition(() => router.push(`/ad-costs?${next.toString()}`));
+    startFilterTransition(() => router.push(`/ad-costs${queryString(next)}`));
   }
 
   function clearFilter() {
-    clearAdCostsFilterCookie();
+    const next = new URLSearchParams();
+    copyPersistentUrlParams(searchParams, next);
+    clearScopedFilterParams("adCosts", next);
     setDraftFilter({
       from: daysAgoWIBKey(29),
       to: todayWIBKey(),
       outlet: "",
       merchant: "",
     });
-    startFilterTransition(() => router.push("/ad-costs"));
+    startFilterTransition(() => router.push(`/ad-costs${queryString(next)}`));
   }
 
   function getPresetRange(preset: DatePreset) {

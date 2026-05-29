@@ -2,6 +2,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { isUUID } from "@/lib/utils";
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
@@ -25,6 +26,7 @@ export async function createMerchant(formData: FormData) {
 
 export async function updateMerchant(id: string, formData: FormData) {
   await requireAdmin();
+  if (!isUUID(id)) return { error: "ID merchant tidak valid" };
   const { name, color } = parsePayload(formData);
   if (!name) return { error: "Nama wajib diisi" };
   const supabase = await createClient();
@@ -36,6 +38,7 @@ export async function updateMerchant(id: string, formData: FormData) {
 
 export async function deleteMerchant(id: string) {
   await requireAdmin();
+  if (!isUUID(id)) return { error: "ID merchant tidak valid" };
   const supabase = await createClient();
   const { error } = await supabase.from("food_merchants").delete().eq("id", id);
   if (error) return { error: error.message };

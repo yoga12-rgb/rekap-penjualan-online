@@ -10,6 +10,7 @@ import {
   isValidDateKey,
   previousPeriodForRange,
 } from "@/lib/date";
+import { uuidParam } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 const PAGE_SIZE = 1000;
@@ -20,6 +21,11 @@ type SP = {
   outlet?: string | string[];
   merchant?: string | string[];
   variant?: string | string[];
+  dash_from?: string | string[];
+  dash_to?: string | string[];
+  dash_outlet?: string | string[];
+  dash_merchant?: string | string[];
+  dash_variant?: string | string[];
 };
 
 export default async function DashboardPage({
@@ -33,8 +39,8 @@ export default async function DashboardPage({
 
   const defaultFrom = daysAgoWIBKey(6);
   const defaultTo = todayWIBKey();
-  const rawFrom = firstParam(params.from);
-  const rawTo = firstParam(params.to);
+  const rawFrom = firstParam(params.from) || firstParam(params.dash_from);
+  const rawTo = firstParam(params.to) || firstParam(params.dash_to);
   let fromStr = isValidDateKey(rawFrom) ? rawFrom : defaultFrom;
   let toStr = isValidDateKey(rawTo) ? rawTo : defaultTo;
   let rangeWasReversed = false;
@@ -45,9 +51,15 @@ export default async function DashboardPage({
   }
 
   const outlet =
-    profile.role === "super_admin" ? firstParam(params.outlet) : "";
-  const merchant = firstParam(params.merchant);
-  const variant = firstParam(params.variant);
+    profile.role === "super_admin"
+      ? uuidParam(firstParam(params.outlet) || firstParam(params.dash_outlet))
+      : "";
+  const merchant = uuidParam(
+    firstParam(params.merchant) || firstParam(params.dash_merchant),
+  );
+  const variant = uuidParam(
+    firstParam(params.variant) || firstParam(params.dash_variant),
+  );
   const previousRange = previousPeriodForRange(fromStr, toStr);
 
   const [{ data: outlets }, { data: merchants }, { data: variants }] =

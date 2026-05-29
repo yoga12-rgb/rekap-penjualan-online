@@ -201,17 +201,9 @@ export function TransactionsClient({
     draftFilter.merchant !== filter.merchant ||
     draftFilter.variant !== filter.variant ||
     draftFilter.q !== filter.q;
+  const showResetFilter = hasActiveFilter || hasDraftChanges;
 
-  const filteredRows = useMemo(() => {
-    if (!filter.q) return rows;
-    const needle = filter.q.toLowerCase();
-    return rows.filter((r) =>
-      (r.order_number ?? "").toLowerCase().includes(needle) ||
-      (r.product_variants?.name ?? "").toLowerCase().includes(needle) ||
-      (r.outlets?.name ?? "").toLowerCase().includes(needle) ||
-      (r.food_merchants?.name ?? "").toLowerCase().includes(needle)
-    );
-  }, [rows, filter.q]);
+  const filteredRows = rows;
 
   const groups: Group[] = useMemo(() => {
     const map = new Map<string, Group>();
@@ -307,7 +299,7 @@ export function TransactionsClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold">Transaksi</h1>
         <button ref={addTransactionButtonRef} className="btn-primary" onClick={() => setOpenCreate(true)}>
           <Plus size={16} /> Tambah Transaksi
@@ -315,22 +307,33 @@ export function TransactionsClient({
       </div>
 
       {/* FILTER BAR */}
-      <div ref={filterBarRef} className="card p-4 space-y-3 scroll-mt-4">
-        <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
-          <Filter size={16} /> Filter
-          {filterPending && (
-            <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold text-slate-600 dark:text-slate-300" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg)" }}>
-              <Loader2 size={13} className="animate-spin" />
-              Memuat
-            </span>
-          )}
-          {hasActiveFilter && (
-            <button onClick={clearFilter} className="ml-auto btn-ghost text-xs">
-              <X size={14} /> Reset
+      <div ref={filterBarRef} className="card p-3 space-y-2.5 scroll-mt-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <Filter size={16} /> Filter
+            {filterPending && (
+              <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold text-slate-600 dark:text-slate-300" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg)" }}>
+                <Loader2 size={13} className="animate-spin" />
+                Memuat
+              </span>
+            )}
+          </div>
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+            {showResetFilter && (
+              <button onClick={clearFilter} className="btn-ghost h-9 px-3 text-xs sm:text-sm">
+                <X size={14} /> Reset
+              </button>
+            )}
+            <button
+              className="btn-primary h-9 flex-1 px-3 text-xs font-semibold shadow-sm sm:flex-none sm:text-sm"
+              onClick={() => applyFilter()}
+              disabled={!hasDraftChanges || filterPending}
+            >
+              Terapkan Filter
             </button>
-          )}
+          </div>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <div>
             <label className="label">Dari</label>
             <input type="date" className="input" value={draftFilter.from}
@@ -385,14 +388,7 @@ export function TransactionsClient({
             />
           </div>
         </div>
-        <button
-          className="btn-outline w-full sm:w-auto"
-          onClick={() => applyFilter()}
-          disabled={!hasDraftChanges || filterPending}
-        >
-          Terapkan Filter
-        </button>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5">
           <DatePresetButton active={isPresetActive("today")} onClick={() => setRangePreset("today")}>Hari ini</DatePresetButton>
           <DatePresetButton active={isPresetActive("7d")} onClick={() => setRangePreset("7d")}>7 Hari</DatePresetButton>
           <DatePresetButton active={isPresetActive("30d")} onClick={() => setRangePreset("30d")}>30 Hari</DatePresetButton>
@@ -407,7 +403,7 @@ export function TransactionsClient({
           <span>Tanggal "Dari" lebih besar dari "Sampai"; sistem otomatis menukar untuk query.</span>
         </div>
       )}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
         <Stat title="Transaksi" value={`${groups.length} order`} sub={`${filteredRows.length} baris`} tone="indigo" />
         <Stat title="Total Omset" value={formatIDR(totals.gross)} tone="sky" />
         <Stat title="Potongan/Komisi" value={formatIDR(totals.fee)} sub={formatPercent(feePercent(totals.fee, totals.gross))} tone="amber" />
@@ -1159,13 +1155,13 @@ function Stat({
 }) {
   return (
     <div
-      className={`relative overflow-hidden rounded-lg border border-l-4 p-4 shadow-sm ring-1 ${STAT_TONES[tone]}`}
+      className={`relative overflow-hidden rounded-lg border border-l-4 px-3 py-2.5 shadow-sm ring-1 ${STAT_TONES[tone]}`}
     >
       <div className={`text-xs uppercase font-bold tracking-wide ${STAT_META_TONES[tone]}`}>{title}</div>
-      <div className={`mt-2 text-xl sm:text-2xl font-extrabold leading-tight break-words ${STAT_VALUE_TONES[tone]}`}>
+      <div className={`mt-1 text-lg sm:text-xl font-extrabold leading-tight break-words ${STAT_VALUE_TONES[tone]}`}>
         {value}
       </div>
-      {sub && <div className={`mt-1 text-sm font-semibold ${STAT_META_TONES[tone]}`}>{sub}</div>}
+      {sub && <div className={`mt-0.5 text-xs sm:text-sm font-semibold ${STAT_META_TONES[tone]}`}>{sub}</div>}
     </div>
   );
 }

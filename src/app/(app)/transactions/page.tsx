@@ -16,6 +16,23 @@ type SP = {
   q?: string | string[];
 };
 
+const EMPTY_UUID = "00000000-0000-0000-0000-000000000000";
+
+function sanitizeSearchTerm(value: string) {
+  return value.trim().slice(0, 100);
+}
+
+function sanitizePostgrestPattern(value: string) {
+  return value.replace(/[\\%_,()*]/g, " ").trim();
+}
+
+function matchingIds<T extends { id: string; name: string }>(items: T[] | null, term: string) {
+  const needle = term.toLowerCase();
+  return (items ?? [])
+    .filter((item) => item.name.toLowerCase().includes(needle))
+    .map((item) => item.id);
+}
+
 export default async function TransactionsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const profile = await requireProfile();
   const supabase = await createClient();
@@ -31,13 +48,14 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
     rangeWasReversed = true;
   }
 
+  const searchTerm = sanitizeSearchTerm(firstParam(params.q));
   const filter = {
     from: fromStr,
     to: toStr,
     outlet: profile.role === "super_admin" ? firstParam(params.outlet) : "",
     merchant: firstParam(params.merchant),
     variant: firstParam(params.variant),
-    q: firstParam(params.q),
+    q: searchTerm,
     rangeWasReversed
   };
 
@@ -62,6 +80,20 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
   if (filter.outlet) q = q.eq("outlet_id", filter.outlet);
   if (filter.merchant) q = q.eq("food_merchant_id", filter.merchant);
   if (filter.variant) q = q.eq("product_variant_id", filter.variant);
+  if (filter.q) {
+    const clauses: string[] = [];
+    const patternTerm = sanitizePostgrestPattern(filter.q);
+    if (patternTerm) clauses.push(`order_number.ilike.%${patternTerm}%`);
+
+    const outletIds = matchingIds(outlets ?? [], filter.q);
+    const merchantIds = matchingIds(merchants ?? [], filter.q);
+    const variantIds = matchingIds(variants ?? [], filter.q);
+    if (outletIds.length) clauses.push(`outlet_id.in.(${outletIds.join(",")})`);
+    if (merchantIds.length) clauses.push(`food_merchant_id.in.(${merchantIds.join(",")})`);
+    if (variantIds.length) clauses.push(`product_variant_id.in.(${variantIds.join(",")})`);
+
+    q = clauses.length ? q.or(clauses.join(",")) : q.eq("id", EMPTY_UUID);
+  }
 
   const { data: rows } = await q;
 

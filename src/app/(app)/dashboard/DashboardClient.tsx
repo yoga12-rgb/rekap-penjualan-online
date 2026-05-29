@@ -659,6 +659,13 @@ export function DashboardClient({
 
   function clearFilter() {
     localStorage.removeItem(DASHBOARD_FILTER_STORAGE_KEY);
+    setDraftFilter({
+      from: daysAgoWIBKey(6),
+      to: todayWIBKey(),
+      outlet: "",
+      merchant: "",
+      variant: "",
+    });
     startFilterTransition(() => router.push("/dashboard"));
   }
 
@@ -674,26 +681,51 @@ export function DashboardClient({
     draftFilter.outlet !== filter.outlet ||
     draftFilter.merchant !== filter.merchant ||
     draftFilter.variant !== filter.variant;
+  const showResetFilter = hasActiveFilter || hasDraftChanges;
 
   return (
     <div className="space-y-3 sm:space-y-4">
-      <div className="card p-3">
-        <div className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
-          <span>Filter</span>
-          {filterPending && (
-            <span
-              className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold"
-              style={{
-                borderColor: "var(--border)",
-                backgroundColor: "var(--bg)",
-              }}
+      <div className="card p-3 space-y-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <span>Filter</span>
+            {filterPending && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold"
+                style={{
+                  borderColor: "var(--border)",
+                  backgroundColor: "var(--bg)",
+                }}
+              >
+                <Loader2 size={13} className="animate-spin" />
+                Memuat
+              </span>
+            )}
+          </div>
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+            {showResetFilter && (
+              <button className="btn-ghost h-9 px-3 text-xs sm:text-sm" onClick={clearFilter}>
+                <X size={14} />
+                Reset
+              </button>
+            )}
+            <button
+              className="btn-primary h-9 flex-1 px-3 text-xs font-semibold shadow-sm sm:flex-none sm:text-sm"
+              onClick={() => applyFilter()}
+              disabled={!hasDraftChanges || filterPending}
             >
-              <Loader2 size={13} className="animate-spin" />
-              Memuat
-            </span>
-          )}
+              Terapkan Filter
+            </button>
+            <button
+              className="btn-primary h-9 flex-1 px-3 text-xs sm:flex-none sm:text-sm"
+              onClick={exportCsv}
+              disabled={!rows.length || isExporting}
+            >
+              {isExporting ? "Exporting..." : `Export ${TAB_LABELS[activeTab]}`}
+            </button>
+          </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-7 gap-2.5 items-end">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <Field label="Dari">
             <input
               type="date"
@@ -744,27 +776,9 @@ export function DashboardClient({
               clearable
             />
           </Field>
-          <div className="col-span-2 md:col-span-1 min-w-0">
-            <button
-              className="btn-outline w-full h-10 px-3 whitespace-nowrap"
-              onClick={() => applyFilter()}
-              disabled={!hasDraftChanges || filterPending}
-            >
-              Terapkan Filter
-            </button>
-          </div>
-          <div className="col-span-2 md:col-span-1 min-w-0">
-            <button
-              className="btn-primary w-full h-10 px-3 whitespace-nowrap"
-              onClick={exportCsv}
-              disabled={!rows.length || isExporting}
-            >
-              {isExporting ? "Exporting..." : `Export ${TAB_LABELS[activeTab]}`}
-            </button>
-          </div>
         </div>
 
-        <div className="mt-2 flex gap-1.5 overflow-x-auto pb-0.5">
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5">
           <PresetButton
             active={isPresetActive("today")}
             onClick={() => setRangePreset("today")}
@@ -807,12 +821,6 @@ export function DashboardClient({
           >
             Tahun
           </PresetButton>
-          {hasActiveFilter && (
-            <PresetButton onClick={clearFilter}>
-              <X size={14} />
-              Reset
-            </PresetButton>
-          )}
         </div>
       </div>
 
@@ -829,7 +837,7 @@ export function DashboardClient({
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
         <KPI
           title="Total Omset"
           value={formatIDR(totals.gross)}
@@ -848,9 +856,6 @@ export function DashboardClient({
         <KPI title="Net Profit" value={formatIDR(totals.net)} variant="net" />
         <KPI title="Biaya Iklan" value={formatIDR(totals.adCost)} variant="ad" />
         <KPI title="Profit Bersih" value={formatIDR(totals.cleanProfit)} variant="clean" />
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
         <KPI title="Total Qty" value={totals.qty.toLocaleString("id-ID")} />
         <KPI
           title="Total Transaksi"

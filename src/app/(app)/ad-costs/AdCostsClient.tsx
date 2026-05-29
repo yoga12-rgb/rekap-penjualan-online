@@ -176,6 +176,7 @@ export function AdCostsClient({
     draftFilter.to !== filter.to ||
     draftFilter.outlet !== filter.outlet ||
     draftFilter.merchant !== filter.merchant;
+  const showResetFilter = hasActiveFilter || hasDraftChanges;
 
   function openCreate() {
     setEditing(null);
@@ -222,22 +223,33 @@ export function AdCostsClient({
         </button>
       </div>
 
-      <div className="card p-4 space-y-3">
-        <div className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
-          <Filter size={16} /> Filter
-          {filterPending && (
-            <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold text-slate-600 dark:text-slate-300" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg)" }}>
-              <Loader2 size={13} className="animate-spin" />
-              Memuat
-            </span>
-          )}
-          {hasActiveFilter && (
-            <button onClick={clearFilter} className="ml-auto btn-ghost text-xs">
-              <X size={14} /> Reset
+      <div className="card p-3 space-y-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <Filter size={16} /> Filter
+            {filterPending && (
+              <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold text-slate-600 dark:text-slate-300" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg)" }}>
+                <Loader2 size={13} className="animate-spin" />
+                Memuat
+              </span>
+            )}
+          </div>
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+            {showResetFilter && (
+              <button onClick={clearFilter} className="btn-ghost h-9 px-3 text-xs sm:text-sm">
+                <X size={14} /> Reset
+              </button>
+            )}
+            <button
+              className="btn-primary h-9 flex-1 px-3 text-xs font-semibold shadow-sm sm:flex-none sm:text-sm"
+              onClick={() => applyFilter()}
+              disabled={!hasDraftChanges || filterPending}
+            >
+              Terapkan Filter
             </button>
-          )}
+          </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <label className="label">Dari</label>
             <input type="date" className="input" value={draftFilter.from} onChange={(e) => setDraftParam("from", e.target.value)} />
@@ -267,13 +279,6 @@ export function AdCostsClient({
             </select>
           </div>
         </div>
-        <button
-          className="btn-outline w-full sm:w-auto"
-          onClick={() => applyFilter()}
-          disabled={!hasDraftChanges || filterPending}
-        >
-          Terapkan Filter
-        </button>
         <div className="flex gap-1.5 overflow-x-auto pb-0.5">
           <PresetButton active={isPresetActive("today")} onClick={() => setRangePreset("today")}>Hari ini</PresetButton>
           <PresetButton active={isPresetActive("7d")} onClick={() => setRangePreset("7d")}>7H</PresetButton>

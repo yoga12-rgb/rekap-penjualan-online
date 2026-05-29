@@ -1,14 +1,17 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   LayoutDashboard, ReceiptText, Store, UtensilsCrossed,
-  Package, Users, Menu, X, PanelLeftClose, PanelLeftOpen, Megaphone, type LucideIcon
+  Package, Users, Menu, X, PanelLeftClose, PanelLeftOpen, Megaphone, Activity, type LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Item = { href: string; label: string; icon: LucideIcon };
+type BodyWithSidebarLock = HTMLElement & {
+  dataset: HTMLElement["dataset"] & { sidebarScrollLocks?: string };
+};
 
 const MAIN: Item[] = [
   { href: "/dashboard",    label: "Dashboard", icon: LayoutDashboard },
@@ -20,38 +23,62 @@ const MASTERS: Item[] = [
   { href: "/masters/outlets",   label: "Outlet",          icon: Store },
   { href: "/masters/merchants", label: "Food Merchant",   icon: UtensilsCrossed },
   { href: "/masters/products",  label: "Produk & Varian", icon: Package },
-  { href: "/masters/users",     label: "Akun Kasir",      icon: Users }
+  { href: "/masters/users",     label: "Akun Kasir",      icon: Users },
+  { href: "/masters/user-presence", label: "User Online", icon: Activity }
 ];
 
-export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
+export function Sidebar({
+  isAdmin,
+  initialCollapsed,
+}: {
+  isAdmin: boolean;
+  initialCollapsed: boolean;
+}) {
   const [open, setOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(initialCollapsed);
+  const previousBodyOverflow = useRef<string | null>(null);
   const pathname = usePathname();
 
-  // Tutup drawer saat navigasi
+  // Tutup drawer saat navigasi.
   useEffect(() => { setOpen(false); }, [pathname]);
 
-  // Cegah scroll body saat drawer terbuka
+  // Cegah scroll body saat drawer terbuka tanpa menimpa scroll lock lain.
   useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
-  }, [open]);
+    const body = document.body as BodyWithSidebarLock;
+    const currentLocks = Number(body.dataset.sidebarScrollLocks ?? "0");
 
-  useEffect(() => {
-    setCollapsed(localStorage.getItem("sidebar-collapsed") === "1");
-  }, []);
+    if (open) {
+      if (currentLocks === 0) {
+        previousBodyOverflow.current = body.style.overflow;
+        body.style.overflow = "hidden";
+      }
+      body.dataset.sidebarScrollLocks = String(currentLocks + 1);
+    }
+
+    return () => {
+      const nextLocks = Math.max(Number(body.dataset.sidebarScrollLocks ?? "0") - (open ? 1 : 0), 0);
+      if (nextLocks === 0) {
+        delete body.dataset.sidebarScrollLocks;
+        if (previousBodyOverflow.current != null) {
+          body.style.overflow = previousBodyOverflow.current;
+          previousBodyOverflow.current = null;
+        }
+      } else {
+        body.dataset.sidebarScrollLocks = String(nextLocks);
+      }
+    };
+  }, [open]);
 
   function toggleCollapsed() {
     setCollapsed((current) => {
       const next = !current;
-      localStorage.setItem("sidebar-collapsed", next ? "1" : "0");
+      document.cookie = `sidebar-collapsed=${next ? "1" : "0"}; path=/; max-age=31536000; SameSite=Lax`;
       return next;
     });
   }
 
   return (
     <>
-      {/* Tombol hamburger (mobile only) */}
       <button
         onClick={() => setOpen(true)}
         className="md:hidden btn-ghost fixed left-3 top-3 z-30 rounded-md border"
@@ -61,7 +88,6 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
         <Menu size={20} />
       </button>
 
-      {/* Backdrop saat drawer aktif (mobile) */}
       {open && (
         <div
           className="md:hidden fixed inset-0 z-40 bg-black/50"
@@ -72,14 +98,10 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
 
       <aside
         className={cn(
-          // base
           "z-50 w-64 shrink-0 border-r flex flex-col h-screen",
-          // mobile: fixed off-canvas drawer
           "fixed inset-y-0 left-0 transition-[transform,width] duration-200",
-          // desktop: sticky to top, override fixed
           "md:sticky md:inset-y-auto md:top-0 md:translate-x-0",
           collapsed ? "md:w-20" : "md:w-60",
-          // mobile open state
           open ? "translate-x-0" : "-translate-x-full"
         )}
         style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}
@@ -111,14 +133,20 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
             <>
               <div className={cn("px-3 pt-4 pb-1 text-xs font-semibold uppercase", collapsed && "md:px-0 md:text-center")} style={{ color: "var(--muted)" }}>
                 <span className={cn(collapsed && "md:hidden")}>Master Data</span>
-                <span className={cn("hidden", collapsed && "md:inline")}>...</span>
+                <span
+                  className={cn(
+                    "hidden",
+                    collapsed && "md:mx-auto md:block md:h-px md:w-8 md:bg-[var(--border)]"
+                  )}
+                  aria-hidden
+                />
               </div>
               {MASTERS.map((it) => <NavItem key={it.href} collapsed={collapsed} {...it} />)}
             </>
           )}
         </nav>
         <div className={cn("border-t p-3 text-[11px]", collapsed && "md:hidden")} style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
-          © {new Date().getFullYear()} Rajaklana
+          Copyright {new Date().getFullYear()} Rajaklana
         </div>
       </aside>
     </>
@@ -132,6 +160,7 @@ function NavItem({ href, label, icon: Icon, collapsed }: Item & { collapsed: boo
     <Link
       href={href}
       title={collapsed ? label : undefined}
+      aria-current={active ? "page" : undefined}
       className={cn(
         "flex items-center gap-2.5 rounded-md px-3 py-2 transition",
         collapsed && "md:justify-center md:px-2",

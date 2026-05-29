@@ -4,6 +4,8 @@ import { LogoutButton } from "@/components/LogoutButton";
 import { Sidebar } from "@/components/Sidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NavProgress } from "@/components/NavProgress";
+import { PresenceHeartbeat } from "@/components/PresenceHeartbeat";
+import { cookies } from "next/headers";
 import { Suspense } from "react";
 
 export const dynamic = "force-dynamic";
@@ -11,11 +13,14 @@ export const revalidate = 0;
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const profile = await requireProfile();
+  const cookieStore = await cookies();
   const isAdmin = profile.role === "super_admin";
+  const initialSidebarCollapsed = cookieStore.get("sidebar-collapsed")?.value === "1";
   return (
     <div className="min-h-screen flex">
       <Suspense fallback={null}><NavProgress /></Suspense>
-      <Sidebar isAdmin={isAdmin} />
+      <PresenceHeartbeat />
+      <Sidebar isAdmin={isAdmin} initialCollapsed={initialSidebarCollapsed} />
       <main className="flex-1 min-w-0 w-full">
         <header
           className="sticky top-0 z-20 flex items-center justify-between border-b backdrop-blur px-4 sm:px-6 py-3 pl-14 md:pl-6"

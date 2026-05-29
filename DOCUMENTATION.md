@@ -30,6 +30,7 @@ Aplikasi ini dibuat untuk merekap dan menganalisis penjualan **Abon Gulung Rajak
 - 📊 **Dashboard Analitik** — 7 tab visualisasi data (tren harian, produk terlaris, profit merchant, performa outlet, jam ramai, insight otomatis, detail transaksi)
 - 📝 **Manajemen Transaksi** — Input multi-varian dengan perhitungan komisi otomatis
 - 📣 **Biaya Iklan Harian** — Catat biaya iklan per outlet + merchant, terpisah dari potongan admin transaksi
+- 🟢 **User Online** — Super Admin dapat melihat status online, IP tersamarkan, lokasi perkiraan, dan last seen user
 - 🏪 **Master Data** — CRUD untuk outlet, food merchant, varian produk, dan akun kasir
 - 🔐 **Role-based Access** — Super Admin vs Kasir dengan RLS database
 - 🌙 **Dark/Light Mode** — Toggle tema
@@ -183,7 +184,7 @@ npm install
 1. Buka [supabase.com](https://supabase.com) → **New Project**
 2. Catat **Project URL**, **anon key**, dan **service_role key** dari Settings → API
 3. Buka SQL Editor → paste isi `supabase/schema.sql` → **Run**
-4. Jika database sudah ada, jalankan migrasi bertahap di `supabase/migrations/` sesuai nomor versi, termasuk `007_daily_ad_costs.sql` untuk fitur biaya iklan harian
+4. Jika database sudah ada, jalankan migrasi bertahap di `supabase/migrations/` sesuai nomor versi, termasuk `007_daily_ad_costs.sql` dan `008_user_presence.sql`
 5. (Opsional) Paste `supabase/seed.sql` untuk data contoh
 
 ### Langkah 3: Konfigurasi Environment
@@ -378,6 +379,10 @@ Kebijakan per tabel:
   - **INSERT**: super_admin semua, kasir hanya untuk outlet sendiri & `created_by = auth.uid()`
   - **UPDATE**: super_admin semua, kasir hanya outlet sendiri
   - **DELETE**: super_admin semua, kasir hanya outlet sendiri
+- **User presence**:
+  - **SELECT**: super_admin semua, user hanya record sendiri
+  - **INSERT/UPDATE**: user hanya heartbeat sendiri
+  - **DELETE**: hanya super_admin
 
 ---
 
@@ -397,6 +402,7 @@ Kebijakan per tabel:
 | Biaya Iklan — Tambah     | ✅ Semua outlet | ✅ Outlet ditugaskan |
 | Biaya Iklan — Edit       |       ✅        |  ✅ Outlet sendiri   |
 | Biaya Iklan — Hapus      |       ✅        |  ✅ Outlet sendiri   |
+| User Online              |       ✅        |          ❌          |
 | Master Outlet            |       ✅        |          ❌          |
 | Master Merchant          |       ✅        |          ❌          |
 | Master Produk            |       ✅        |          ❌          |
@@ -518,6 +524,14 @@ Biaya iklan harian dipakai untuk menghitung **Profit Bersih** dan tidak masuk ke
 ### 6.4 Master Data
 
 Akses dari sidebar → **Master Data** (hanya Super Admin).
+
+#### User Online
+
+- Menampilkan status **Online**, **Baru aktif**, atau **Offline** berdasarkan heartbeat aplikasi
+- User dianggap online jika `last_seen_at` berada dalam 2 menit terakhir
+- Menampilkan last seen, IP tersamarkan, lokasi perkiraan, timezone, device/browser ringkas, dan halaman terakhir
+- Lokasi berasal dari header IP/proxy platform seperti Vercel/Cloudflare bila tersedia, bukan GPS browser
+- Data ini hanya dapat dilihat oleh Super Admin
 
 #### Food Merchant
 

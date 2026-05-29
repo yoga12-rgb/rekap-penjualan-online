@@ -73,6 +73,20 @@ create table if not exists public.daily_ad_costs (
   unique(cost_date, outlet_id, food_merchant_id)
 );
 
+create table if not exists public.user_presence (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  last_seen_at timestamptz not null default now(),
+  ip_address text,
+  country text,
+  region text,
+  city text,
+  timezone text,
+  user_agent text,
+  path text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create index if not exists idx_tx_date on public.transactions(transaction_date desc);
 create index if not exists idx_tx_order on public.transactions(order_id);
 create index if not exists idx_tx_order_number on public.transactions(order_number);
@@ -82,6 +96,7 @@ create index if not exists idx_tx_variant on public.transactions(product_variant
 create index if not exists idx_ad_costs_date on public.daily_ad_costs(cost_date desc);
 create index if not exists idx_ad_costs_outlet on public.daily_ad_costs(outlet_id);
 create index if not exists idx_ad_costs_merchant on public.daily_ad_costs(food_merchant_id);
+create index if not exists idx_user_presence_last_seen on public.user_presence(last_seen_at desc);
 create index if not exists idx_variant_prices_product on public.product_variant_prices(product_variant_id);
 create index if not exists idx_variant_prices_merchant on public.product_variant_prices(food_merchant_id);
 
@@ -101,6 +116,10 @@ create trigger trg_variant_prices_updated_at before update on public.product_var
 
 drop trigger if exists trg_ad_costs_updated_at on public.daily_ad_costs;
 create trigger trg_ad_costs_updated_at before update on public.daily_ad_costs
+  for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_user_presence_updated_at on public.user_presence;
+create trigger trg_user_presence_updated_at before update on public.user_presence
   for each row execute function public.set_updated_at();
 
 -- 3. HELPER FUNCTIONS (untuk RLS) -------------------------------------
@@ -124,6 +143,7 @@ alter table public.product_variants enable row level security;
 alter table public.product_variant_prices enable row level security;
 alter table public.transactions     enable row level security;
 alter table public.daily_ad_costs   enable row level security;
+alter table public.user_presence    enable row level security;
 
 -- 5. POLICIES ----------------------------------------------------------
 
@@ -211,3 +231,23 @@ create policy "ad_costs_update" on public.daily_ad_costs for update
 drop policy if exists "ad_costs_delete" on public.daily_ad_costs;
 create policy "ad_costs_delete" on public.daily_ad_costs for delete
   using ( public.is_super_admin() or outlet_id = public.my_outlet_id() );
+
+-- user presence:
+--   user: update heartbeat sendiri
+--   super_admin: lihat semua status online
+drop policy if exists "presence_select_self_or_admin" on public.user_presence;
+create policy "presence_select_self_or_admin" on public.user_presence for select
+  using ( user_id = auth.uid() or public.is_super_admin() );
+
+drop policy if exists "presence_insert_self" on public.user_presence;
+create policy "presence_insert_self" on public.user_presence for insert
+  with check ( user_id = auth.uid() );
+
+drop policy if exists "presence_update_self_or_admin" on public.user_presence;
+create policy "presence_update_self_or_admin" on public.user_presence for update
+  using ( user_id = auth.uid() or public.is_super_admin() )
+  with check ( user_id = auth.uid() or public.is_super_admin() );
+
+drop policy if exists "presence_delete_admin" on public.user_presence;
+create policy "presence_delete_admin" on public.user_presence for delete
+  using ( public.is_super_admin() );

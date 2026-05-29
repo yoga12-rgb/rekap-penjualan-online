@@ -39,6 +39,10 @@ import {
   endOfYearWIBKey,
 } from "@/lib/date";
 import { AlertCircle, Loader2, X } from "lucide-react";
+import {
+  setDashboardFilterCookie,
+  clearDashboardFilterCookie,
+} from "@/lib/filterCookies";
 
 type Option = { id: string; name: string };
 type Merchant = Option & { color?: string | null };
@@ -101,7 +105,6 @@ type DatePreset =
   | "lastMonth"
   | "ytd"
   | "year";
-const DASHBOARD_FILTER_STORAGE_KEY = "dashboard-filters";
 const TAB_LABELS: Record<DashboardTab, string> = {
   trend: "Tren",
   products: "Produk",
@@ -165,26 +168,8 @@ export function DashboardClient({
     variant: filter.variant,
   });
 
-  useEffect(() => {
-    const hasUrlFilter = sp.toString().length > 0;
-    const saved = localStorage.getItem(DASHBOARD_FILTER_STORAGE_KEY);
-    if (!hasUrlFilter && saved) {
-      try {
-        const savedFilter = JSON.parse(saved) as Record<string, string>;
-        if (isLegacyTodayOnlyFilter(savedFilter)) {
-          localStorage.removeItem(DASHBOARD_FILTER_STORAGE_KEY);
-          return;
-        }
-        const params = new URLSearchParams(savedFilter);
-        skipNextFilterSave.current = true;
-        startFilterTransition(() =>
-          router.replace(`/dashboard?${params.toString()}`),
-        );
-      } catch {
-        localStorage.removeItem(DASHBOARD_FILTER_STORAGE_KEY);
-      }
-    }
-  }, [router, sp]);
+  // NOTE: Restore filter dari cookie ditangani di updateSession (middleware)
+  // sebelum page di-render, jadi client tidak perlu restore dari localStorage.
 
   useEffect(() => {
     setDraftFilter({
@@ -196,21 +181,15 @@ export function DashboardClient({
     });
   }, [filter.from, filter.to, filter.outlet, filter.merchant, filter.variant]);
 
+  // Simpan filter ke cookie setiap kali berubah (agar middleware bisa restore)
   useEffect(() => {
-    if (skipNextFilterSave.current) {
-      skipNextFilterSave.current = false;
-      return;
-    }
-    const params = new URLSearchParams();
-    params.set("from", filter.from);
-    params.set("to", filter.to);
-    if (filter.outlet) params.set("outlet", filter.outlet);
-    if (filter.merchant) params.set("merchant", filter.merchant);
-    if (filter.variant) params.set("variant", filter.variant);
-    localStorage.setItem(
-      DASHBOARD_FILTER_STORAGE_KEY,
-      JSON.stringify(Object.fromEntries(params)),
-    );
+    setDashboardFilterCookie({
+      from: filter.from,
+      to: filter.to,
+      outlet: filter.outlet,
+      merchant: filter.merchant,
+      variant: filter.variant,
+    });
   }, [filter.from, filter.to, filter.outlet, filter.merchant, filter.variant]);
 
   function buildFilterParams(nextFilter: DashboardFilter) {
@@ -279,11 +258,25 @@ export function DashboardClient({
   const daily = useMemo(() => {
     const map = new Map<
       string,
-      { date: string; gross: number; fee: number; net: number; adCost: number; cleanProfit: number }
+      {
+        date: string;
+        gross: number;
+        fee: number;
+        net: number;
+        adCost: number;
+        cleanProfit: number;
+      }
     >();
     for (const r of rows) {
       const d = isoToWIBDateKey(r.transaction_date);
-      const cur = map.get(d) ?? { date: d, gross: 0, fee: 0, net: 0, adCost: 0, cleanProfit: 0 };
+      const cur = map.get(d) ?? {
+        date: d,
+        gross: 0,
+        fee: 0,
+        net: 0,
+        adCost: 0,
+        cleanProfit: 0,
+      };
       cur.gross += r.qty * r.initial_price;
       cur.fee += Number(r.deduction_fee || 0);
       cur.net += Number(r.net_profit || 0);
@@ -291,7 +284,14 @@ export function DashboardClient({
       map.set(d, cur);
     }
     for (const cost of adCosts) {
-      const cur = map.get(cost.cost_date) ?? { date: cost.cost_date, gross: 0, fee: 0, net: 0, adCost: 0, cleanProfit: 0 };
+      const cur = map.get(cost.cost_date) ?? {
+        date: cost.cost_date,
+        gross: 0,
+        fee: 0,
+        net: 0,
+        adCost: 0,
+        cleanProfit: 0,
+      };
       cur.adCost += Number(cost.amount || 0);
       cur.cleanProfit = cur.net - cur.adCost;
       map.set(cost.cost_date, cur);
@@ -327,7 +327,13 @@ export function DashboardClient({
   const merchantBreakdown = useMemo(() => {
     const map = new Map<
       string,
-      { name: string; net: number; adCost: number; cleanProfit: number; color: string | null }
+      {
+        name: string;
+        net: number;
+        adCost: number;
+        cleanProfit: number;
+        color: string | null;
+      }
     >();
     for (const r of rows) {
       const key = r.food_merchant_id;
@@ -355,7 +361,9 @@ export function DashboardClient({
       cur.cleanProfit = cur.net - cur.adCost;
       map.set(key, cur);
     }
-    return Array.from(map.values()).sort((a, b) => b.cleanProfit - a.cleanProfit);
+    return Array.from(map.values()).sort(
+      (a, b) => b.cleanProfit - a.cleanProfit,
+    );
   }, [adCosts, rows]);
 
   const outletBreakdown = useMemo(() => {
@@ -492,8 +500,22 @@ export function DashboardClient({
     try {
       if (activeTab === "trend") {
         downloadCsv(
-          ["Tanggal", "Omset", "Potongan", "NetProfit", "BiayaIklan", "ProfitBersih"],
-          daily.map((r) => [r.date, r.gross, r.fee, r.net, r.adCost, r.cleanProfit]),
+          [
+            "Tanggal",
+            "Omset",
+            "Potongan",
+            "NetProfit",
+            "BiayaIklan",
+            "ProfitBersih",
+          ],
+          daily.map((r) => [
+            r.date,
+            r.gross,
+            r.fee,
+            r.net,
+            r.adCost,
+            r.cleanProfit,
+          ]),
           `tren_harian_${filter.from}_to_${filter.to}.csv`,
         );
         return;
@@ -511,7 +533,12 @@ export function DashboardClient({
       if (activeTab === "merchants") {
         downloadCsv(
           ["Merchant", "NetProfit", "BiayaIklan", "ProfitBersih"],
-          merchantBreakdown.map((r) => [r.name, r.net, r.adCost, r.cleanProfit]),
+          merchantBreakdown.map((r) => [
+            r.name,
+            r.net,
+            r.adCost,
+            r.cleanProfit,
+          ]),
           `profit_merchant_${filter.from}_to_${filter.to}.csv`,
         );
         return;
@@ -519,7 +546,15 @@ export function DashboardClient({
 
       if (activeTab === "outlets") {
         downloadCsv(
-          ["Outlet", "Transaksi", "Qty", "Omset", "NetProfit", "BiayaIklan", "ProfitBersih"],
+          [
+            "Outlet",
+            "Transaksi",
+            "Qty",
+            "Omset",
+            "NetProfit",
+            "BiayaIklan",
+            "ProfitBersih",
+          ],
           outletBreakdown.map((r) => [
             r.name,
             r.transactionCount,
@@ -658,7 +693,7 @@ export function DashboardClient({
   }
 
   function clearFilter() {
-    localStorage.removeItem(DASHBOARD_FILTER_STORAGE_KEY);
+    clearDashboardFilterCookie();
     setDraftFilter({
       from: daysAgoWIBKey(6),
       to: todayWIBKey(),
@@ -704,7 +739,10 @@ export function DashboardClient({
           </div>
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             {showResetFilter && (
-              <button className="btn-ghost h-9 px-3 text-xs sm:text-sm" onClick={clearFilter}>
+              <button
+                className="btn-ghost h-9 px-3 text-xs sm:text-sm"
+                onClick={clearFilter}
+              >
                 <X size={14} />
                 Reset
               </button>
@@ -854,8 +892,16 @@ export function DashboardClient({
           variant="percent"
         />
         <KPI title="Net Profit" value={formatIDR(totals.net)} variant="net" />
-        <KPI title="Biaya Iklan" value={formatIDR(totals.adCost)} variant="ad" />
-        <KPI title="Profit Bersih" value={formatIDR(totals.cleanProfit)} variant="clean" />
+        <KPI
+          title="Biaya Iklan"
+          value={formatIDR(totals.adCost)}
+          variant="ad"
+        />
+        <KPI
+          title="Profit Bersih"
+          value={formatIDR(totals.cleanProfit)}
+          variant="clean"
+        />
         <KPI title="Total Qty" value={totals.qty.toLocaleString("id-ID")} />
         <KPI
           title="Total Transaksi"
@@ -1020,7 +1066,14 @@ function PresetButton({
 function TrendTab({
   daily,
 }: {
-  daily: Array<{ date: string; gross: number; fee: number; net: number; adCost: number; cleanProfit: number }>;
+  daily: Array<{
+    date: string;
+    gross: number;
+    fee: number;
+    net: number;
+    adCost: number;
+    cleanProfit: number;
+  }>;
 }) {
   return (
     <div className="card p-3">
@@ -1163,7 +1216,13 @@ function ProductsTab({
 function MerchantsTab({
   merchantBreakdown,
 }: {
-  merchantBreakdown: Array<{ name: string; net: number; adCost: number; cleanProfit: number; color: string | null }>;
+  merchantBreakdown: Array<{
+    name: string;
+    net: number;
+    adCost: number;
+    cleanProfit: number;
+    color: string | null;
+  }>;
 }) {
   return (
     <div className="card p-3">
@@ -1248,7 +1307,10 @@ function OutletsTab({
                   color: "var(--fg)",
                 }}
                 formatter={(v: any, name) =>
-                  name === "gross" || name === "net" || name === "cleanProfit" || name === "adCost"
+                  name === "gross" ||
+                  name === "net" ||
+                  name === "cleanProfit" ||
+                  name === "adCost"
                     ? formatIDR(Number(v))
                     : Number(v).toLocaleString("id-ID")
                 }
@@ -1285,7 +1347,9 @@ function OutletsTab({
                 <td className="text-right">{formatIDR(o.gross)}</td>
                 <td className="text-right font-medium">{formatIDR(o.net)}</td>
                 <td className="text-right">{formatIDR(o.adCost)}</td>
-                <td className="text-right font-medium">{formatIDR(o.cleanProfit)}</td>
+                <td className="text-right font-medium">
+                  {formatIDR(o.cleanProfit)}
+                </td>
               </tr>
             ))}
             {!outletBreakdown.length && (
@@ -1595,7 +1659,13 @@ function buildComparison(
 ) {
   const delta = current - previous;
   const percentChange =
-    previous !== 0 ? (delta / Math.abs(previous)) * 100 : current > 0 ? 100 : current < 0 ? -100 : 0;
+    previous !== 0
+      ? (delta / Math.abs(previous)) * 100
+      : current > 0
+        ? 100
+        : current < 0
+          ? -100
+          : 0;
   return { label, current, previous, delta, percentChange, format };
 }
 
@@ -1900,7 +1970,14 @@ function DetailTransactions({ filter }: { filter: DashboardFilter }) {
   );
 }
 
-type KPIVariant = "default" | "gross" | "fee" | "percent" | "net" | "ad" | "clean";
+type KPIVariant =
+  | "default"
+  | "gross"
+  | "fee"
+  | "percent"
+  | "net"
+  | "ad"
+  | "clean";
 
 const KPI_VARIANTS: Record<KPIVariant, { card: string; value: string }> = {
   default: {

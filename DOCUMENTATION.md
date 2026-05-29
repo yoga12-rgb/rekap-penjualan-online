@@ -39,9 +39,9 @@ Aplikasi ini dibuat untuk merekap dan menganalisis penjualan **Abon Gulung Rajak
 
 ### Target Pengguna
 
-| Role            | Kemampuan                                                               |
-| --------------- | ----------------------------------------------------------------------- |
-| **Super Admin** | Akses penuh: melihat semua data, analisis, mengelola master data & user |
+| Role            | Kemampuan                                                                    |
+| --------------- | ---------------------------------------------------------------------------- |
+| **Super Admin** | Akses penuh: melihat semua data, analisis, mengelola master data & user      |
 | **Kasir**       | Terbatas: input transaksi dan biaya iklan hanya untuk outlet yang ditugaskan |
 
 ---
@@ -117,7 +117,8 @@ Aplikasi ini dibuat untuk merekap dan menganalisis penjualan **Abon Gulung Rajak
 │   │   └── 📁 supabase/                 # Supabase clients
 │   │       ├── client.ts               # Browser client
 │   │       ├── server.ts               # Server component client + admin client
-│   │       └── middleware.ts            # Next.js middleware (session refresh)
+│   │       ├── filterCookies.ts         # Helper set/get/clear filter cookie
+│   │       └── middleware.ts            # Proxy middleware (session refresh + filter restore)
 │   └── proxy.ts                         # Middleware entry point
 ├── 📁 supabase/
 │   ├── schema.sql                       # Full database schema + RLS policies
@@ -330,17 +331,17 @@ Buka `http://localhost:3000` dan login dengan email yang didaftarkan.
 
 #### `daily_ad_costs`
 
-| Kolom                   | Tipe          | Keterangan                                      |
-| ----------------------- | ------------- | ----------------------------------------------- |
-| id                      | UUID (PK)     | Auto-generate                                   |
-| cost_date               | DATE          | Tanggal biaya iklan                             |
-| outlet_id               | UUID (FK)     | Ref → outlets(id) RESTRICT                      |
-| food_merchant_id        | UUID (FK)     | Ref → food_merchants(id) RESTRICT               |
-| amount                  | NUMERIC(12,2) | Nominal biaya iklan harian (≥0)                 |
-| note                    | TEXT          | Catatan opsional                                |
-| created_by              | UUID (FK)     | Ref → profiles(id) RESTRICT                     |
-| created_at / updated_at | TIMESTAMPTZ   | Auto                                            |
-| UNIQUE                  | -             | `(cost_date, outlet_id, food_merchant_id)`      |
+| Kolom                   | Tipe          | Keterangan                                 |
+| ----------------------- | ------------- | ------------------------------------------ |
+| id                      | UUID (PK)     | Auto-generate                              |
+| cost_date               | DATE          | Tanggal biaya iklan                        |
+| outlet_id               | UUID (FK)     | Ref → outlets(id) RESTRICT                 |
+| food_merchant_id        | UUID (FK)     | Ref → food_merchants(id) RESTRICT          |
+| amount                  | NUMERIC(12,2) | Nominal biaya iklan harian (≥0)            |
+| note                    | TEXT          | Catatan opsional                           |
+| created_by              | UUID (FK)     | Ref → profiles(id) RESTRICT                |
+| created_at / updated_at | TIMESTAMPTZ   | Auto                                       |
+| UNIQUE                  | -             | `(cost_date, outlet_id, food_merchant_id)` |
 
 ### Indexes
 
@@ -446,15 +447,15 @@ Tampilkan UI sesuai role
 
 #### Tab Analitik
 
-| Tab                  | Fungsi                                                       | Visualisasi       |
-| -------------------- | ------------------------------------------------------------ | ----------------- |
+| Tab                  | Fungsi                                                                            | Visualisasi       |
+| -------------------- | --------------------------------------------------------------------------------- | ----------------- |
 | **Tren Harian**      | Grafik garis omset, net profit, profit bersih, potongan, dan biaya iklan per hari | Line Chart        |
-| **Produk Terlaris**  | Top 10 produk berdasarkan quantity                           | Bar Chart + Tabel |
-| **Profit Merchant**  | Profit bersih per food merchant dengan warna badge           | Bar Chart (warna) |
-| **Outlet**           | Performa per outlet (omset, net, biaya iklan, profit bersih, qty, transaksi) | Bar Chart + Tabel |
-| **Jam Ramai**        | Distribusi transaksi per jam (24 jam)                        | Bar Chart + Tabel |
-| **Insight**          | Perbandingan periode + insight otomatis + penurunan performa | Kartu + Tabel     |
-| **Detail Transaksi** | List semua transaksi (infinite scroll)                       | Tabel             |
+| **Produk Terlaris**  | Top 10 produk berdasarkan quantity                                                | Bar Chart + Tabel |
+| **Profit Merchant**  | Profit bersih per food merchant dengan warna badge                                | Bar Chart (warna) |
+| **Outlet**           | Performa per outlet (omset, net, biaya iklan, profit bersih, qty, transaksi)      | Bar Chart + Tabel |
+| **Jam Ramai**        | Distribusi transaksi per jam (24 jam)                                             | Bar Chart + Tabel |
+| **Insight**          | Perbandingan periode + insight otomatis + penurunan performa                      | Kartu + Tabel     |
+| **Detail Transaksi** | List semua transaksi (infinite scroll)                                            | Tabel             |
 
 #### Key Performance Indicators (KPI)
 
@@ -508,7 +509,7 @@ Tampilkan UI sesuai role
 - Filter outlet, merchant, varian
 - Pencarian teks (no. pesanan / produk / outlet / merchant)
 - Klik **Terapkan Filter** untuk mengambil data baru; preset tanggal langsung diterapkan
-- Filter tersimpan ke localStorage & URL
+- Filter otomatis tersimpan ke cookie browser & URL (tidak perlu terapkan ulang saat kembali ke halaman)
 
 ### 6.3 Biaya Iklan Harian
 

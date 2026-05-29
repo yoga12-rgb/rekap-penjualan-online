@@ -22,6 +22,7 @@ type SP = {
 };
 
 const EMPTY_UUID = "00000000-0000-0000-0000-000000000000";
+const PAGE_SIZE = 1000;
 
 function sanitizeSearchTerm(value: string) {
   return value.trim().slice(0, 100);
@@ -83,41 +84,51 @@ export default async function TransactionsPage({
         .order("name"),
     ]);
 
-  let q = supabase
-    .from("transactions")
-    .select(
-      "id, order_id, order_number, transaction_date, qty, initial_price, deduction_fee, net_profit, outlet_id, food_merchant_id, product_variant_id, outlets(name), food_merchants(name,color), product_variants(name)",
-    )
-    .gte("transaction_date", wibStartOfDay(filter.from))
-    .lte("transaction_date", wibEndOfDay(filter.to))
-    .order("transaction_date", { ascending: false })
-    .limit(1000);
+  function buildQuery(offset: number) {
+    let query = supabase
+      .from("transactions")
+      .select(
+        "id, order_id, order_number, transaction_date, qty, initial_price, deduction_fee, net_profit, outlet_id, food_merchant_id, product_variant_id, outlets(name), food_merchants(name,color), product_variants(name)",
+      )
+      .gte("transaction_date", wibStartOfDay(filter.from))
+      .lte("transaction_date", wibEndOfDay(filter.to))
+      .order("transaction_date", { ascending: false })
+      .range(offset, offset + PAGE_SIZE - 1);
 
-  if (profile.role === "kasir")
-    q = profile.outlet_id
-      ? q.eq("outlet_id", profile.outlet_id)
-      : q.is("outlet_id", null);
-  if (filter.outlet) q = q.eq("outlet_id", filter.outlet);
-  if (filter.merchant) q = q.eq("food_merchant_id", filter.merchant);
-  if (filter.variant) q = q.eq("product_variant_id", filter.variant);
-  if (filter.q) {
-    const clauses: string[] = [];
-    const patternTerm = sanitizePostgrestPattern(filter.q);
-    if (patternTerm) clauses.push(`order_number.ilike.%${patternTerm}%`);
+    if (profile.role === "kasir")
+      query = profile.outlet_id
+        ? query.eq("outlet_id", profile.outlet_id)
+        : query.is("outlet_id", null);
+    if (filter.outlet) query = query.eq("outlet_id", filter.outlet);
+    if (filter.merchant) query = query.eq("food_merchant_id", filter.merchant);
+    if (filter.variant) query = query.eq("product_variant_id", filter.variant);
+    if (filter.q) {
+      const clauses: string[] = [];
+      const patternTerm = sanitizePostgrestPattern(filter.q);
+      if (patternTerm) clauses.push(`order_number.ilike.%${patternTerm}%`);
 
-    const outletIds = matchingIds(outlets ?? [], filter.q);
-    const merchantIds = matchingIds(merchants ?? [], filter.q);
-    const variantIds = matchingIds(variants ?? [], filter.q);
-    if (outletIds.length) clauses.push(`outlet_id.in.(${outletIds.join(",")})`);
-    if (merchantIds.length)
-      clauses.push(`food_merchant_id.in.(${merchantIds.join(",")})`);
-    if (variantIds.length)
-      clauses.push(`product_variant_id.in.(${variantIds.join(",")})`);
+      const outletIds = matchingIds(outlets ?? [], filter.q);
+      const merchantIds = matchingIds(merchants ?? [], filter.q);
+      const variantIds = matchingIds(variants ?? [], filter.q);
+      if (outletIds.length) clauses.push(`outlet_id.in.(${outletIds.join(",")})`);
+      if (merchantIds.length)
+        clauses.push(`food_merchant_id.in.(${merchantIds.join(",")})`);
+      if (variantIds.length)
+        clauses.push(`product_variant_id.in.(${variantIds.join(",")})`);
 
-    q = clauses.length ? q.or(clauses.join(",")) : q.eq("id", EMPTY_UUID);
+      query = clauses.length ? query.or(clauses.join(",")) : query.eq("id", EMPTY_UUID);
+    }
+
+    return query;
   }
 
-  const { data: rows } = await q;
+  const rows: any[] = [];
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data } = await buildQuery(offset);
+    const pageRows = data ?? [];
+    rows.push(...pageRows);
+    if (pageRows.length < PAGE_SIZE) break;
+  }
 
   return (
     <TransactionsClient
@@ -126,7 +137,7 @@ export default async function TransactionsPage({
       outlets={outlets ?? []}
       merchants={(merchants ?? []) as any}
       variants={(variants ?? []) as any}
-      rows={(rows ?? []) as any}
+      rows={rows as any}
       filter={filter}
     />
   );

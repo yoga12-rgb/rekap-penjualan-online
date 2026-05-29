@@ -26,7 +26,7 @@ export async function updateSession(request: NextRequest) {
           string,
           string
         >;
-        const validParams = Object.entries(parsed).filter(([_, v]) => v);
+        const validParams = Object.entries(parsed).filter(([, v]) => v);
 
         if (validParams.length > 0) {
           const qs = new URLSearchParams(validParams).toString();

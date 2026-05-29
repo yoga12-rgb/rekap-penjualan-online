@@ -135,7 +135,7 @@ npm start
 - **Profit Bersih**: Dashboard menghitung **Profit Bersih = Net Profit - Biaya Iklan**. Saat filter varian aktif, biaya iklan tidak dikurangkan karena biaya iklan tidak melekat ke varian tertentu.
 - **Komisi proporsional**: Potongan komisi dibagi proporsional ke setiap item berdasarkan omset.
 - **Perbandingan periode**: Dashboard otomatis membandingkan periode saat ini dengan periode sebelumnya (panjang hari sama).
-- **Filter manual**: perubahan filter tanggal/outlet/merchant/varian tidak langsung query; klik **Terapkan Filter** untuk mengambil data baru. Preset tanggal tetap langsung diterapkan.
+- **Filter manual**: perubahan filter tanggal/outlet/merchant/varian tidak langsung query; klik **Terapkan Filter** untuk mengambil data baru. Preset tanggal langsung diterapkan hanya untuk tanggal aktif, Reset membersihkan cookie filter, dan data besar diambil bertahap agar tidak terpotong 1000 baris.
 - **User online**: status online dihitung dari heartbeat aplikasi. IP ditampilkan tersamarkan dan lokasi adalah perkiraan dari header IP/proxy, bukan GPS.
 
 ---

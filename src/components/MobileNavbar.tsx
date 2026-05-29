@@ -17,7 +17,7 @@ type TabItem = {
   action?: () => void;
 };
 
-export function MobileNavbar({ isAdmin }: { isAdmin: boolean }) {
+export function MobileNavbar() {
   const pathname = usePathname();
 
   function openSidebarDrawer() {

@@ -7,7 +7,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { formatIDR } from "@/lib/utils";
 import {
   ResponsiveContainer,
@@ -155,8 +155,6 @@ export function DashboardClient({
   filter: DashboardFilter;
 }) {
   const router = useRouter();
-  const sp = useSearchParams();
-  const skipNextFilterSave = useRef(false);
   const [isExporting, setIsExporting] = useState(false);
   const [filterPending, startFilterTransition] = useTransition();
   const [activeTab, setActiveTab] = useState<DashboardTab>("trend");
@@ -183,13 +181,24 @@ export function DashboardClient({
 
   // Simpan filter ke cookie setiap kali berubah (agar middleware bisa restore)
   useEffect(() => {
-    setDashboardFilterCookie({
-      from: filter.from,
-      to: filter.to,
-      outlet: filter.outlet,
-      merchant: filter.merchant,
-      variant: filter.variant,
-    });
+    const isDefaultFilter =
+      filter.from === daysAgoWIBKey(6) &&
+      filter.to === todayWIBKey() &&
+      !filter.outlet &&
+      !filter.merchant &&
+      !filter.variant;
+
+    if (isDefaultFilter) {
+      clearDashboardFilterCookie();
+    } else {
+      setDashboardFilterCookie({
+        from: filter.from,
+        to: filter.to,
+        outlet: filter.outlet,
+        merchant: filter.merchant,
+        variant: filter.variant,
+      });
+    }
   }, [filter.from, filter.to, filter.outlet, filter.merchant, filter.variant]);
 
   function buildFilterParams(nextFilter: DashboardFilter) {
@@ -212,7 +221,7 @@ export function DashboardClient({
   }
 
   function setRange(from: string, to: string) {
-    const nextFilter = { ...draftFilter, from, to };
+    const nextFilter = { ...filter, from, to };
     setDraftFilter(nextFilter);
     applyFilter(nextFilter);
   }
@@ -871,6 +880,19 @@ export function DashboardClient({
           <span>
             Tanggal "Dari" lebih besar dari "Sampai"; sistem otomatis menukar
             urutan untuk query.
+          </span>
+        </div>
+      )}
+
+      {filter.variant && (
+        <div
+          className="card px-3 py-2 flex items-center gap-2 text-xs sm:text-sm"
+          style={{ borderColor: "#8b5cf6" }}
+        >
+          <AlertCircle size={16} className="text-violet-600" />
+          <span>
+            Filter varian aktif; biaya iklan tidak dikurangkan karena biaya
+            iklan dicatat per outlet dan merchant, bukan per varian.
           </span>
         </div>
       )}
@@ -1755,16 +1777,6 @@ function downloadCsv(
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
-}
-
-function isLegacyTodayOnlyFilter(savedFilter: Record<string, string>) {
-  return (
-    savedFilter.from === todayWIBKey() &&
-    savedFilter.to === todayWIBKey() &&
-    !savedFilter.outlet &&
-    !savedFilter.merchant &&
-    !savedFilter.variant
-  );
 }
 
 function buildTransactionUrl(

@@ -442,8 +442,14 @@ Tampilkan UI sesuai role
 
 1. Pilih rentang tanggal (atau gunakan preset cepat)
 2. Filter berdasarkan outlet, merchant, varian produk (atau biarkan "Semua")
-3. Klik **Terapkan Filter** untuk mengambil data baru. Preset tanggal langsung diterapkan.
+3. Klik **Terapkan Filter** untuk mengambil data baru. Preset tanggal langsung diterapkan hanya untuk mengganti rentang tanggal dari filter yang sudah aktif.
 4. Klik **Export** untuk download CSV tab yang aktif
+
+Catatan:
+
+- Reset menghapus filter aktif sekaligus cookie filter tersimpan.
+- Dashboard mengambil data transaksi dan biaya iklan bertahap per 1000 baris agar hasil tidak terpotong batas default API.
+- Saat filter varian produk aktif, biaya iklan tidak dikurangkan ke Profit Bersih karena biaya iklan dicatat per outlet dan merchant, bukan per varian.
 
 #### Tab Analitik
 
@@ -508,8 +514,10 @@ Tampilkan UI sesuai role
 - Rentang tanggal (dengan preset cepat: Hari ini, 7H, 30H, YTD)
 - Filter outlet, merchant, varian
 - Pencarian teks (no. pesanan / produk / outlet / merchant)
-- Klik **Terapkan Filter** untuk mengambil data baru; preset tanggal langsung diterapkan
+- Klik **Terapkan Filter** untuk mengambil data baru; preset tanggal langsung diterapkan hanya untuk tanggal yang sudah aktif
 - Filter otomatis tersimpan ke cookie browser & URL (tidak perlu terapkan ulang saat kembali ke halaman)
+- Reset menghapus filter aktif sekaligus cookie filter tersimpan
+- Data transaksi diambil bertahap per 1000 baris agar hasil filter/search tidak terpotong
 
 ### 6.3 Biaya Iklan Harian
 
@@ -520,7 +528,8 @@ Biaya iklan harian dipakai untuk menghitung **Profit Bersih** dan tidak masuk ke
 - Jika input kombinasi yang sama sudah ada, sistem memperbarui record lama
 - Dashboard menghitung **Profit Bersih = Net Profit - Biaya Iklan**
 - Saat filter varian produk aktif di Dashboard, biaya iklan tidak dikurangkan karena biaya iklan tidak melekat ke varian tertentu
-- Filter tanggal/outlet/merchant memakai tombol **Terapkan Filter**; preset tanggal langsung diterapkan
+- Filter tanggal/outlet/merchant memakai tombol **Terapkan Filter**; preset tanggal langsung diterapkan hanya untuk tanggal yang sudah aktif
+- Reset menghapus filter aktif sekaligus cookie filter tersimpan
 
 ### 6.4 Master Data
 

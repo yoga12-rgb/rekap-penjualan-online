@@ -9,7 +9,6 @@ import {
   UtensilsCrossed,
   Package,
   Users,
-  Menu,
   X,
   PanelLeftClose,
   PanelLeftOpen,

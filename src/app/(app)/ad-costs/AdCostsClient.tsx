@@ -143,12 +143,22 @@ export function AdCostsClient({
 
   // Simpan filter ke cookie saat berubah (agar server component bisa redirect)
   useEffect(() => {
-    setAdCostsFilterCookie({
-      from: filter.from,
-      to: filter.to,
-      outlet: filter.outlet,
-      merchant: filter.merchant,
-    });
+    const isDefaultFilter =
+      filter.from === daysAgoWIBKey(29) &&
+      filter.to === todayWIBKey() &&
+      !filter.outlet &&
+      !filter.merchant;
+
+    if (isDefaultFilter) {
+      clearAdCostsFilterCookie();
+    } else {
+      setAdCostsFilterCookie({
+        from: filter.from,
+        to: filter.to,
+        outlet: filter.outlet,
+        merchant: filter.merchant,
+      });
+    }
   }, [filter.from, filter.to, filter.outlet, filter.merchant]);
 
   function buildFilterParams(nextFilter: AdCostsFilter) {
@@ -201,7 +211,7 @@ export function AdCostsClient({
 
   function setRangePreset(preset: DatePreset) {
     const range = getPresetRange(preset);
-    const nextFilter = { ...draftFilter, from: range.from, to: range.to };
+    const nextFilter = { ...filter, from: range.from, to: range.to };
     setDraftFilter(nextFilter);
     applyFilter(nextFilter);
   }

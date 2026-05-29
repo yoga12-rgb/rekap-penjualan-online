@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
 import { formatIDR } from "@/lib/utils";
 import { toast } from "@/components/Toast";
@@ -103,8 +103,6 @@ export function TransactionsClient({
   filter: TransactionFilter;
 }) {
   const router = useRouter();
-  const sp = useSearchParams();
-  const skipNextFilterSave = useRef(false);
   const addTransactionButtonRef = useRef<HTMLButtonElement>(null);
   const filterBarRef = useRef<HTMLDivElement>(null);
   const [openCreate, setOpenCreate] = useState(false);
@@ -149,18 +147,26 @@ export function TransactionsClient({
 
   // Simpan filter ke cookie saat berubah (agar server component bisa redirect)
   useEffect(() => {
-    if (skipNextFilterSave.current) {
-      skipNextFilterSave.current = false;
-      return;
+    const isDefaultFilter =
+      filter.from === daysAgoWIBKey(6) &&
+      filter.to === todayWIBKey() &&
+      !filter.outlet &&
+      !filter.merchant &&
+      !filter.variant &&
+      !filter.q;
+
+    if (isDefaultFilter) {
+      clearTransactionFilterCookie();
+    } else {
+      setTransactionFilterCookie({
+        from: filter.from,
+        to: filter.to,
+        outlet: filter.outlet,
+        merchant: filter.merchant,
+        variant: filter.variant,
+        q: filter.q,
+      });
     }
-    setTransactionFilterCookie({
-      from: filter.from,
-      to: filter.to,
-      outlet: filter.outlet,
-      merchant: filter.merchant,
-      variant: filter.variant,
-      q: filter.q,
-    });
   }, [
     filter.from,
     filter.to,
@@ -203,7 +209,7 @@ export function TransactionsClient({
 
   function setRangePreset(preset: TransactionDatePreset) {
     const range = getPresetRange(preset);
-    const nextFilter = { ...draftFilter, from: range.from, to: range.to };
+    const nextFilter = { ...filter, from: range.from, to: range.to };
     setDraftFilter(nextFilter);
     applyFilter(nextFilter);
   }

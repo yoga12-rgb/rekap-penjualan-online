@@ -12,6 +12,7 @@ import {
 } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
+const PAGE_SIZE = 1000;
 
 type SP = {
   from?: string | string[];
@@ -59,79 +60,70 @@ export default async function DashboardPage({
         .order("name"),
     ]);
 
-  let q = supabase
-    .from("transactions")
-    .select(
-      "id, order_id, order_number, transaction_date, qty, initial_price, deduction_fee, net_profit, outlet_id, food_merchant_id, product_variant_id, outlets(name), food_merchants(name,color), product_variants(name)",
-    )
-    .gte("transaction_date", wibStartOfDay(fromStr))
-    .lte("transaction_date", wibEndOfDay(toStr))
-    .order("transaction_date", { ascending: true });
-
-  let previousQ = supabase
-    .from("transactions")
-    .select(
-      "id, order_id, order_number, transaction_date, qty, initial_price, deduction_fee, net_profit, outlet_id, food_merchant_id, product_variant_id, outlets(name), food_merchants(name,color), product_variants(name)",
-    )
-    .gte("transaction_date", wibStartOfDay(previousRange.from))
-    .lte("transaction_date", wibEndOfDay(previousRange.to))
-    .order("transaction_date", { ascending: true });
-
-  let adCostsQ = supabase
-    .from("daily_ad_costs")
-    .select(
-      "id,cost_date,outlet_id,food_merchant_id,amount,outlets(name),food_merchants(name,color)",
-    )
-    .gte("cost_date", fromStr)
-    .lte("cost_date", toStr)
-    .order("cost_date", { ascending: true });
-
-  let previousAdCostsQ = supabase
-    .from("daily_ad_costs")
-    .select(
-      "id,cost_date,outlet_id,food_merchant_id,amount,outlets(name),food_merchants(name,color)",
-    )
-    .gte("cost_date", previousRange.from)
-    .lte("cost_date", previousRange.to)
-    .order("cost_date", { ascending: true });
-
-  if (profile.role === "kasir") {
-    q = profile.outlet_id
-      ? q.eq("outlet_id", profile.outlet_id)
-      : q.is("outlet_id", null);
-    previousQ = profile.outlet_id
-      ? previousQ.eq("outlet_id", profile.outlet_id)
-      : previousQ.is("outlet_id", null);
-    adCostsQ = profile.outlet_id
-      ? adCostsQ.eq("outlet_id", profile.outlet_id)
-      : adCostsQ.is("outlet_id", null);
-    previousAdCostsQ = profile.outlet_id
-      ? previousAdCostsQ.eq("outlet_id", profile.outlet_id)
-      : previousAdCostsQ.is("outlet_id", null);
-  }
-  if (outlet) {
-    q = q.eq("outlet_id", outlet);
-    previousQ = previousQ.eq("outlet_id", outlet);
-    adCostsQ = adCostsQ.eq("outlet_id", outlet);
-    previousAdCostsQ = previousAdCostsQ.eq("outlet_id", outlet);
-  }
-  if (merchant) {
-    q = q.eq("food_merchant_id", merchant);
-    previousQ = previousQ.eq("food_merchant_id", merchant);
-    adCostsQ = adCostsQ.eq("food_merchant_id", merchant);
-    previousAdCostsQ = previousAdCostsQ.eq("food_merchant_id", merchant);
-  }
-  if (variant) {
-    q = q.eq("product_variant_id", variant);
-    previousQ = previousQ.eq("product_variant_id", variant);
+  async function fetchAll(buildPage: (offset: number) => any) {
+    const rows: any[] = [];
+    for (let offset = 0; ; offset += PAGE_SIZE) {
+      const { data } = await buildPage(offset);
+      const pageRows = data ?? [];
+      rows.push(...pageRows);
+      if (pageRows.length < PAGE_SIZE) break;
+    }
+    return rows;
   }
 
-  const [
-    { data: rows },
-    { data: previousRows },
-    { data: adCosts },
-    { data: previousAdCosts },
-  ] = await Promise.all([q, previousQ, adCostsQ, previousAdCostsQ]);
+  function buildTransactionsQuery(from: string, to: string, offset: number) {
+    let query = supabase
+      .from("transactions")
+      .select(
+        "id, order_id, order_number, transaction_date, qty, initial_price, deduction_fee, net_profit, outlet_id, food_merchant_id, product_variant_id, outlets(name), food_merchants(name,color), product_variants(name)",
+      )
+      .gte("transaction_date", wibStartOfDay(from))
+      .lte("transaction_date", wibEndOfDay(to))
+      .order("transaction_date", { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (profile.role === "kasir") {
+      query = profile.outlet_id
+        ? query.eq("outlet_id", profile.outlet_id)
+        : query.is("outlet_id", null);
+    }
+    if (outlet) query = query.eq("outlet_id", outlet);
+    if (merchant) query = query.eq("food_merchant_id", merchant);
+    if (variant) query = query.eq("product_variant_id", variant);
+    return query;
+  }
+
+  function buildAdCostsQuery(from: string, to: string, offset: number) {
+    let query = supabase
+      .from("daily_ad_costs")
+      .select(
+        "id,cost_date,outlet_id,food_merchant_id,amount,outlets(name),food_merchants(name,color)",
+      )
+      .gte("cost_date", from)
+      .lte("cost_date", to)
+      .order("cost_date", { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (profile.role === "kasir") {
+      query = profile.outlet_id
+        ? query.eq("outlet_id", profile.outlet_id)
+        : query.is("outlet_id", null);
+    }
+    if (outlet) query = query.eq("outlet_id", outlet);
+    if (merchant) query = query.eq("food_merchant_id", merchant);
+    return query;
+  }
+
+  const [rows, previousRows, adCosts, previousAdCosts] = await Promise.all([
+    fetchAll((offset) => buildTransactionsQuery(fromStr, toStr, offset)),
+    fetchAll((offset) =>
+      buildTransactionsQuery(previousRange.from, previousRange.to, offset),
+    ),
+    fetchAll((offset) => buildAdCostsQuery(fromStr, toStr, offset)),
+    fetchAll((offset) =>
+      buildAdCostsQuery(previousRange.from, previousRange.to, offset),
+    ),
+  ]);
 
   return (
     <DashboardClient
@@ -139,10 +131,10 @@ export default async function DashboardPage({
       outlets={outlets ?? []}
       merchants={(merchants ?? []) as any}
       variants={(variants ?? []) as any}
-      rows={(rows ?? []) as any}
-      previousRows={(previousRows ?? []) as any}
-      adCosts={(variant ? [] : (adCosts ?? [])) as any}
-      previousAdCosts={(variant ? [] : (previousAdCosts ?? [])) as any}
+      rows={rows as any}
+      previousRows={previousRows as any}
+      adCosts={(variant ? [] : adCosts) as any}
+      previousAdCosts={(variant ? [] : previousAdCosts) as any}
       previousRange={previousRange}
       filter={{
         from: fromStr,

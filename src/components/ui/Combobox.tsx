@@ -12,7 +12,7 @@ export function Combobox({
   placeholder = "-- pilih --",
   disabled = false,
   clearable = false,
-  className
+  className,
 }: {
   options: ComboOption[];
   value: string;
@@ -35,7 +35,9 @@ export function Combobox({
     if (!query.trim()) return options;
     const q = query.toLowerCase();
     return options.filter(
-      (o) => o.label.toLowerCase().includes(q) || (o.hint ?? "").toLowerCase().includes(q)
+      (o) =>
+        o.label.toLowerCase().includes(q) ||
+        (o.hint ?? "").toLowerCase().includes(q),
     );
   }, [options, query]);
 
@@ -52,7 +54,9 @@ export function Combobox({
   useEffect(() => {
     if (open) {
       setHighlight(0);
-      const canAutoFocus = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+      const canAutoFocus = window.matchMedia(
+        "(hover: hover) and (pointer: fine)",
+      ).matches;
       if (canAutoFocus) setTimeout(() => inputRef.current?.focus(), 0);
     } else {
       setQuery("");
@@ -61,7 +65,9 @@ export function Combobox({
 
   // keep highlighted item in view
   useEffect(() => {
-    const el = listRef.current?.querySelector<HTMLElement>(`[data-idx='${highlight}']`);
+    const el = listRef.current?.querySelector<HTMLElement>(
+      `[data-idx='${highlight}']`,
+    );
     el?.scrollIntoView({ block: "nearest" });
   }, [highlight, filtered.length]);
 
@@ -94,7 +100,7 @@ export function Combobox({
         onClick={() => !disabled && setOpen((v) => !v)}
         className={cn(
           "input flex items-center justify-between gap-2 text-left",
-          disabled && "opacity-60 cursor-not-allowed"
+          disabled && "opacity-60 cursor-not-allowed",
         )}
       >
         <span className={cn("truncate", !selected && "text-slate-400")}>
@@ -105,7 +111,10 @@ export function Combobox({
             <X
               size={14}
               className="hover:text-red-600"
-              onClick={(e) => { e.stopPropagation(); onChange(""); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange("");
+              }}
             />
           )}
           <ChevronsUpDown size={14} />
@@ -114,15 +123,24 @@ export function Combobox({
 
       {open && (
         <div
-          className="absolute z-50 mt-1 w-full rounded-md border shadow-lg overflow-hidden"
-          style={{ backgroundColor: "var(--card)", borderColor: "var(--border)" }}
+          className="absolute z-30 mt-1 w-full rounded-md border shadow-lg overflow-hidden"
+          style={{
+            backgroundColor: "var(--card)",
+            borderColor: "var(--border)",
+          }}
         >
-          <div className="flex items-center gap-2 px-2 py-1.5 border-b" style={{ borderColor: "var(--border)" }}>
+          <div
+            className="flex items-center gap-2 px-2 py-1.5 border-b"
+            style={{ borderColor: "var(--border)" }}
+          >
             <Search size={14} className="text-slate-400" />
             <input
               ref={inputRef}
               value={query}
-              onChange={(e) => { setQuery(e.target.value); setHighlight(0); }}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setHighlight(0);
+              }}
               onKeyDown={onKey}
               placeholder="Cari..."
               className="w-full bg-transparent text-sm outline-none"
@@ -130,7 +148,10 @@ export function Combobox({
           </div>
           <div ref={listRef} className="max-h-64 overflow-auto py-1">
             {filtered.length === 0 ? (
-              <div className="px-3 py-3 text-sm text-center" style={{ color: "var(--muted)" }}>
+              <div
+                className="px-3 py-3 text-sm text-center"
+                style={{ color: "var(--muted)" }}
+              >
                 Tidak ada hasil
               </div>
             ) : (
@@ -146,15 +167,25 @@ export function Combobox({
                     onClick={() => pick(o.value)}
                     className={cn(
                       "w-full text-left px-3 py-2 text-sm flex items-center gap-2",
-                      active && "bg-[var(--hover)]"
+                      active && "bg-[var(--hover)]",
                     )}
                   >
                     <Check
                       size={14}
-                      className={cn("shrink-0", isSel ? "opacity-100 text-red-600" : "opacity-0")}
+                      className={cn(
+                        "shrink-0",
+                        isSel ? "opacity-100 text-red-600" : "opacity-0",
+                      )}
                     />
                     <span className="flex-1 truncate">{o.label}</span>
-                    {o.hint && <span className="text-xs" style={{ color: "var(--muted)" }}>{o.hint}</span>}
+                    {o.hint && (
+                      <span
+                        className="text-xs"
+                        style={{ color: "var(--muted)" }}
+                      >
+                        {o.hint}
+                      </span>
+                    )}
                   </button>
                 );
               })

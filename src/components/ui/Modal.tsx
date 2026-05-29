@@ -1,5 +1,6 @@
 ﻿"use client";
 import { useEffect, useRef, type CSSProperties } from "react";
+import { X } from "lucide-react";
 
 export function Modal({
   open,
@@ -61,6 +62,9 @@ export function Modal({
   if (!open) return null;
 
   const maxWidth = size === "xl" ? "56rem" : size === "lg" ? "42rem" : "32rem";
+  const panelSizeClass = bodyScroll
+    ? "max-h-[92dvh] rounded-b-none sm:rounded-lg"
+    : "h-[100dvh] max-h-[100dvh] rounded-none sm:h-[92dvh] sm:max-h-[92dvh] sm:rounded-lg";
 
   return (
     <div
@@ -69,7 +73,10 @@ export function Modal({
     >
       <div
         ref={contentRef}
-        className={`card flex w-screen max-w-[100vw] flex-col overflow-hidden p-4 sm:w-full sm:max-w-[var(--modal-max-width)] sm:p-5 max-h-[92dvh] rounded-b-none sm:rounded-lg shadow-2xl ${bodyScroll ? "" : "h-[92dvh]"}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className={`card flex w-screen max-w-[100vw] flex-col overflow-hidden p-4 shadow-2xl sm:w-full sm:max-w-[var(--modal-max-width)] sm:p-5 ${panelSizeClass}`}
         style={{ "--modal-max-width": maxWidth } as CSSProperties}
         onClick={(e) => e.stopPropagation()}
       >
@@ -84,7 +91,7 @@ export function Modal({
             onClick={onClose}
             aria-label="Close"
           >
-            x
+            <X size={18} />
           </button>
         </div>
         <div

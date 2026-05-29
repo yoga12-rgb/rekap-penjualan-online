@@ -922,7 +922,7 @@ function CurrencyInput({
         Rp
       </span>
       <input
-        className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm tabular-nums outline-none"
+        className="min-w-0 flex-1 bg-transparent px-3 py-2 text-base tabular-nums outline-none sm:text-sm"
         inputMode="numeric"
         value={value}
         onChange={(e) => onChange(formatNumberInput(e.target.value))}
@@ -1056,219 +1056,309 @@ function CreateOrderForm({
     });
   }
 
+  const submitText = pending ? "Menyimpan..." : "Simpan Transaksi";
+  const netTooHighMessage =
+    "Pendapatan bersih tidak boleh lebih besar dari total omset.";
+
   return (
     <form onSubmit={onSubmit} className="flex h-full min-h-0 min-w-0 flex-col">
-      <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row">
-        <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div
-        className="grid grid-cols-1 gap-3 rounded-md border p-3 min-w-0 sm:grid-cols-2 sm:p-4 md:grid-cols-3"
-        style={{
-          borderColor: "var(--border)",
-          backgroundColor: "color-mix(in oklab, var(--bg) 55%, var(--card))",
-        }}
-      >
-        <div className="min-w-0 sm:col-span-2 md:col-span-3">
-          <label className="label">Outlet</label>
-          {role === "kasir" ? (
-            <input
-              className="input"
-              disabled
-              value={
-                outlets.find((o) => o.id === myOutletId)?.name ??
-                "(belum diassign)"
-              }
-            />
-          ) : (
-            <select
-              className="input"
-              value={outletId}
-              onChange={(e) => setOutletId(e.target.value)}
-              required
-            >
-              <option value="">-- pilih outlet --</option>
-              {outlets.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-        <div className="min-w-0">
-          <label className="label">Nomor Pesanan</label>
-          <input
-            className="input"
-            value={orderNumber}
-            onChange={(e) => setOrderNumber(e.target.value)}
-            placeholder="Opsional"
-            maxLength={80}
-          />
-        </div>
-        <div className="min-w-0">
-          <label className="label">Food Merchant</label>
-          <select
-            className="input"
-            value={merchantId}
-            onChange={(e) => onMerchantChange(e.target.value)}
-            required
+      <div className="flex min-h-0 flex-1 flex-col gap-2.5 lg:flex-row lg:gap-3">
+        <div className="flex min-h-0 flex-1 flex-col gap-2.5 lg:gap-3">
+          <div
+            className="grid shrink-0 grid-cols-2 gap-1.5 rounded-md border p-1.5 min-w-0 sm:gap-3 sm:p-4 md:grid-cols-3"
+            style={{
+              borderColor: "var(--border)",
+              backgroundColor:
+                "color-mix(in oklab, var(--bg) 55%, var(--card))",
+            }}
           >
-            <option value="">-- pilih --</option>
-            {merchants.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="min-w-0">
-          <label className="label">Tanggal/Waktu</label>
-          <input
-            className="input"
-            type="datetime-local"
-            required
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div
-        className="flex min-h-0 flex-1 flex-col rounded-md border p-3 min-w-0 sm:p-4"
-        style={{
-          borderColor: "var(--border)",
-          backgroundColor: "color-mix(in oklab, var(--bg) 55%, var(--card))",
-        }}
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-          <label className="label">Item Transaksi</label>
-          <button
-            type="button"
-            className="btn-outline w-full sm:w-auto"
-            onClick={addItem}
-          >
-            <Plus size={14} /> Tambah Varian
-          </button>
-        </div>
-        <div className="-mr-1 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1">
-          {items.map((it, i) => (
-            <div
-              key={it.key}
-              className="relative grid grid-cols-2 gap-2 items-end rounded-md border p-2.5 min-w-0 sm:grid-cols-12"
-              style={{
-                borderColor: "var(--border)",
-                backgroundColor: "var(--card)",
-              }}
-            >
-              <div className="col-span-2 min-w-0 pr-11 sm:col-span-12 md:col-span-5 md:pr-0">
-                <label className="text-xs" style={{ color: "var(--muted)" }}>
-                  Varian
-                </label>
-                <Combobox
-                  options={variants.map((v) => ({
-                    value: v.id,
-                    label: v.name,
-                    hint: getVariantHint(v, merchantId),
-                  }))}
-                  value={it.product_variant_id}
-                  onChange={(v) => onVariantChange(i, v)}
-                  placeholder="-- pilih --"
-                />
-              </div>
-              <div className="col-span-1 min-w-0 sm:col-span-4 md:col-span-2">
-                <label className="text-xs" style={{ color: "var(--muted)" }}>
-                  Qty
-                </label>
+            <div className="col-span-2 min-w-0 md:col-span-3">
+              <label className="label">Outlet</label>
+              {role === "kasir" ? (
                 <input
                   className="input"
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={it.qty}
-                  onChange={(e) => setItem(i, { qty: Number(e.target.value) })}
-                  required
+                  disabled
+                  value={
+                    outlets.find((o) => o.id === myOutletId)?.name ??
+                    "(belum diassign)"
+                  }
                 />
-              </div>
-              <div className="col-span-1 min-w-0 sm:col-span-8 md:col-span-4">
-                <label className="text-xs" style={{ color: "var(--muted)" }}>
-                  Harga
-                </label>
-                <CurrencyInput
-                  value={it.initial_price}
-                  onChange={(value) => setItem(i, { initial_price: value })}
+              ) : (
+                <select
+                  className="input"
+                  value={outletId}
+                  onChange={(e) => setOutletId(e.target.value)}
                   required
-                />
-              </div>
-              <div className="absolute right-2 top-2 md:static md:col-span-1 md:flex md:justify-end md:pb-0.5">
-                <button
-                  type="button"
-                  className="btn-ghost text-red-600 h-10 w-10 p-0"
-                  onClick={() => removeItem(i)}
-                  disabled={items.length === 1}
-                  title="Hapus baris"
                 >
-                  <Trash2 size={16} />
-                </button>
-              </div>
+                  <option value="">-- pilih outlet --</option>
+                  {outlets.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
-          ))}
-        </div>
-      </div>
+            <div className="min-w-0">
+              <label className="label">Nomor Pesanan</label>
+              <input
+                className="input"
+                value={orderNumber}
+                onChange={(e) => setOrderNumber(e.target.value)}
+                placeholder="Opsional"
+                maxLength={80}
+              />
+            </div>
+            <div className="min-w-0">
+              <label className="label">Food Merchant</label>
+              <select
+                className="input"
+                value={merchantId}
+                onChange={(e) => onMerchantChange(e.target.value)}
+                required
+              >
+                <option value="">-- pilih --</option>
+                {merchants.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-span-2 min-w-0 sm:col-span-1">
+              <label className="label">Tanggal/Waktu</label>
+              <input
+                className="input"
+                type="datetime-local"
+                required
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div
+            className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border p-2.5 min-w-0 sm:p-4"
+            style={{
+              borderColor: "var(--border)",
+              backgroundColor:
+                "color-mix(in oklab, var(--bg) 55%, var(--card))",
+            }}
+          >
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <label className="label">Item Transaksi</label>
+              <button
+                type="button"
+                className="btn-outline h-9 shrink-0 px-2.5 text-sm sm:h-10 sm:px-3"
+                onClick={addItem}
+              >
+                <Plus size={14} />
+                <span className="hidden sm:inline">Tambah</span> Varian
+              </button>
+            </div>
+            <div className="-mr-1 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1 sm:max-h-[22rem] lg:max-h-[calc(92vh-18rem)]">
+              {items.map((it, i) => (
+                <div
+                  key={it.key}
+                  className="relative grid grid-cols-2 gap-2 items-end rounded-md border p-2.5 min-w-0 sm:grid-cols-12"
+                  style={{
+                    borderColor: "var(--border)",
+                    backgroundColor: "var(--card)",
+                  }}
+                >
+                  <div className="col-span-2 min-w-0 pr-11 sm:col-span-12 md:col-span-5 md:pr-0">
+                    <label
+                      className="text-xs"
+                      style={{ color: "var(--muted)" }}
+                    >
+                      Varian
+                    </label>
+                    <Combobox
+                      options={variants.map((v) => ({
+                        value: v.id,
+                        label: v.name,
+                        hint: getVariantHint(v, merchantId),
+                      }))}
+                      value={it.product_variant_id}
+                      onChange={(v) => onVariantChange(i, v)}
+                      placeholder="-- pilih --"
+                    />
+                  </div>
+                  <div className="col-span-1 min-w-0 sm:col-span-4 md:col-span-2">
+                    <label
+                      className="text-xs"
+                      style={{ color: "var(--muted)" }}
+                    >
+                      Qty
+                    </label>
+                    <input
+                      className="input"
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={it.qty}
+                      onChange={(e) =>
+                        setItem(i, { qty: Number(e.target.value) })
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="col-span-1 min-w-0 sm:col-span-8 md:col-span-4">
+                    <label
+                      className="text-xs"
+                      style={{ color: "var(--muted)" }}
+                    >
+                      Harga
+                    </label>
+                    <CurrencyInput
+                      value={it.initial_price}
+                      onChange={(value) => setItem(i, { initial_price: value })}
+                      required
+                    />
+                  </div>
+                  <div className="absolute right-2 top-2 md:static md:col-span-1 md:flex md:justify-end md:pb-0.5">
+                    <button
+                      type="button"
+                      className="btn-ghost text-red-600 h-10 w-10 p-0"
+                      onClick={() => removeItem(i)}
+                      disabled={items.length === 1}
+                      title="Hapus baris"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-      <div
-        className="min-w-0 shrink-0 space-y-3 lg:sticky lg:top-0 lg:w-80"
-      >
-      <div
-        className="grid grid-cols-1 gap-3 rounded-md border p-3 min-w-0 sm:p-4"
-        style={{
-          borderColor: "var(--border)",
-          backgroundColor: "color-mix(in oklab, var(--bg) 55%, var(--card))",
-        }}
-      >
-        <div className="min-w-0 rounded-md border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/30">
-          <label className="mb-2 block text-sm font-bold text-emerald-800 dark:text-emerald-200">
-            Pendapatan Bersih (1 transaksi)
-          </label>
-          <CurrencyInput value={netIncome} onChange={setNetIncome} required />
-          <p className="text-xs mt-1 text-emerald-700 dark:text-emerald-300">
-            Potongan/komisi dihitung otomatis dari total omset dikurangi
-            pendapatan bersih.
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 min-w-0 lg:grid-cols-1">
-          <SummaryMetric label="Total Omset" value={formatIDR(totals.gross)} />
-          <SummaryMetric
-            label="Potongan/Komisi"
-            value={formatIDR(totals.fee)}
-            sub={`${formatPercent(totals.feePercent)} dari total omset`}
-            danger={totals.isNetTooHigh}
-          />
-          <SummaryMetric
-            label="Pendapatan Bersih"
-            value={formatIDR(totals.net)}
-            valueClassName="text-emerald-700 dark:text-emerald-400"
-            wide
-          />
-          {totals.isNetTooHigh && (
-            <div className="col-span-2 text-xs text-red-700 dark:text-red-300 lg:col-span-1">
-              Pendapatan bersih tidak boleh lebih besar dari total omset.
+        <aside className="hidden min-w-0 shrink-0 space-y-3 lg:sticky lg:top-0 lg:block lg:w-80">
+          <div
+            className="grid grid-cols-1 gap-3 rounded-md border p-4 min-w-0"
+            style={{
+              borderColor: "var(--border)",
+              backgroundColor:
+                "color-mix(in oklab, var(--bg) 55%, var(--card))",
+            }}
+          >
+            <div className="min-w-0 rounded-md border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/30">
+              <label className="mb-2 block text-sm font-bold text-emerald-800 dark:text-emerald-200">
+                Pendapatan Bersih (1 transaksi)
+              </label>
+              <CurrencyInput
+                value={netIncome}
+                onChange={setNetIncome}
+                required
+              />
+              <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
+                Potongan/komisi dihitung otomatis dari total omset dikurangi
+                pendapatan bersih.
+              </p>
             </div>
-          )}
-        </div>
+            <div className="grid grid-cols-1 gap-2 min-w-0">
+              <SummaryMetric
+                label="Total Omset"
+                value={formatIDR(totals.gross)}
+              />
+              <SummaryMetric
+                label="Potongan/Komisi"
+                value={formatIDR(totals.fee)}
+                sub={`${formatPercent(totals.feePercent)} dari total omset`}
+                danger={totals.isNetTooHigh}
+              />
+              <SummaryMetric
+                label="Pendapatan Bersih"
+                value={formatIDR(totals.net)}
+                valueClassName="text-emerald-700 dark:text-emerald-400"
+              />
+              {totals.isNetTooHigh && (
+                <div className="text-xs text-red-700 dark:text-red-300">
+                  {netTooHighMessage}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            className="btn-primary h-11 w-full"
+            disabled={pending}
+          >
+            {submitText}
+          </button>
+        </aside>
       </div>
 
       <div
-        className="sticky bottom-0 z-10 -mx-4 border-t px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:static sm:mx-0 sm:border-0 sm:p-0"
+        className="-mx-4 mt-2 shrink-0 border-t px-4 pt-2.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:hidden"
         style={{
           backgroundColor: "var(--card)",
           borderColor: "var(--border)",
         }}
       >
-        <button type="submit" className="btn-primary h-11 w-full" disabled={pending}>
-          {pending ? "Menyimpan..." : "Simpan Transaksi"}
-        </button>
-      </div>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
+          <div className="min-w-0">
+            <label className="mb-1 block text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+              Pendapatan Bersih
+            </label>
+            <CurrencyInput value={netIncome} onChange={setNetIncome} required />
+          </div>
+          <div
+            className="min-w-[6.5rem] rounded-md border px-2.5 py-2 text-right"
+            style={{
+              borderColor: "var(--border)",
+              backgroundColor: "var(--bg)",
+            }}
+          >
+            <div
+              className="text-[11px] font-medium"
+              style={{ color: "var(--muted)" }}
+            >
+              Total Omset
+            </div>
+            <div className="text-sm font-bold leading-tight">
+              {formatIDR(totals.gross)}
+            </div>
+          </div>
         </div>
+        <div
+          className="mt-2 grid grid-cols-2 gap-2 rounded-md border px-2.5 py-2 text-xs"
+          style={{ borderColor: "var(--border)", backgroundColor: "var(--bg)" }}
+        >
+          <div className="min-w-0">
+            <div className="font-medium" style={{ color: "var(--muted)" }}>
+              Potongan
+            </div>
+            <div
+              className={`truncate font-bold ${
+                totals.isNetTooHigh ? "text-red-700 dark:text-red-300" : ""
+              }`}
+            >
+              {formatIDR(totals.fee)}
+            </div>
+          </div>
+          <div className="min-w-0 text-right">
+            <div className="font-medium" style={{ color: "var(--muted)" }}>
+              Bersih
+            </div>
+            <div className="truncate font-bold text-emerald-700 dark:text-emerald-400">
+              {formatIDR(totals.net)}
+            </div>
+          </div>
+        </div>
+        {totals.isNetTooHigh && (
+          <div className="mt-1.5 text-xs text-red-700 dark:text-red-300">
+            {netTooHighMessage}
+          </div>
+        )}
+        <button
+          type="submit"
+          className="btn-primary mt-2 h-11 w-full"
+          disabled={pending}
+        >
+          {submitText}
+        </button>
       </div>
     </form>
   );

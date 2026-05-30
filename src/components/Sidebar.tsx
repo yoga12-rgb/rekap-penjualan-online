@@ -104,17 +104,16 @@ export function Sidebar({
   }, [open]);
 
   function toggleCollapsed() {
-    setCollapsed((current) => {
-      const next = !current;
-      const params = new URLSearchParams(searchParams.toString());
-      if (next) {
-        params.set(SIDEBAR_PARAM, "collapsed");
-      } else {
-        params.delete(SIDEBAR_PARAM);
-      }
-      router.replace(`${pathname}${queryString(params)}`, { scroll: false });
-      return next;
-    });
+    const next = !collapsed;
+    const params = new URLSearchParams(searchParams.toString());
+    if (next) {
+      params.set(SIDEBAR_PARAM, "collapsed");
+    } else {
+      params.delete(SIDEBAR_PARAM);
+    }
+
+    setCollapsed(next);
+    router.replace(`${pathname}${queryString(params)}`, { scroll: false });
   }
 
   return (

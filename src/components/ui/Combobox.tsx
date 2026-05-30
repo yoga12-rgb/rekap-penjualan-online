@@ -27,6 +27,7 @@ export function Combobox({
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [dropdownPosition, setDropdownPosition] = useState<{
@@ -61,13 +62,18 @@ export function Combobox({
 
   // close on outside click
   useEffect(() => {
-    function onDoc(e: MouseEvent) {
-      if (!wrapRef.current?.contains(e.target as Node)) {
+    function onDoc(e: PointerEvent) {
+      const target = e.target as Node;
+      const isInsideTrigger = wrapRef.current?.contains(target);
+      const isInsideDropdown = dropdownRef.current?.contains(target);
+
+      if (!isInsideTrigger && !isInsideDropdown) {
         setOpen(false);
       }
     }
-    if (open) document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+
+    if (open) document.addEventListener("pointerdown", onDoc);
+    return () => document.removeEventListener("pointerdown", onDoc);
   }, [open]);
 
   // focus input when opened
@@ -135,6 +141,7 @@ export function Combobox({
 
   const dropdown = open && (
     <div
+      ref={dropdownRef}
       className="pointer-events-auto fixed z-[9999] rounded-md border shadow-lg overflow-hidden"
       style={{
         top: `${dropdownPosition.top}px`,

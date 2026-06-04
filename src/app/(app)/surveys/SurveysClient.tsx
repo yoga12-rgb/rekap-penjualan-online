@@ -124,7 +124,7 @@ function renderSurveyPieLabel({
       fill="#fff"
       textAnchor="middle"
       dominantBaseline="central"
-      className="pointer-events-none text-[15px] font-extrabold tabular-nums"
+      className="pointer-events-none text-[12px] font-extrabold tabular-nums sm:text-[14px]"
       style={{ textShadow: "0 1px 2px rgba(0, 0, 0, 0.28)" }}
     >
       {formatPercent(percent * 100)}
@@ -269,7 +269,7 @@ export function SurveysClient({
     !!filter.outlet;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-24 md:pb-0">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold">Survey Customer</h1>
@@ -278,7 +278,7 @@ export function SurveysClient({
           </p>
         </div>
         <div
-          className="inline-flex rounded-md border p-1"
+          className="inline-flex w-full rounded-md border p-1 sm:w-auto"
           style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}
         >
           <TabButton
@@ -342,7 +342,7 @@ function TabButton({
     <button
       type="button"
       className={cn(
-        "inline-flex items-center gap-2 rounded px-3 py-1.5 text-sm font-semibold transition",
+        "inline-flex flex-1 items-center justify-center gap-2 rounded px-3 py-1.5 text-sm font-semibold transition sm:flex-none",
         active
           ? "bg-red-600 text-white"
           : "text-slate-600 hover:bg-[var(--hover)] dark:text-slate-300",
@@ -769,7 +769,7 @@ function SurveyReport({
       {groups.map((group) => (
         <div
           key={group.question}
-          className="rounded-md border p-4"
+          className="min-w-0 rounded-md border p-3 sm:p-4"
           style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}
         >
           <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
@@ -777,34 +777,39 @@ function SurveyReport({
               <div className="text-xs font-semibold uppercase" style={{ color: "var(--muted)" }}>
                 Pertanyaan
               </div>
-              <h2 className="font-bold">{group.question}</h2>
+              <h2 className="text-sm font-bold leading-snug sm:text-base">{group.question}</h2>
             </div>
             <span className="badge">{group.total.toLocaleString("id-ID")} respon</span>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-center">
+          <div className="grid min-w-0 gap-3 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-center xl:grid-cols-[20rem_minmax(0,1fr)]">
             <SurveyPieChart answers={group.answers} total={group.total} />
-            <div className="space-y-3">
+            <div className="min-w-0 space-y-3">
               {group.answers.map((answer, index) => {
                 const percent = group.total ? (answer.count / group.total) * 100 : 0;
                 return (
-                  <div key={answer.label}>
-                    <div className="mb-1 flex items-center justify-between gap-3 text-sm">
-                      <span className="flex min-w-0 items-center gap-2">
+                  <div key={answer.label} className="min-w-0">
+                    <div className="mb-1 grid min-w-0 gap-1 text-sm sm:flex sm:items-center sm:justify-between sm:gap-3">
+                      <span className="flex min-w-0 items-start gap-2">
                         <span
-                          className="h-2.5 w-2.5 shrink-0 rounded-full"
+                          className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
                           style={{
                             backgroundColor:
                               SURVEY_CHART_COLORS[index % SURVEY_CHART_COLORS.length],
                           }}
                         />
-                        <span className="truncate font-semibold">{answer.label}</span>
+                        <span className="min-w-0 break-words font-semibold leading-snug sm:truncate">
+                          {answer.label}
+                        </span>
                       </span>
-                      <span className="shrink-0 tabular-nums" style={{ color: "var(--muted)" }}>
+                      <span
+                        className="pl-5 text-xs tabular-nums sm:shrink-0 sm:pl-0 sm:text-sm"
+                        style={{ color: "var(--muted)" }}
+                      >
                         {answer.count.toLocaleString("id-ID")} - {formatPercent(percent)}
                       </span>
                     </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                    <div className="h-1.5 min-w-0 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800 sm:h-2">
                       <div
                         className="h-full rounded-full"
                         style={{
@@ -848,7 +853,7 @@ function SurveyPieChart({
 
   return (
     <div
-      className="relative h-80 rounded-md border p-2"
+      className="relative h-[236px] overflow-hidden rounded-md border p-1.5 sm:h-72 sm:p-2 lg:h-80"
       style={{ borderColor: "var(--border)", backgroundColor: "var(--bg)" }}
     >
       <ResponsiveContainer width="100%" height="100%">
@@ -860,7 +865,7 @@ function SurveyPieChart({
             cx="50%"
             cy="50%"
             innerRadius="38%"
-            outerRadius="86%"
+            outerRadius="80%"
             paddingAngle={0}
             stroke="#fff"
             strokeWidth={2}

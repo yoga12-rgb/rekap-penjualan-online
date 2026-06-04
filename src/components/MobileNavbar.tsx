@@ -4,6 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
   ReceiptText,
+  ClipboardList,
   Megaphone,
   Menu,
   type LucideIcon,
@@ -30,6 +31,7 @@ export function MobileNavbar() {
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/transactions", label: "Transaksi", icon: ReceiptText },
     { href: "/ad-costs", label: "Iklan", icon: Megaphone },
+    { href: "/surveys", label: "Survey", icon: ClipboardList },
     {
       label: "Lainnya",
       icon: Menu,

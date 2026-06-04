@@ -87,6 +87,48 @@ create table if not exists public.user_presence (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.survey_questions (
+  id uuid primary key default gen_random_uuid(),
+  question_text text not null,
+  is_active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.survey_answers (
+  id uuid primary key default gen_random_uuid(),
+  label text not null unique,
+  is_active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.survey_question_answers (
+  question_id uuid not null references public.survey_questions(id) on delete cascade,
+  answer_id uuid not null references public.survey_answers(id) on delete cascade,
+  is_active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (question_id, answer_id)
+);
+
+create table if not exists public.survey_responses (
+  id uuid primary key default gen_random_uuid(),
+  question_id uuid not null references public.survey_questions(id) on delete restrict,
+  answer_id uuid references public.survey_answers(id) on delete set null,
+  outlet_id uuid not null references public.outlets(id) on delete restrict,
+  created_by uuid not null references public.profiles(id) on delete restrict,
+  other_text text,
+  response_date date not null default ((timezone('Asia/Jakarta', now()))::date),
+  created_at timestamptz not null default now(),
+  constraint survey_responses_answer_or_other check (
+    answer_id is not null or nullif(btrim(coalesce(other_text, '')), '') is not null
+  )
+);
+
 create index if not exists idx_tx_date on public.transactions(transaction_date desc);
 create index if not exists idx_tx_order on public.transactions(order_id);
 create index if not exists idx_tx_order_number on public.transactions(order_number);
@@ -99,6 +141,14 @@ create index if not exists idx_ad_costs_merchant on public.daily_ad_costs(food_m
 create index if not exists idx_user_presence_last_seen on public.user_presence(last_seen_at desc);
 create index if not exists idx_variant_prices_product on public.product_variant_prices(product_variant_id);
 create index if not exists idx_variant_prices_merchant on public.product_variant_prices(food_merchant_id);
+create index if not exists idx_survey_questions_order on public.survey_questions(is_active, sort_order, question_text);
+create index if not exists idx_survey_answers_order on public.survey_answers(is_active, sort_order, label);
+create index if not exists idx_survey_question_answers_question on public.survey_question_answers(question_id, is_active, sort_order);
+create index if not exists idx_survey_question_answers_answer on public.survey_question_answers(answer_id);
+create index if not exists idx_survey_responses_date on public.survey_responses(response_date desc);
+create index if not exists idx_survey_responses_outlet on public.survey_responses(outlet_id);
+create index if not exists idx_survey_responses_question on public.survey_responses(question_id);
+create index if not exists idx_survey_responses_answer on public.survey_responses(answer_id);
 
 -- 2. UPDATED_AT TRIGGER -----------------------------------------------
 
@@ -120,6 +170,18 @@ create trigger trg_ad_costs_updated_at before update on public.daily_ad_costs
 
 drop trigger if exists trg_user_presence_updated_at on public.user_presence;
 create trigger trg_user_presence_updated_at before update on public.user_presence
+  for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_survey_questions_updated_at on public.survey_questions;
+create trigger trg_survey_questions_updated_at before update on public.survey_questions
+  for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_survey_answers_updated_at on public.survey_answers;
+create trigger trg_survey_answers_updated_at before update on public.survey_answers
+  for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_survey_question_answers_updated_at on public.survey_question_answers;
+create trigger trg_survey_question_answers_updated_at before update on public.survey_question_answers
   for each row execute function public.set_updated_at();
 
 -- 3. HELPER FUNCTIONS (untuk RLS) -------------------------------------
@@ -144,6 +206,10 @@ alter table public.product_variant_prices enable row level security;
 alter table public.transactions     enable row level security;
 alter table public.daily_ad_costs   enable row level security;
 alter table public.user_presence    enable row level security;
+alter table public.survey_questions enable row level security;
+alter table public.survey_answers   enable row level security;
+alter table public.survey_question_answers enable row level security;
+alter table public.survey_responses enable row level security;
 
 -- 5. POLICIES ----------------------------------------------------------
 
@@ -250,4 +316,46 @@ create policy "presence_update_self_or_admin" on public.user_presence for update
 
 drop policy if exists "presence_delete_admin" on public.user_presence;
 create policy "presence_delete_admin" on public.user_presence for delete
+  using ( public.is_super_admin() );
+
+-- survey:
+--   master pertanyaan/jawaban: semua login bisa baca, hanya super_admin yang menulis
+--   respon: super_admin semua outlet, kasir hanya outlet miliknya
+drop policy if exists "survey_questions_read" on public.survey_questions;
+create policy "survey_questions_read" on public.survey_questions for select
+  using ( auth.uid() is not null );
+
+drop policy if exists "survey_questions_admin_write" on public.survey_questions;
+create policy "survey_questions_admin_write" on public.survey_questions for all
+  using ( public.is_super_admin() ) with check ( public.is_super_admin() );
+
+drop policy if exists "survey_answers_read" on public.survey_answers;
+create policy "survey_answers_read" on public.survey_answers for select
+  using ( auth.uid() is not null );
+
+drop policy if exists "survey_answers_admin_write" on public.survey_answers;
+create policy "survey_answers_admin_write" on public.survey_answers for all
+  using ( public.is_super_admin() ) with check ( public.is_super_admin() );
+
+drop policy if exists "survey_question_answers_read" on public.survey_question_answers;
+create policy "survey_question_answers_read" on public.survey_question_answers for select
+  using ( auth.uid() is not null );
+
+drop policy if exists "survey_question_answers_admin_write" on public.survey_question_answers;
+create policy "survey_question_answers_admin_write" on public.survey_question_answers for all
+  using ( public.is_super_admin() ) with check ( public.is_super_admin() );
+
+drop policy if exists "survey_responses_select" on public.survey_responses;
+create policy "survey_responses_select" on public.survey_responses for select
+  using ( public.is_super_admin() or outlet_id = public.my_outlet_id() );
+
+drop policy if exists "survey_responses_insert" on public.survey_responses;
+create policy "survey_responses_insert" on public.survey_responses for insert
+  with check (
+    public.is_super_admin()
+    or (outlet_id = public.my_outlet_id() and created_by = auth.uid())
+  );
+
+drop policy if exists "survey_responses_admin_delete" on public.survey_responses;
+create policy "survey_responses_admin_delete" on public.survey_responses for delete
   using ( public.is_super_admin() );

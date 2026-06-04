@@ -1,5 +1,5 @@
 export type ThemeParam = "light" | "dark" | "system";
-export type FilterScope = "dashboard" | "transactions" | "adCosts";
+export type FilterScope = "dashboard" | "transactions" | "adCosts" | "surveys";
 
 export const THEME_PARAM = "theme";
 export const SIDEBAR_PARAM = "sidebar";
@@ -8,12 +8,14 @@ const FILTER_PREFIX: Record<FilterScope, string> = {
   dashboard: "dash",
   transactions: "tx",
   adCosts: "ad",
+  surveys: "survey",
 };
 
 const FILTER_KEYS: Record<FilterScope, string[]> = {
   dashboard: ["from", "to", "outlet", "merchant", "variant"],
   transactions: ["from", "to", "outlet", "merchant", "variant", "q"],
   adCosts: ["from", "to", "outlet", "merchant"],
+  surveys: ["tab", "from", "to", "outlet"],
 };
 
 function scopeForPathname(pathname: string): FilterScope | null {
@@ -25,6 +27,9 @@ function scopeForPathname(pathname: string): FilterScope | null {
   }
   if (pathname === "/ad-costs" || pathname.startsWith("/ad-costs/")) {
     return "adCosts";
+  }
+  if (pathname === "/surveys" || pathname.startsWith("/surveys/")) {
+    return "surveys";
   }
   return null;
 }

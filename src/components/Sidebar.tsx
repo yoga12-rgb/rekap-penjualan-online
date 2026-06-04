@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   LayoutDashboard,
   ReceiptText,
+  ClipboardList,
   Store,
   UtensilsCrossed,
   Package,
@@ -32,12 +33,14 @@ const MAIN: Item[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/transactions", label: "Transaksi", icon: ReceiptText },
   { href: "/ad-costs", label: "Biaya Iklan", icon: Megaphone },
+  { href: "/surveys", label: "Survey", icon: ClipboardList },
 ];
 
 const MASTERS: Item[] = [
   { href: "/masters/outlets", label: "Outlet", icon: Store },
   { href: "/masters/merchants", label: "Food Merchant", icon: UtensilsCrossed },
   { href: "/masters/products", label: "Produk & Varian", icon: Package },
+  { href: "/masters/surveys", label: "Survey", icon: ClipboardList },
   { href: "/masters/users", label: "Akun Kasir", icon: Users },
   { href: "/masters/user-presence", label: "User Online", icon: Activity },
 ];

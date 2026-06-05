@@ -853,7 +853,7 @@ function SurveyPieChart({
 
   return (
     <div
-      className="relative h-[236px] overflow-hidden rounded-md border p-1.5 sm:h-72 sm:p-2 lg:h-80"
+      className="relative z-20 h-[236px] overflow-visible rounded-md border p-1.5 sm:h-72 sm:p-2 lg:h-80"
       style={{ borderColor: "var(--border)", backgroundColor: "var(--bg)" }}
     >
       <ResponsiveContainer width="100%" height="100%">
@@ -882,7 +882,7 @@ function SurveyPieChart({
           <Tooltip
             allowEscapeViewBox={{ x: true, y: true }}
             content={<SurveyPieTooltip total={total} />}
-            wrapperStyle={{ zIndex: 30 }}
+            wrapperStyle={{ zIndex: 1000, pointerEvents: "none" }}
           />
         </PieChart>
       </ResponsiveContainer>

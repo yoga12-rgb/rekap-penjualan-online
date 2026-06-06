@@ -152,6 +152,7 @@ export function SurveysClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [filterPending, startFilterTransition] = useTransition();
+  const [visibleTab, setVisibleTab] = useState<Tab>(filter.tab);
   const [draftFilter, setDraftFilter] = useState<SurveyFilter>({
     tab: filter.tab,
     from: filter.from,
@@ -160,6 +161,7 @@ export function SurveysClient({
   });
 
   useEffect(() => {
+    setVisibleTab(filter.tab);
     setDraftFilter({
       tab: filter.tab,
       from: filter.from,
@@ -205,6 +207,7 @@ export function SurveysClient({
 
   function navigate(nextFilter: SurveyFilter) {
     const next = buildParams(nextFilter);
+    setVisibleTab(nextFilter.tab);
     startFilterTransition(() => router.push(`/surveys${queryString(next)}`));
   }
 
@@ -239,6 +242,7 @@ export function SurveysClient({
       outlet: reset.outlet,
     });
     setDraftFilter(reset);
+    setVisibleTab(reset.tab);
     startFilterTransition(() => router.push(`/surveys${queryString(next)}`));
   }
 
@@ -257,6 +261,8 @@ export function SurveysClient({
     filter.from !== daysAgoWIBKey(29) ||
     filter.to !== todayWIBKey() ||
     !!filter.outlet;
+  const isInitialReportLoading =
+    filterPending && visibleTab === "report" && filter.tab !== "report";
 
   return (
     <div className="space-y-4 pb-24 md:pb-0">
@@ -272,13 +278,13 @@ export function SurveysClient({
           style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}
         >
           <TabButton
-            active={filter.tab === "input"}
+            active={visibleTab === "input"}
             icon={<ClipboardList size={16} />}
             label="Input"
             onClick={() => setTab("input")}
           />
           <TabButton
-            active={filter.tab === "report"}
+            active={visibleTab === "report"}
             icon={<BarChart3 size={16} />}
             label="Laporan"
             onClick={() => setTab("report")}
@@ -286,7 +292,7 @@ export function SurveysClient({
         </div>
       </div>
 
-      {filter.tab === "input" ? (
+      {visibleTab === "input" ? (
         <SurveyInput
           role={role}
           myOutletId={myOutletId}
@@ -310,6 +316,7 @@ export function SurveysClient({
           hasActiveFilter={hasActiveFilter}
           reportData={reportData}
           reportLoadError={reportLoadError}
+          isInitialLoading={isInitialReportLoading}
           rangeWasReversed={filter.rangeWasReversed}
         />
       )}
@@ -586,6 +593,7 @@ function SurveyReport({
   hasActiveFilter,
   reportData,
   reportLoadError,
+  isInitialLoading,
   rangeWasReversed,
 }: {
   role: Role;
@@ -601,6 +609,7 @@ function SurveyReport({
   hasActiveFilter: boolean;
   reportData: SurveyReportData;
   reportLoadError: string | null;
+  isInitialLoading: boolean;
   rangeWasReversed?: boolean;
 }) {
   const { groups, totalResponses } = reportData;
@@ -710,25 +719,35 @@ function SurveyReport({
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <ReportStat label="Total Respon" value={totalResponses.toLocaleString("id-ID")} />
-        <ReportStat label="Pertanyaan Terjawab" value={groups.length.toLocaleString("id-ID")} />
-        <ReportStat
-          label="Periode"
-          value={`${filter.from} - ${filter.to}`}
-          compact
-        />
-      </div>
-
-      {!groups.length && (
+      {isInitialLoading ? (
         <EmptyState
-          icon={<BarChart3 size={20} />}
-          title="Belum ada respon"
-          message="Ubah filter tanggal atau mulai input survey terlebih dahulu."
+          icon={<Loader2 size={20} className="animate-spin" />}
+          title="Memuat laporan"
+          message="Data laporan sedang disiapkan."
         />
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <ReportStat label="Total Respon" value={totalResponses.toLocaleString("id-ID")} />
+            <ReportStat label="Pertanyaan Terjawab" value={groups.length.toLocaleString("id-ID")} />
+            <ReportStat
+              label="Periode"
+              value={`${filter.from} - ${filter.to}`}
+              compact
+            />
+          </div>
+
+          {!groups.length && (
+            <EmptyState
+              icon={<BarChart3 size={20} />}
+              title="Belum ada respon"
+              message="Ubah filter tanggal atau mulai input survey terlebih dahulu."
+            />
+          )}
+        </>
       )}
 
-      {groups.map((group) => (
+      {!isInitialLoading && groups.map((group) => (
         <div
           key={group.question}
           className="min-w-0 rounded-md border p-3 sm:p-4"

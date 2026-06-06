@@ -1,6 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
-import { DashboardClient } from "./DashboardClient";
+import {
+  DashboardClient,
+  type AdCostRow,
+  type Merchant,
+  type Option,
+  type SummaryRow,
+  type Variant,
+} from "./DashboardClient";
 import {
   todayWIBKey,
   daysAgoWIBKey,
@@ -27,6 +34,18 @@ type SP = {
   dash_merchant?: string | string[];
   dash_variant?: string | string[];
 };
+
+type QueryError = { message?: string } | null;
+type QueryPage<T> = PromiseLike<{ data: T[] | null; error: QueryError }>;
+type LoadResult<T> = { rows: T[]; error: string | null };
+
+function asQueryPage<T>(query: unknown): QueryPage<T> {
+  return query as QueryPage<T>;
+}
+
+function emptyLoadResult<T>(): LoadResult<T> {
+  return { rows: [], error: null };
+}
 
 export default async function DashboardPage({
   searchParams,
@@ -62,28 +81,46 @@ export default async function DashboardPage({
   );
   const previousRange = previousPeriodForRange(fromStr, toStr);
 
-  const [{ data: outlets }, { data: merchants }, { data: variants }] =
-    await Promise.all([
-      supabase.from("outlets").select("id,name").order("name"),
-      supabase.from("food_merchants").select("id,name,color").order("name"),
-      supabase
-        .from("product_variants")
-        .select("id,name,base_price")
-        .order("name"),
-    ]);
+  let outletsQuery = supabase.from("outlets").select("id,name").order("name");
+  if (profile.role === "kasir") {
+    outletsQuery = profile.outlet_id
+      ? outletsQuery.eq("id", profile.outlet_id)
+      : outletsQuery.is("id", null);
+  }
 
-  async function fetchAll(buildPage: (offset: number) => any) {
-    const rows: any[] = [];
+  const [outletsResult, merchantsResult, variantsResult] = await Promise.all([
+    outletsQuery,
+    supabase.from("food_merchants").select("id,name,color").order("name"),
+    supabase
+      .from("product_variants")
+      .select("id,name,base_price")
+      .order("name"),
+  ]);
+
+  function formatLoadError(label: string, error: QueryError) {
+    return error?.message ? `${label}: ${error.message}` : null;
+  }
+
+  async function fetchAll<T>(
+    label: string,
+    buildPage: (offset: number) => QueryPage<T>,
+  ): Promise<LoadResult<T>> {
+    const rows: T[] = [];
     for (let offset = 0; ; offset += PAGE_SIZE) {
-      const { data } = await buildPage(offset);
+      const { data, error } = await buildPage(offset);
+      if (error) return { rows, error: formatLoadError(label, error) };
       const pageRows = data ?? [];
       rows.push(...pageRows);
       if (pageRows.length < PAGE_SIZE) break;
     }
-    return rows;
+    return { rows, error: null };
   }
 
-  function buildTransactionsQuery(from: string, to: string, offset: number) {
+  function buildTransactionsQuery(
+    from: string,
+    to: string,
+    offset: number,
+  ): QueryPage<SummaryRow> {
     let query = supabase
       .from("transactions")
       .select(
@@ -102,10 +139,14 @@ export default async function DashboardPage({
     if (outlet) query = query.eq("outlet_id", outlet);
     if (merchant) query = query.eq("food_merchant_id", merchant);
     if (variant) query = query.eq("product_variant_id", variant);
-    return query;
+    return asQueryPage<SummaryRow>(query);
   }
 
-  function buildAdCostsQuery(from: string, to: string, offset: number) {
+  function buildAdCostsQuery(
+    from: string,
+    to: string,
+    offset: number,
+  ): QueryPage<AdCostRow> {
     let query = supabase
       .from("daily_ad_costs")
       .select(
@@ -123,30 +164,49 @@ export default async function DashboardPage({
     }
     if (outlet) query = query.eq("outlet_id", outlet);
     if (merchant) query = query.eq("food_merchant_id", merchant);
-    return query;
+    return asQueryPage<AdCostRow>(query);
   }
 
-  const [rows, previousRows, adCosts, previousAdCosts] = await Promise.all([
-    fetchAll((offset) => buildTransactionsQuery(fromStr, toStr, offset)),
-    fetchAll((offset) =>
-      buildTransactionsQuery(previousRange.from, previousRange.to, offset),
-    ),
-    fetchAll((offset) => buildAdCostsQuery(fromStr, toStr, offset)),
-    fetchAll((offset) =>
-      buildAdCostsQuery(previousRange.from, previousRange.to, offset),
-    ),
-  ]);
+  const [rowsResult, previousRowsResult, adCostsResult, previousAdCostsResult] =
+    await Promise.all([
+      fetchAll("Transaksi periode ini", (offset) =>
+        buildTransactionsQuery(fromStr, toStr, offset),
+      ),
+      fetchAll("Transaksi periode sebelumnya", (offset) =>
+        buildTransactionsQuery(previousRange.from, previousRange.to, offset),
+      ),
+      variant
+        ? Promise.resolve(emptyLoadResult<AdCostRow>())
+        : fetchAll("Biaya iklan periode ini", (offset) =>
+            buildAdCostsQuery(fromStr, toStr, offset),
+          ),
+      variant
+        ? Promise.resolve(emptyLoadResult<AdCostRow>())
+        : fetchAll("Biaya iklan periode sebelumnya", (offset) =>
+            buildAdCostsQuery(previousRange.from, previousRange.to, offset),
+          ),
+    ]);
+
+  const loadErrors = [
+    formatLoadError("Outlet", outletsResult.error),
+    formatLoadError("Merchant", merchantsResult.error),
+    formatLoadError("Varian produk", variantsResult.error),
+    rowsResult.error,
+    previousRowsResult.error,
+    adCostsResult.error,
+    previousAdCostsResult.error,
+  ].filter((error): error is string => Boolean(error));
 
   return (
     <DashboardClient
       role={profile.role}
-      outlets={outlets ?? []}
-      merchants={(merchants ?? []) as any}
-      variants={(variants ?? []) as any}
-      rows={rows as any}
-      previousRows={previousRows as any}
-      adCosts={(variant ? [] : adCosts) as any}
-      previousAdCosts={(variant ? [] : previousAdCosts) as any}
+      outlets={(outletsResult.data ?? []) as Option[]}
+      merchants={(merchantsResult.data ?? []) as Merchant[]}
+      variants={(variantsResult.data ?? []) as Variant[]}
+      rows={rowsResult.rows}
+      previousRows={previousRowsResult.rows}
+      adCosts={adCostsResult.rows}
+      previousAdCosts={previousAdCostsResult.rows}
       previousRange={previousRange}
       filter={{
         from: fromStr,
@@ -156,6 +216,7 @@ export default async function DashboardPage({
         variant,
         rangeWasReversed,
       }}
+      loadErrors={loadErrors}
     />
   );
 }

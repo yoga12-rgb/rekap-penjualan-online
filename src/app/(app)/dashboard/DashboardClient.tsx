@@ -48,9 +48,9 @@ import {
   setScopedFilterParams,
 } from "@/lib/urlParams";
 
-type Option = { id: string; name: string };
-type Merchant = Option & { color?: string | null };
-type Variant = Option & { base_price?: number };
+export type Option = { id: string; name: string };
+export type Merchant = Option & { color?: string | null };
+export type Variant = Option & { base_price?: number };
 type DashboardFilter = {
   from: string;
   to: string;
@@ -60,7 +60,7 @@ type DashboardFilter = {
   rangeWasReversed?: boolean;
 };
 type DashboardFilterKey = "from" | "to" | "outlet" | "merchant" | "variant";
-type SummaryRow = {
+export type SummaryRow = {
   id: string;
   order_id: string;
   order_number: string | null;
@@ -76,7 +76,7 @@ type SummaryRow = {
   food_merchants: { name: string; color: string | null } | null;
   product_variants: { name: string } | null;
 };
-type AdCostRow = {
+export type AdCostRow = {
   id: string;
   cost_date: string;
   outlet_id: string;
@@ -180,6 +180,7 @@ export function DashboardClient({
   previousAdCosts,
   previousRange,
   filter,
+  loadErrors,
 }: {
   role: "super_admin" | "kasir";
   outlets: Option[];
@@ -191,6 +192,7 @@ export function DashboardClient({
   previousAdCosts: AdCostRow[];
   previousRange: { from: string; to: string };
   filter: DashboardFilter;
+  loadErrors?: string[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -915,6 +917,21 @@ export function DashboardClient({
             Tanggal "Dari" lebih besar dari "Sampai"; sistem otomatis menukar
             urutan untuk query.
           </span>
+        </div>
+      )}
+
+      {loadErrors && loadErrors.length > 0 && (
+        <div
+          className="card px-3 py-2 flex items-start gap-2 text-xs sm:text-sm"
+          style={{ borderColor: "#ef4444" }}
+        >
+          <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600" />
+          <div>
+            <div className="font-semibold">Sebagian data gagal dimuat.</div>
+            <div style={{ color: "var(--muted)" }}>
+              {loadErrors.join(" ")}
+            </div>
+          </div>
         </div>
       )}
 

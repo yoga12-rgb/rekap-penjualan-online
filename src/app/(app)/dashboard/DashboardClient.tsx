@@ -268,6 +268,12 @@ export function DashboardClient({
       ),
       buildComparison("Qty", totals.qty, previousTotals.qty, "number"),
       buildComparison(
+        "Rata-rata Qty",
+        totals.avgQty,
+        previousTotals.avgQty,
+        "number",
+      ),
+      buildComparison(
         "Transaksi",
         totals.transactionCount,
         previousTotals.transactionCount,
@@ -279,11 +285,13 @@ export function DashboardClient({
       previousTotals.net,
       previousTotals.cleanProfit,
       previousTotals.qty,
+      previousTotals.avgQty,
       previousTotals.transactionCount,
       totals.gross,
       totals.net,
       totals.cleanProfit,
       totals.qty,
+      totals.avgQty,
       totals.transactionCount,
     ],
   );
@@ -1828,7 +1836,9 @@ function formatPercent(value: number) {
 
 function formatMetricValue(value: number, format: "currency" | "number") {
   if (format === "currency") return formatIDR(value);
-  return value.toLocaleString("id-ID");
+  return value.toLocaleString("id-ID", {
+    maximumFractionDigits: Number.isInteger(value) ? 0 : 2,
+  });
 }
 
 function downloadCsv(

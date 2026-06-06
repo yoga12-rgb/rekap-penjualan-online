@@ -32,6 +32,7 @@ export default async function AppLayout({
             borderColor: "var(--border)",
             backgroundColor:
               "color-mix(in oklab, var(--card) 80%, transparent)",
+            boxShadow: "var(--shadow-control)",
           }}
         >
           <div className="text-sm min-w-0">

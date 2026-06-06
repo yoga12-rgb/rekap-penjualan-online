@@ -63,6 +63,7 @@ type Group = {
   merchant: string;
   merchantColor: string | null;
   rows: Row[];
+  qty: number;
   gross: number;
   fee: number;
   net: number;
@@ -240,11 +241,13 @@ export function TransactionsClient({
         merchant: r.food_merchants?.name ?? "",
         merchantColor: r.food_merchants?.color ?? null,
         rows: [],
+        qty: 0,
         gross: 0,
         fee: 0,
         net: 0,
       };
       cur.rows.push(r);
+      cur.qty += r.qty;
       cur.gross += r.qty * r.initial_price;
       cur.fee += Number(r.deduction_fee || 0);
       cur.net += Number(r.net_profit || 0);
@@ -497,7 +500,7 @@ export function TransactionsClient({
         <Stat
           title="Transaksi"
           value={`${groups.length} order`}
-          sub={`${filteredRows.length} baris`}
+          sub={`${totals.qty.toLocaleString("id-ID")} QTY`}
           tone="indigo"
         />
         <Stat title="Total Omset" value={formatIDR(totals.gross)} tone="sky" />
@@ -549,9 +552,12 @@ export function TransactionsClient({
                         color={g.merchantColor}
                         solid
                       />
-                      {g.rows.length > 1 && (
-                        <span className="badge">{g.rows.length} item</span>
-                      )}
+                      <span className="badge">
+                        {g.qty.toLocaleString("id-ID")} QTY
+                      </span>
+                      <span className="badge">
+                        {g.rows.length.toLocaleString("id-ID")} item
+                      </span>
                     </div>
                   </div>
                   <div className="flex shrink-0 gap-1">

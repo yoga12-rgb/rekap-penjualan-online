@@ -6,6 +6,8 @@ import {
   useRef,
   useState,
   useTransition,
+  type CSSProperties,
+  type ReactNode,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatIDR } from "@/lib/utils";
@@ -83,6 +85,40 @@ type AdCostRow = {
   outlets: { name: string } | null;
   food_merchants: { name: string; color: string | null } | null;
 };
+
+const DASHBOARD_CHART_MARGIN = { top: 8, right: 12, bottom: 8, left: 16 };
+const MONEY_AXIS_WIDTH = 88;
+const COUNT_AXIS_WIDTH = 48;
+const DASHBOARD_TOOLTIP_CONTENT_STYLE: CSSProperties = {
+  backgroundColor: "color-mix(in oklab, var(--card) 96%, var(--fg) 4%)",
+  border: "1px solid color-mix(in oklab, var(--border) 70%, var(--fg) 30%)",
+  borderRadius: 12,
+  boxShadow: "var(--shadow-popover)",
+  color: "var(--fg)",
+  padding: "10px 12px",
+};
+const DASHBOARD_TOOLTIP_LABEL_STYLE: CSSProperties = {
+  color: "var(--fg)",
+  fontWeight: 700,
+  marginBottom: 4,
+};
+const DASHBOARD_TOOLTIP_ITEM_STYLE: CSSProperties = {
+  color: "var(--fg)",
+  fontWeight: 600,
+};
+type DashboardTooltipItem = {
+  name?: string | number;
+  dataKey?: string | number;
+  value?: unknown;
+  color?: string;
+  fill?: string;
+  stroke?: string;
+};
+type DashboardTooltipValueFormatter = (
+  value: unknown,
+  name: unknown,
+  dataKey: unknown,
+) => ReactNode;
 type DetailRow = SummaryRow;
 
 type TransactionPage = {
@@ -1075,6 +1111,62 @@ function PresetButton({
   );
 }
 
+function formatTooltipValue(value: unknown) {
+  if (typeof value === "number") return value.toLocaleString("id-ID");
+  return String(value ?? "-");
+}
+
+function DashboardTooltip({
+  active,
+  payload,
+  label,
+  valueFormatter = formatTooltipValue,
+}: {
+  active?: boolean;
+  payload?: DashboardTooltipItem[];
+  label?: string | number;
+  valueFormatter?: DashboardTooltipValueFormatter;
+}) {
+  const items =
+    payload?.filter((item) => item.value !== null && item.value !== undefined) ?? [];
+  if (!active || !items.length) return null;
+
+  return (
+    <div className="min-w-44 rounded-xl" style={DASHBOARD_TOOLTIP_CONTENT_STYLE}>
+      {label !== undefined && label !== null && (
+        <div className="text-sm" style={DASHBOARD_TOOLTIP_LABEL_STYLE}>
+          {label}
+        </div>
+      )}
+      <div className="space-y-1.5">
+        {items.map((item, index) => {
+          const color = item.color ?? item.fill ?? item.stroke ?? "#94a3b8";
+          const name = String(item.name ?? item.dataKey ?? "Data");
+
+          return (
+            <div
+              key={`${String(item.dataKey ?? item.name ?? "item")}-${index}`}
+              className="flex items-start gap-2 text-sm"
+              style={DASHBOARD_TOOLTIP_ITEM_STYLE}
+            >
+              <span
+                className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: color }}
+              />
+              <div className="min-w-0">
+                <div className="font-semibold leading-snug">{name}</div>
+                <div className="tabular-nums leading-snug" style={{ color: "var(--muted)" }}>
+                  {valueFormatter(item.value, item.name, item.dataKey)}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function TrendTab({
   daily,
 }: {
@@ -1095,22 +1187,23 @@ function TrendTab({
           <EmptyChart />
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={daily}>
+            <LineChart data={daily} margin={DASHBOARD_CHART_MARGIN}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="date" stroke="var(--muted)" />
               <YAxis
+                width={MONEY_AXIS_WIDTH}
+                tickMargin={8}
                 tickFormatter={(v) =>
                   Intl.NumberFormat("id-ID").format(v as number)
                 }
                 stroke="var(--muted)"
               />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: "var(--card)",
-                  border: "1px solid var(--border)",
-                  color: "var(--fg)",
-                }}
-                formatter={(v: any) => formatIDR(Number(v))}
+                content={
+                  <DashboardTooltip
+                    valueFormatter={(value) => formatIDR(Number(value))}
+                  />
+                }
               />
               <Legend />
               <Line
@@ -1174,18 +1267,18 @@ function ProductsTab({
           <EmptyChart />
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={leaderboard}>
+            <BarChart data={leaderboard} margin={DASHBOARD_CHART_MARGIN}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="name" stroke="var(--muted)" />
-              <YAxis stroke="var(--muted)" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "var(--card)",
-                  border: "1px solid var(--border)",
-                  color: "var(--fg)",
-                }}
+              <YAxis
+                width={COUNT_AXIS_WIDTH}
+                tickMargin={8}
+                stroke="var(--muted)"
               />
-              <Bar dataKey="qty" fill="#b91c1c" />
+              <Tooltip
+                content={<DashboardTooltip />}
+              />
+              <Bar dataKey="qty" name="Qty" fill="#b91c1c" />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -1244,24 +1337,25 @@ function MerchantsTab({
           <EmptyChart />
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={merchantBreakdown}>
+            <BarChart data={merchantBreakdown} margin={DASHBOARD_CHART_MARGIN}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="name" stroke="var(--muted)" />
               <YAxis
+                width={MONEY_AXIS_WIDTH}
+                tickMargin={8}
                 tickFormatter={(v) =>
                   Intl.NumberFormat("id-ID").format(v as number)
                 }
                 stroke="var(--muted)"
               />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: "var(--card)",
-                  border: "1px solid var(--border)",
-                  color: "var(--fg)",
-                }}
-                formatter={(v: any) => formatIDR(Number(v))}
+                content={
+                  <DashboardTooltip
+                    valueFormatter={(value) => formatIDR(Number(value))}
+                  />
+                }
               />
-              <Bar dataKey="cleanProfit">
+              <Bar dataKey="cleanProfit" name="Profit Bersih">
                 {merchantBreakdown.map((m) => (
                   <Cell
                     key={m.name}
@@ -1303,28 +1397,22 @@ function OutletsTab({
           <EmptyChart />
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={outletBreakdown}>
+            <BarChart data={outletBreakdown} margin={DASHBOARD_CHART_MARGIN}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="name" stroke="var(--muted)" />
               <YAxis
+                width={MONEY_AXIS_WIDTH}
+                tickMargin={8}
                 tickFormatter={(v) =>
                   Intl.NumberFormat("id-ID").format(v as number)
                 }
                 stroke="var(--muted)"
               />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: "var(--card)",
-                  border: "1px solid var(--border)",
-                  color: "var(--fg)",
-                }}
-                formatter={(v: any, name) =>
-                  name === "gross" ||
-                  name === "net" ||
-                  name === "cleanProfit" ||
-                  name === "adCost"
-                    ? formatIDR(Number(v))
-                    : Number(v).toLocaleString("id-ID")
+                content={
+                  <DashboardTooltip
+                    valueFormatter={(value) => formatIDR(Number(value))}
+                  />
                 }
               />
               <Legend />
@@ -1404,21 +1492,16 @@ function HoursTab({
           <EmptyChart />
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={hourly}>
+            <BarChart data={hourly} margin={DASHBOARD_CHART_MARGIN}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="label" stroke="var(--muted)" />
-              <YAxis stroke="var(--muted)" />
+              <YAxis
+                width={COUNT_AXIS_WIDTH}
+                tickMargin={8}
+                stroke="var(--muted)"
+              />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: "var(--card)",
-                  border: "1px solid var(--border)",
-                  color: "var(--fg)",
-                }}
-                formatter={(v: any, name) =>
-                  name === "gross" || name === "net"
-                    ? formatIDR(Number(v))
-                    : Number(v).toLocaleString("id-ID")
-                }
+                content={<DashboardTooltip />}
               />
               <Legend />
               <Bar dataKey="transactionCount" name="Transaksi" fill="#b91c1c" />

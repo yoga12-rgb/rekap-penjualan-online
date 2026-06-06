@@ -3,12 +3,15 @@
 @tailwind utilities;
 
 :root {
-  --bg: #f8fafc;
+  --bg: #eef2f7;
   --fg: #0f172a;
   --card: #ffffff;
-  --border: #e2e8f0;
-  --muted: #64748b;
-  --hover: #f1f5f9;
+  --border: #cbd5e1;
+  --muted: #475569;
+  --hover: #e2e8f0;
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.06), 0 12px 28px rgba(15, 23, 42, 0.08);
+  --shadow-control: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-popover: 0 16px 40px rgba(15, 23, 42, 0.16), 0 2px 8px rgba(15, 23, 42, 0.08);
 }
 
 .dark {
@@ -18,6 +21,9 @@
   --border: #1f2937;
   --muted: #94a3b8;
   --hover: #1f2937;
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.02), 0 18px 45px rgba(0, 0, 0, 0.26);
+  --shadow-control: 0 1px 0 rgba(255, 255, 255, 0.02);
+  --shadow-popover: 0 20px 48px rgba(0, 0, 0, 0.42);
 }
 
 html, body { background: var(--bg); color: var(--fg); }
@@ -31,19 +37,25 @@ html, body { background: var(--bg); color: var(--fg); }
 
   .input {
     @apply w-full rounded-md px-3 py-2 text-base outline-none focus:border-brand focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900/30 sm:text-sm;
-    background-color: var(--bg);
+    background-color: color-mix(in oklab, var(--card) 88%, var(--bg));
     color: var(--fg);
     border: 1px solid var(--border);
+    box-shadow: var(--shadow-control);
   }
   .label { @apply text-sm font-medium; color: var(--fg); }
 
-  .card { @apply rounded-lg shadow-sm; background-color: var(--card); border: 1px solid var(--border); }
+  .card {
+    @apply rounded-lg;
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-card);
+  }
 
   .table { @apply w-full text-sm; }
   .table th {
     @apply text-left text-xs font-semibold uppercase tracking-wide px-3 py-2;
     color: var(--muted);
-    background-color: var(--hover);
+    background-color: color-mix(in oklab, var(--hover) 72%, var(--card));
     border-bottom: 1px solid var(--border);
   }
   .table th.text-right {
@@ -59,7 +71,7 @@ html, body { background: var(--bg); color: var(--fg); }
 
   .badge {
     @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
-    background-color: var(--hover);
+    background-color: color-mix(in oklab, var(--hover) 82%, var(--card));
     color: var(--fg);
   }
 }

@@ -137,7 +137,11 @@ export function Sidebar({
           collapsed ? "md:w-20" : "md:w-60",
           open ? "translate-x-0" : "-translate-x-full",
         )}
-        style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}
+        style={{
+          borderColor: "var(--border)",
+          backgroundColor: "var(--card)",
+          boxShadow: "var(--shadow-control)",
+        }}
       >
         <div
           className={cn(

@@ -45,6 +45,7 @@ export function MobileNavbar() {
       style={{
         borderColor: "var(--border)",
         backgroundColor: "color-mix(in oklab, var(--card) 92%, transparent)",
+        boxShadow: "0 -10px 24px color-mix(in oklab, var(--fg) 10%, transparent)",
       }}
     >
       <div className="flex justify-around items-center h-16 px-1 pb-safe">

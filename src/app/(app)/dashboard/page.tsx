@@ -1,13 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
+import { DashboardClient } from "./DashboardClient";
 import {
-  DashboardClient,
+  buildDashboardData,
   type AdCostRow,
   type Merchant,
   type Option,
   type SummaryRow,
   type Variant,
-} from "./DashboardClient";
+} from "./dashboardData";
 import {
   todayWIBKey,
   daysAgoWIBKey,
@@ -196,6 +197,12 @@ export default async function DashboardPage({
     adCostsResult.error,
     previousAdCostsResult.error,
   ].filter((error): error is string => Boolean(error));
+  const dashboardData = buildDashboardData({
+    rows: rowsResult.rows,
+    previousRows: previousRowsResult.rows,
+    adCosts: adCostsResult.rows,
+    previousAdCosts: previousAdCostsResult.rows,
+  });
 
   return (
     <DashboardClient
@@ -203,10 +210,7 @@ export default async function DashboardPage({
       outlets={(outletsResult.data ?? []) as Option[]}
       merchants={(merchantsResult.data ?? []) as Merchant[]}
       variants={(variantsResult.data ?? []) as Variant[]}
-      rows={rowsResult.rows}
-      previousRows={previousRowsResult.rows}
-      adCosts={adCostsResult.rows}
-      previousAdCosts={previousAdCostsResult.rows}
+      dashboardData={dashboardData}
       previousRange={previousRange}
       filter={{
         from: fromStr,

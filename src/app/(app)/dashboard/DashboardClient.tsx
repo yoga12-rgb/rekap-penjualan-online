@@ -2,7 +2,6 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   useTransition,
@@ -28,9 +27,7 @@ import { getMerchantTheme } from "@/lib/merchantColors";
 import { MerchantBadge } from "@/components/MerchantBadge";
 import { Combobox } from "@/components/ui/Combobox";
 import {
-  isoToWIBDateKey,
   isoToWIBDisplay,
-  isoToWIBHour,
   todayWIBKey,
   daysAgoWIBKey,
   startOfMonthWIBKey,
@@ -40,17 +37,23 @@ import {
   startOfYearWIBKey,
   endOfYearWIBKey,
 } from "@/lib/date";
-import { AlertCircle, Loader2, X } from "lucide-react";
+import { AlertCircle, Loader2, RefreshCw, X } from "lucide-react";
 import {
   clearScopedFilterParams,
   copyPersistentUrlParams,
   queryString,
   setScopedFilterParams,
 } from "@/lib/urlParams";
+import type {
+  ComparisonMetric,
+  DashboardData,
+  DeclineMetric,
+  Merchant,
+  Option,
+  SummaryRow,
+  Variant,
+} from "./dashboardData";
 
-export type Option = { id: string; name: string };
-export type Merchant = Option & { color?: string | null };
-export type Variant = Option & { base_price?: number };
 type DashboardFilter = {
   from: string;
   to: string;
@@ -60,31 +63,6 @@ type DashboardFilter = {
   rangeWasReversed?: boolean;
 };
 type DashboardFilterKey = "from" | "to" | "outlet" | "merchant" | "variant";
-export type SummaryRow = {
-  id: string;
-  order_id: string;
-  order_number: string | null;
-  transaction_date: string;
-  qty: number;
-  initial_price: number;
-  deduction_fee: number;
-  net_profit: number;
-  outlet_id: string;
-  food_merchant_id: string;
-  product_variant_id: string;
-  outlets: { name: string } | null;
-  food_merchants: { name: string; color: string | null } | null;
-  product_variants: { name: string } | null;
-};
-export type AdCostRow = {
-  id: string;
-  cost_date: string;
-  outlet_id: string;
-  food_merchant_id: string;
-  amount: number;
-  outlets: { name: string } | null;
-  food_merchants: { name: string; color: string | null } | null;
-};
 
 const DASHBOARD_CHART_MARGIN = { top: 8, right: 12, bottom: 8, left: 16 };
 const MONEY_AXIS_WIDTH = 88;
@@ -153,31 +131,12 @@ const TAB_LABELS: Record<DashboardTab, string> = {
   details: "Detail",
 };
 
-type Totals = {
-  gross: number;
-  fee: number;
-  feePercent: number;
-  net: number;
-  adCost: number;
-  cleanProfit: number;
-  qty: number;
-  transactionCount: number;
-  avgGross: number;
-  avgQty: number;
-  avgNet: number;
-};
-type ComparisonMetric = ReturnType<typeof buildComparison>;
-type DeclineMetric = ReturnType<typeof buildDeclines>[number];
-
 export function DashboardClient({
   role,
   outlets,
   merchants,
   variants,
-  rows,
-  previousRows,
-  adCosts,
-  previousAdCosts,
+  dashboardData,
   previousRange,
   filter,
   loadErrors,
@@ -186,10 +145,7 @@ export function DashboardClient({
   outlets: Option[];
   merchants: Merchant[];
   variants: Variant[];
-  rows: SummaryRow[];
-  previousRows: SummaryRow[];
-  adCosts: AdCostRow[];
-  previousAdCosts: AdCostRow[];
+  dashboardData: DashboardData;
   previousRange: { from: string; to: string };
   filter: DashboardFilter;
   loadErrors?: string[];
@@ -252,291 +208,19 @@ export function DashboardClient({
     applyFilter(nextFilter);
   }
 
-  const totals = useMemo(() => buildTotals(rows, adCosts), [adCosts, rows]);
-  const previousTotals = useMemo(
-    () => buildTotals(previousRows, previousAdCosts),
-    [previousAdCosts, previousRows],
-  );
-
-  const comparison = useMemo(
-    () => [
-      buildComparison("Omset", totals.gross, previousTotals.gross, "currency"),
-      buildComparison("Net Profit", totals.net, previousTotals.net, "currency"),
-      buildComparison(
-        "Profit Bersih",
-        totals.cleanProfit,
-        previousTotals.cleanProfit,
-        "currency",
-      ),
-      buildComparison("Qty", totals.qty, previousTotals.qty, "number"),
-      buildComparison(
-        "Rata-rata Qty",
-        totals.avgQty,
-        previousTotals.avgQty,
-        "number",
-      ),
-      buildComparison(
-        "Transaksi",
-        totals.transactionCount,
-        previousTotals.transactionCount,
-        "number",
-      ),
-    ],
-    [
-      previousTotals.gross,
-      previousTotals.net,
-      previousTotals.cleanProfit,
-      previousTotals.qty,
-      previousTotals.avgQty,
-      previousTotals.transactionCount,
-      totals.gross,
-      totals.net,
-      totals.cleanProfit,
-      totals.qty,
-      totals.avgQty,
-      totals.transactionCount,
-    ],
-  );
-
-  const daily = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        date: string;
-        gross: number;
-        fee: number;
-        net: number;
-        adCost: number;
-        cleanProfit: number;
-      }
-    >();
-    for (const r of rows) {
-      const d = isoToWIBDateKey(r.transaction_date);
-      const cur = map.get(d) ?? {
-        date: d,
-        gross: 0,
-        fee: 0,
-        net: 0,
-        adCost: 0,
-        cleanProfit: 0,
-      };
-      cur.gross += r.qty * r.initial_price;
-      cur.fee += Number(r.deduction_fee || 0);
-      cur.net += Number(r.net_profit || 0);
-      cur.cleanProfit = cur.net - cur.adCost;
-      map.set(d, cur);
-    }
-    for (const cost of adCosts) {
-      const cur = map.get(cost.cost_date) ?? {
-        date: cost.cost_date,
-        gross: 0,
-        fee: 0,
-        net: 0,
-        adCost: 0,
-        cleanProfit: 0,
-      };
-      cur.adCost += Number(cost.amount || 0);
-      cur.cleanProfit = cur.net - cur.adCost;
-      map.set(cost.cost_date, cur);
-    }
-    return Array.from(map.values()).sort((a, b) =>
-      a.date.localeCompare(b.date),
-    );
-  }, [adCosts, rows]);
-
-  const leaderboard = useMemo(() => {
-    const map = new Map<
-      string,
-      { name: string; qty: number; gross: number; net: number }
-    >();
-    for (const r of rows) {
-      const key = r.product_variant_id;
-      const cur = map.get(key) ?? {
-        name: r.product_variants?.name ?? "-",
-        qty: 0,
-        gross: 0,
-        net: 0,
-      };
-      cur.qty += r.qty;
-      cur.gross += getGross(r);
-      cur.net += Number(r.net_profit || 0);
-      map.set(key, cur);
-    }
-    return Array.from(map.values())
-      .sort((a, b) => b.qty - a.qty)
-      .slice(0, 10);
-  }, [rows]);
-
-  const merchantBreakdown = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        name: string;
-        net: number;
-        adCost: number;
-        cleanProfit: number;
-        color: string | null;
-      }
-    >();
-    for (const r of rows) {
-      const key = r.food_merchant_id;
-      const cur = map.get(key) ?? {
-        name: r.food_merchants?.name ?? "-",
-        color: r.food_merchants?.color ?? null,
-        net: 0,
-        adCost: 0,
-        cleanProfit: 0,
-      };
-      cur.net += Number(r.net_profit || 0);
-      cur.cleanProfit = cur.net - cur.adCost;
-      map.set(key, cur);
-    }
-    for (const cost of adCosts) {
-      const key = cost.food_merchant_id;
-      const cur = map.get(key) ?? {
-        name: cost.food_merchants?.name ?? "-",
-        color: cost.food_merchants?.color ?? null,
-        net: 0,
-        adCost: 0,
-        cleanProfit: 0,
-      };
-      cur.adCost += Number(cost.amount || 0);
-      cur.cleanProfit = cur.net - cur.adCost;
-      map.set(key, cur);
-    }
-    return Array.from(map.values()).sort(
-      (a, b) => b.cleanProfit - a.cleanProfit,
-    );
-  }, [adCosts, rows]);
-
-  const outletBreakdown = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        name: string;
-        gross: number;
-        net: number;
-        adCost: number;
-        cleanProfit: number;
-        qty: number;
-        transactionKeys: Set<string>;
-      }
-    >();
-    for (const r of rows) {
-      const key = r.outlet_id || "unknown";
-      const cur = map.get(key) ?? {
-        name: r.outlets?.name ?? "-",
-        gross: 0,
-        net: 0,
-        adCost: 0,
-        cleanProfit: 0,
-        qty: 0,
-        transactionKeys: new Set<string>(),
-      };
-      cur.gross += getGross(r);
-      cur.net += Number(r.net_profit || 0);
-      cur.cleanProfit = cur.net - cur.adCost;
-      cur.qty += r.qty;
-      cur.transactionKeys.add(getTransactionKey(r));
-      map.set(key, cur);
-    }
-    for (const cost of adCosts) {
-      const key = cost.outlet_id || "unknown";
-      const cur = map.get(key) ?? {
-        name: cost.outlets?.name ?? "-",
-        gross: 0,
-        net: 0,
-        adCost: 0,
-        cleanProfit: 0,
-        qty: 0,
-        transactionKeys: new Set<string>(),
-      };
-      cur.adCost += Number(cost.amount || 0);
-      cur.cleanProfit = cur.net - cur.adCost;
-      map.set(key, cur);
-    }
-    return Array.from(map.values())
-      .map((o) => ({ ...o, transactionCount: o.transactionKeys.size }))
-      .sort((a, b) => b.cleanProfit - a.cleanProfit);
-  }, [adCosts, rows]);
-
-  const hourly = useMemo(() => {
-    const buckets = Array.from({ length: 24 }, (_, hour) => ({
-      hour,
-      label: `${String(hour).padStart(2, "0")}:00`,
-      gross: 0,
-      net: 0,
-      qty: 0,
-      transactionKeys: new Set<string>(),
-    }));
-    for (const r of rows) {
-      const bucket = buckets[isoToWIBHour(r.transaction_date)];
-      bucket.gross += getGross(r);
-      bucket.net += Number(r.net_profit || 0);
-      bucket.qty += r.qty;
-      bucket.transactionKeys.add(getTransactionKey(r));
-    }
-    return buckets.map((b) => ({
-      ...b,
-      transactionCount: b.transactionKeys.size,
-    }));
-  }, [rows]);
-
-  const productDeclines = useMemo(
-    () => buildDeclines(rows, previousRows, "product", "qty").slice(0, 5),
-    [previousRows, rows],
-  );
-
-  const merchantDeclines = useMemo(
-    () => buildDeclines(rows, previousRows, "merchant", "net").slice(0, 5),
-    [previousRows, rows],
-  );
-
-  const insights = useMemo(() => {
-    const topProduct = leaderboard[0];
-    const topMerchant = merchantBreakdown[0];
-    const topOutlet = outletBreakdown[0];
-    const busiestHour = hourly.reduce(
-      (best, item) =>
-        item.transactionCount > best.transactionCount ? item : best,
-      hourly[0],
-    );
-    const strongestComparison = comparison
-      .filter((item) => item.previous > 0)
-      .sort((a, b) => Math.abs(b.percentChange) - Math.abs(a.percentChange))[0];
-    return [
-      topProduct
-        ? `Produk terlaris periode ini: ${topProduct.name} (${topProduct.qty.toLocaleString("id-ID")} qty).`
-        : "",
-      topMerchant
-        ? `Merchant dengan profit bersih tertinggi: ${topMerchant.name} (${formatIDR(topMerchant.cleanProfit)}).`
-        : "",
-      topOutlet
-        ? `Outlet dengan profit bersih tertinggi: ${topOutlet.name} (${formatIDR(topOutlet.cleanProfit)}).`
-        : "",
-      totals.adCost > 0
-        ? `Biaya iklan periode ini: ${formatIDR(totals.adCost)}.`
-        : "",
-      totals.gross > 0
-        ? `Potongan admin setara ${formatPercent(totals.feePercent)} dari total omset.`
-        : "",
-      busiestHour?.transactionCount
-        ? `Jam transaksi paling ramai: ${busiestHour.label} (${busiestHour.transactionCount.toLocaleString("id-ID")} transaksi).`
-        : "",
-      strongestComparison
-        ? `${strongestComparison.label} ${strongestComparison.percentChange >= 0 ? "naik" : "turun"} ${formatPercent(Math.abs(strongestComparison.percentChange))} dibanding periode sebelumnya.`
-        : "",
-    ].filter(Boolean);
-  }, [
+  const {
+    totals,
     comparison,
-    hourly,
+    daily,
     leaderboard,
     merchantBreakdown,
     outletBreakdown,
-    totals.feePercent,
-    totals.adCost,
-    totals.gross,
-  ]);
+    hourly,
+    productDeclines,
+    merchantDeclines,
+    insights,
+  } = dashboardData;
+  const hasSummaryRows = totals.transactionCount > 0 || totals.qty > 0;
 
   async function exportCsv() {
     setIsExporting(true);
@@ -802,7 +486,7 @@ export function DashboardClient({
             <button
               className="btn-primary h-9 flex-1 px-3 text-xs sm:flex-none sm:text-sm"
               onClick={exportCsv}
-              disabled={!rows.length || isExporting}
+              disabled={!hasSummaryRows || isExporting}
             >
               {isExporting ? "Exporting..." : `Export ${TAB_LABELS[activeTab]}`}
             </button>
@@ -922,16 +606,41 @@ export function DashboardClient({
 
       {loadErrors && loadErrors.length > 0 && (
         <div
-          className="card px-3 py-2 flex items-start gap-2 text-xs sm:text-sm"
+          className="card px-3 py-2 text-xs sm:text-sm"
           style={{ borderColor: "#ef4444" }}
         >
-          <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600" />
-          <div>
-            <div className="font-semibold">Sebagian data gagal dimuat.</div>
-            <div style={{ color: "var(--muted)" }}>
-              {loadErrors.join(" ")}
+          <div className="flex items-start gap-2">
+            <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600" />
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold">Sebagian data gagal dimuat.</div>
+              <ul className="mt-1 list-disc space-y-1 pl-4" style={{ color: "var(--muted)" }}>
+                {loadErrors.map((error) => (
+                  <li key={error}>{error}</li>
+                ))}
+              </ul>
             </div>
+            <button
+              type="button"
+              className="btn-ghost h-8 shrink-0 px-2 text-xs"
+              onClick={() => router.refresh()}
+            >
+              <RefreshCw size={14} />
+              Reload
+            </button>
           </div>
+        </div>
+      )}
+
+      {!hasSummaryRows && (!loadErrors || loadErrors.length === 0) && (
+        <div
+          className="card px-3 py-2 flex items-start gap-2 text-xs sm:text-sm"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <AlertCircle size={16} className="mt-0.5 shrink-0 text-sky-600" />
+          <span>
+            Belum ada transaksi pada rentang dan filter ini. Ubah filter atau
+            pilih periode lain untuk melihat grafik.
+          </span>
         </div>
       )}
 
@@ -1739,116 +1448,11 @@ function getGross(row: SummaryRow) {
   return row.qty * row.initial_price;
 }
 
-function getTransactionKey(row: SummaryRow) {
-  return row.order_id || row.id;
-}
-
-function buildTotals(rows: SummaryRow[], adCosts: AdCostRow[] = []): Totals {
-  const transactionKeys = new Set<string>();
-  const gross = rows.reduce((a, r) => {
-    transactionKeys.add(getTransactionKey(r));
-    return a + getGross(r);
-  }, 0);
-  const fee = rows.reduce((a, r) => a + Number(r.deduction_fee || 0), 0);
-  const net = rows.reduce((a, r) => a + Number(r.net_profit || 0), 0);
-  const adCost = adCosts.reduce((a, r) => a + Number(r.amount || 0), 0);
-  const cleanProfit = net - adCost;
-  const qty = rows.reduce((a, r) => a + r.qty, 0);
-  const transactionCount = transactionKeys.size;
-  const feePercent = gross > 0 ? (fee / gross) * 100 : 0;
-  return {
-    gross,
-    fee,
-    feePercent,
-    net,
-    adCost,
-    cleanProfit,
-    qty,
-    transactionCount,
-    avgGross: transactionCount > 0 ? gross / transactionCount : 0,
-    avgQty: transactionCount > 0 ? qty / transactionCount : 0,
-    avgNet: transactionCount > 0 ? net / transactionCount : 0,
-  };
-}
-
-function buildComparison(
-  label: string,
-  current: number,
-  previous: number,
-  format: "currency" | "number",
-) {
-  const delta = current - previous;
-  const percentChange =
-    previous !== 0
-      ? (delta / Math.abs(previous)) * 100
-      : current > 0
-        ? 100
-        : current < 0
-          ? -100
-          : 0;
-  return { label, current, previous, delta, percentChange, format };
-}
-
-function buildDeclines(
-  currentRows: SummaryRow[],
-  previousRows: SummaryRow[],
-  group: "product" | "merchant",
-  metric: "qty" | "net",
-) {
-  const current = groupRows(currentRows, group, metric);
-  const previous = groupRows(previousRows, group, metric);
-  // Gabungkan semua key dari current dan previous
-  const allKeys = new Set([...current.keys(), ...previous.keys()]);
-  return Array.from(allKeys)
-    .map((key) => {
-      const cur = current.get(key);
-      const prev = previous.get(key);
-      const currentValue = cur?.value ?? 0;
-      const previousValue = prev?.value ?? 0;
-      const delta = currentValue - previousValue;
-      return {
-        key,
-        name: cur?.name ?? prev?.name ?? "-",
-        current: currentValue,
-        previous: previousValue,
-        delta,
-        percentChange:
-          previousValue > 0
-            ? (delta / previousValue) * 100
-            : currentValue > 0
-              ? (delta / currentValue) * 100
-              : 0,
-      };
-    })
-    .filter((item) => {
-      // Hanya tampilkan yang benar-benar mengalami penurunan signifikan
-      return item.delta < 0 && item.previous > 0;
-    })
-    .sort((a, b) => a.delta - b.delta);
-}
-
-function groupRows(
-  rows: SummaryRow[],
-  group: "product" | "merchant",
-  metric: "qty" | "net",
-) {
-  const map = new Map<string, { name: string; value: number }>();
-  for (const row of rows) {
-    const key =
-      group === "product" ? row.product_variant_id : row.food_merchant_id;
-    const name =
-      group === "product"
-        ? (row.product_variants?.name ?? "-")
-        : (row.food_merchants?.name ?? "-");
-    const cur = map.get(key) ?? { name, value: 0 };
-    cur.value += metric === "qty" ? row.qty : Number(row.net_profit || 0);
-    map.set(key, cur);
-  }
-  return map;
-}
-
 function formatPercent(value: number) {
-  return `${value.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+  return `${value.toLocaleString("id-ID", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}%`;
 }
 
 function formatMetricValue(value: number, format: "currency" | "number") {

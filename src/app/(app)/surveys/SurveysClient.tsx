@@ -27,6 +27,7 @@ import {
 } from "@/lib/urlParams";
 import { createSurveyResponse } from "./actions";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import type { SurveyReportData, SurveyReportGroup } from "./surveyReportData";
 
 type Role = "super_admin" | "kasir";
 type Tab = "input" | "report";
@@ -49,18 +50,6 @@ type AnswerLink = {
   is_active: boolean;
   sort_order: number;
   survey_answers: Answer | null;
-};
-type ResponseRow = {
-  id: string;
-  question_id: string;
-  answer_id: string | null;
-  outlet_id: string;
-  other_text: string | null;
-  response_date: string;
-  created_at: string;
-  survey_questions: { question_text: string } | null;
-  survey_answers: { label: string } | null;
-  outlets: { name: string } | null;
 };
 type SurveyFilter = {
   tab: Tab;
@@ -147,7 +136,8 @@ export function SurveysClient({
   questions,
   answerLinks,
   outlets,
-  responses,
+  reportData,
+  reportLoadError,
   filter,
 }: {
   role: Role;
@@ -155,7 +145,8 @@ export function SurveysClient({
   questions: Question[];
   answerLinks: AnswerLink[];
   outlets: Option[];
-  responses: ResponseRow[];
+  reportData: SurveyReportData;
+  reportLoadError: string | null;
   filter: SurveyFilter;
 }) {
   const router = useRouter();
@@ -180,7 +171,6 @@ export function SurveysClient({
   const outletName =
     outlets.find((outlet) => outlet.id === (myOutletId || filter.outlet))?.name ??
     "";
-  const totalResponses = responses.length;
   const answersByQuestion = useMemo(() => {
     const map = new Map<string, Answer[]>();
     for (const link of answerLinks) {
@@ -318,8 +308,8 @@ export function SurveysClient({
           filterPending={filterPending}
           hasDraftChanges={hasDraftChanges}
           hasActiveFilter={hasActiveFilter}
-          responses={responses}
-          totalResponses={totalResponses}
+          reportData={reportData}
+          reportLoadError={reportLoadError}
           rangeWasReversed={filter.rangeWasReversed}
         />
       )}
@@ -594,8 +584,8 @@ function SurveyReport({
   filterPending,
   hasDraftChanges,
   hasActiveFilter,
-  responses,
-  totalResponses,
+  reportData,
+  reportLoadError,
   rangeWasReversed,
 }: {
   role: Role;
@@ -609,51 +599,11 @@ function SurveyReport({
   filterPending: boolean;
   hasDraftChanges: boolean;
   hasActiveFilter: boolean;
-  responses: ResponseRow[];
-  totalResponses: number;
+  reportData: SurveyReportData;
+  reportLoadError: string | null;
   rangeWasReversed?: boolean;
 }) {
-  const groups = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        question: string;
-        total: number;
-        answers: Map<string, { label: string; count: number; examples: string[] }>;
-      }
-    >();
-
-    for (const row of responses) {
-      const questionText =
-        row.survey_questions?.question_text ?? "Pertanyaan tidak ditemukan";
-      const group =
-        map.get(row.question_id) ??
-        {
-          question: questionText,
-          total: 0,
-          answers: new Map(),
-        };
-      group.total += 1;
-
-      const key = row.answer_id ?? "__other";
-      const label = row.answer_id ? row.survey_answers?.label ?? "Jawaban dihapus" : "Lainnya";
-      const answer =
-        group.answers.get(key) ?? { label, count: 0, examples: [] };
-      answer.count += 1;
-      if (!row.answer_id && row.other_text && answer.examples.length < 5) {
-        answer.examples.push(row.other_text);
-      }
-      group.answers.set(key, answer);
-      map.set(row.question_id, group);
-    }
-
-    return [...map.values()]
-      .map((group) => ({
-        ...group,
-        answers: [...group.answers.values()].sort((a, b) => b.count - a.count),
-      }))
-      .sort((a, b) => b.total - a.total);
-  }, [responses]);
+  const { groups, totalResponses } = reportData;
 
   return (
     <div className="space-y-4">
@@ -747,6 +697,18 @@ function SurveyReport({
           ))}
         </div>
       </div>
+
+      {reportLoadError && (
+        <div
+          className="rounded-md border px-3 py-2 text-sm font-semibold text-red-700 dark:text-red-200"
+          style={{
+            borderColor: "color-mix(in oklab, #dc2626 45%, var(--border))",
+            backgroundColor: "color-mix(in oklab, #dc2626 10%, var(--card))",
+          }}
+        >
+          {reportLoadError}
+        </div>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-3">
         <ReportStat label="Total Respon" value={totalResponses.toLocaleString("id-ID")} />
@@ -843,7 +805,7 @@ function SurveyPieChart({
   answers,
   total,
 }: {
-  answers: Array<{ label: string; count: number }>;
+  answers: SurveyReportGroup["answers"];
   total: number;
 }) {
   const data = answers.map((answer) => ({

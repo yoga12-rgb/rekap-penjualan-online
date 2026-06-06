@@ -8,8 +8,14 @@ import {
   todayWIBKey,
 } from "@/lib/date";
 import { uuidParam } from "@/lib/utils";
+import {
+  buildSurveyReportData,
+  type SurveyReportResponseRow,
+} from "./surveyReportData";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 1000;
 
 type SP = {
   tab?: string | string[];
@@ -24,6 +30,41 @@ type SP = {
 
 function tabParam(value: string) {
   return value === "report" ? "report" : "input";
+}
+
+type QueryError = { message?: string } | null;
+type QueryPage<T> = {
+  data: T[] | null;
+  error: QueryError;
+};
+type QueryBuilder<T> = {
+  range: (from: number, to: number) => PromiseLike<QueryPage<T>>;
+};
+type LoadResult<T> = {
+  rows: T[];
+  error: string | null;
+};
+
+function emptyLoadResult<T>(): LoadResult<T> {
+  return { rows: [], error: null };
+}
+
+function formatLoadError(error: QueryError) {
+  return error?.message ?? "Data laporan survey gagal dimuat.";
+}
+
+async function fetchAll<T>(query: QueryBuilder<T>): Promise<LoadResult<T>> {
+  const rows: T[] = [];
+
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const to = from + PAGE_SIZE - 1;
+    const { data, error } = await query.range(from, to);
+    if (error) return { rows, error: formatLoadError(error) };
+
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) return { rows, error: null };
+  }
 }
 
 export default async function SurveysPage({
@@ -63,7 +104,7 @@ export default async function SurveysPage({
   let responsesQuery = supabase
     .from("survey_responses")
     .select(
-      "id,question_id,answer_id,outlet_id,other_text,response_date,created_at,survey_questions(question_text),survey_answers(label),outlets(name)",
+      "question_id,answer_id,other_text,survey_questions(question_text),survey_answers(label)",
     )
     .gte("response_date", from)
     .lte("response_date", to)
@@ -77,8 +118,12 @@ export default async function SurveysPage({
   }
   if (outlet) responsesQuery = responsesQuery.eq("outlet_id", outlet);
 
-  const [{ data: questions }, { data: answerLinks }, { data: outlets }, { data: responses }] =
-    await Promise.all([
+  const [
+    { data: questions },
+    { data: answerLinks },
+    { data: outlets },
+    reportRowsResult,
+  ] = await Promise.all([
       supabase
         .from("survey_questions")
         .select("id,question_text,is_active,sort_order")
@@ -93,8 +138,14 @@ export default async function SurveysPage({
         .order("sort_order")
         .order("sort_order", { referencedTable: "survey_answers" }),
       outletsQuery,
-      responsesQuery,
+      activeTab === "report"
+        ? fetchAll<SurveyReportResponseRow>(
+            responsesQuery as unknown as QueryBuilder<SurveyReportResponseRow>,
+          )
+        : Promise.resolve(emptyLoadResult<SurveyReportResponseRow>()),
     ]);
+
+  const reportData = buildSurveyReportData(reportRowsResult.rows);
 
   return (
     <SurveysClient
@@ -103,7 +154,8 @@ export default async function SurveysPage({
       questions={(questions ?? []) as any}
       answerLinks={(answerLinks ?? []) as any}
       outlets={(outlets ?? []) as any}
-      responses={(responses ?? []) as any}
+      reportData={reportData}
+      reportLoadError={reportRowsResult.error}
       filter={{ tab: activeTab, from, to, outlet, rangeWasReversed }}
     />
   );

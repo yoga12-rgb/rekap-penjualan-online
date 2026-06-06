@@ -1,5 +1,12 @@
 "use client";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   BarChart3,
@@ -171,8 +178,8 @@ export function SurveysClient({
   }, [filter.tab, filter.from, filter.to, filter.outlet]);
 
   const outletName =
-    outlets.find((outlet) => outlet.id === (myOutletId || filter.outlet))?.name ??
-    "";
+    outlets.find((outlet) => outlet.id === (myOutletId || filter.outlet))
+      ?.name ?? "";
   const answersByQuestion = useMemo(() => {
     const map = new Map<string, Answer[]>();
     for (const link of answerLinks) {
@@ -183,49 +190,63 @@ export function SurveysClient({
       map.set(link.question_id, list);
     }
     for (const [questionId, list] of map.entries()) {
-      list.sort((a, b) => a.sort_order - b.sort_order || a.label.localeCompare(b.label));
+      list.sort(
+        (a, b) => a.sort_order - b.sort_order || a.label.localeCompare(b.label),
+      );
       map.set(questionId, list);
     }
     return map;
   }, [answerLinks]);
 
-  function buildParams(nextFilter: SurveyFilter) {
-    const next = new URLSearchParams();
-    copyPersistentUrlParams(searchParams, next);
-    next.set("tab", nextFilter.tab);
-    next.set("from", nextFilter.from);
-    next.set("to", nextFilter.to);
-    if (nextFilter.outlet) next.set("outlet", nextFilter.outlet);
-    setScopedFilterParams("surveys", next, {
-      tab: nextFilter.tab,
-      from: nextFilter.from,
-      to: nextFilter.to,
-      outlet: nextFilter.outlet,
-    });
-    return next;
-  }
+  const buildParams = useCallback(
+    (nextFilter: SurveyFilter) => {
+      const next = new URLSearchParams();
+      copyPersistentUrlParams(searchParams, next);
+      next.set("tab", nextFilter.tab);
+      next.set("from", nextFilter.from);
+      next.set("to", nextFilter.to);
+      if (nextFilter.outlet) next.set("outlet", nextFilter.outlet);
+      setScopedFilterParams("surveys", next, {
+        tab: nextFilter.tab,
+        from: nextFilter.from,
+        to: nextFilter.to,
+        outlet: nextFilter.outlet,
+      });
+      return next;
+    },
+    [searchParams],
+  );
 
-  function navigate(nextFilter: SurveyFilter) {
-    const next = buildParams(nextFilter);
-    setVisibleTab(nextFilter.tab);
-    startFilterTransition(() => router.push(`/surveys${queryString(next)}`));
-  }
+  const navigate = useCallback(
+    (nextFilter: SurveyFilter) => {
+      const next = buildParams(nextFilter);
+      setVisibleTab(nextFilter.tab);
+      startFilterTransition(() => router.push(`/surveys${queryString(next)}`));
+    },
+    [buildParams, router],
+  );
 
-  function setTab(tab: Tab) {
-    const nextFilter = { ...filter, tab };
-    setDraftFilter(nextFilter);
-    navigate(nextFilter);
-  }
+  const setTab = useCallback(
+    (tab: Tab) => {
+      const nextFilter = { ...filter, tab };
+      setDraftFilter(nextFilter);
+      navigate(nextFilter);
+    },
+    [filter, navigate],
+  );
 
-  function setDraftParam(key: FilterKey, value: string) {
+  const setDraftParam = useCallback((key: FilterKey, value: string) => {
     setDraftFilter((current) => ({ ...current, [key]: value }));
-  }
+  }, []);
 
-  function applyFilter(nextFilter = draftFilter) {
-    navigate({ ...nextFilter, tab: "report" });
-  }
+  const applyFilter = useCallback(
+    (nextFilter = draftFilter) => {
+      navigate({ ...nextFilter, tab: "report" });
+    },
+    [draftFilter, navigate],
+  );
 
-  function clearFilter() {
+  const clearFilter = useCallback(() => {
     const reset: SurveyFilter = {
       tab: "report",
       from: daysAgoWIBKey(29),
@@ -244,14 +265,17 @@ export function SurveysClient({
     setDraftFilter(reset);
     setVisibleTab(reset.tab);
     startFilterTransition(() => router.push(`/surveys${queryString(next)}`));
-  }
+  }, [router, searchParams]);
 
-  function setRangePreset(preset: DatePreset) {
-    const range = presetRange(preset);
-    const nextFilter = { ...filter, ...range, tab: "report" as const };
-    setDraftFilter(nextFilter);
-    applyFilter(nextFilter);
-  }
+  const setRangePreset = useCallback(
+    (preset: DatePreset) => {
+      const range = presetRange(preset);
+      const nextFilter = { ...filter, ...range, tab: "report" as const };
+      setDraftFilter(nextFilter);
+      applyFilter(nextFilter);
+    },
+    [filter, applyFilter],
+  );
 
   const hasDraftChanges =
     draftFilter.from !== filter.from ||
@@ -275,7 +299,10 @@ export function SurveysClient({
         </div>
         <div
           className="inline-flex w-full rounded-md border p-1 sm:w-auto"
-          style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}
+          style={{
+            borderColor: "var(--border)",
+            backgroundColor: "var(--card)",
+          }}
         >
           <TabButton
             active={visibleTab === "input"}
@@ -324,7 +351,7 @@ export function SurveysClient({
   );
 }
 
-function TabButton({
+const TabButton = memo(function TabButton({
   active,
   icon,
   label,
@@ -350,9 +377,9 @@ function TabButton({
       {label}
     </button>
   );
-}
+});
 
-function SurveyInput({
+const SurveyInput = memo(function SurveyInput({
   role,
   myOutletId,
   outletName,
@@ -368,12 +395,17 @@ function SurveyInput({
   answersByQuestion: Map<string, Answer[]>;
 }) {
   const [outletId, setOutletId] = useState(
-    role === "kasir" ? myOutletId ?? "" : outlets[0]?.id ?? "",
+    role === "kasir" ? (myOutletId ?? "") : (outlets[0]?.id ?? ""),
   );
 
   useEffect(() => {
     if (role === "kasir") setOutletId(myOutletId ?? "");
   }, [myOutletId, role]);
+
+  const handleOutletChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => setOutletId(e.target.value),
+    [],
+  );
 
   const missingOutlet = role === "kasir" && !myOutletId;
 
@@ -382,7 +414,10 @@ function SurveyInput({
       <div className="space-y-3">
         <div
           className="rounded-md border p-3"
-          style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}
+          style={{
+            borderColor: "var(--border)",
+            backgroundColor: "var(--card)",
+          }}
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
@@ -391,7 +426,7 @@ function SurveyInput({
                 <select
                   className="input"
                   value={outletId}
-                  onChange={(e) => setOutletId(e.target.value)}
+                  onChange={handleOutletChange}
                 >
                   {outlets.map((outlet) => (
                     <option key={outlet.id} value={outlet.id}>
@@ -407,7 +442,10 @@ function SurveyInput({
                 />
               )}
             </div>
-            <div className="rounded-md border px-3 py-2 text-sm" style={{ borderColor: "var(--border)" }}>
+            <div
+              className="rounded-md border px-3 py-2 text-sm"
+              style={{ borderColor: "var(--border)" }}
+            >
               <div className="font-semibold">Input cepat</div>
               <div style={{ color: "var(--muted)" }}>
                 Pilih jawaban pada satu pertanyaan, lalu simpan.
@@ -443,7 +481,10 @@ function SurveyInput({
 
       <aside
         className="rounded-md border p-4 text-sm lg:sticky lg:top-20 lg:self-start"
-        style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}
+        style={{
+          borderColor: "var(--border)",
+          backgroundColor: "var(--card)",
+        }}
       >
         <div className="mb-2 flex items-center gap-2 font-bold">
           <CheckCircle2 size={17} className="text-emerald-600" />
@@ -451,15 +492,17 @@ function SurveyInput({
         </div>
         <div className="space-y-2" style={{ color: "var(--muted)" }}>
           <p>Pertanyaan dan jawaban yang tampil hanya yang aktif.</p>
-          <p>Jawaban Lainnya tersimpan sebagai teks bebas dan tampil di laporan.</p>
+          <p>
+            Jawaban Lainnya tersimpan sebagai teks bebas dan tampil di laporan.
+          </p>
           <p>Respon tidak dikaitkan ke transaksi.</p>
         </div>
       </aside>
     </div>
   );
-}
+});
 
-function SurveyQuestionCard({
+const SurveyQuestionCard = memo(function SurveyQuestionCard({
   question,
   answers,
   outletId,
@@ -475,7 +518,7 @@ function SurveyQuestionCard({
   const [pending, start] = useTransition();
   const isOther = selected === "__other";
 
-  function submit() {
+  const submit = useCallback(() => {
     const fd = new FormData();
     fd.set("question_id", question.id);
     fd.set("outlet_id", outletId);
@@ -483,8 +526,11 @@ function SurveyQuestionCard({
     else fd.set("answer_id", selected);
 
     start(async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const res = await createSurveyResponse(fd);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if ((res as any)?.error) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         toast((res as any).error, "error");
       } else {
         toast("Survey tersimpan", "success");
@@ -492,16 +538,28 @@ function SurveyQuestionCard({
         setOtherText("");
       }
     });
-  }
+  }, [question.id, outletId, isOther, otherText, selected]);
+
+  const handleSelect = useCallback((id: string) => setSelected(id), []);
+  const handleOtherText = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => setOtherText(e.target.value),
+    [],
+  );
 
   return (
     <div
       className="rounded-md border p-3"
-      style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}
+      style={{
+        borderColor: "var(--border)",
+        backgroundColor: "var(--card)",
+      }}
     >
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <div className="text-xs font-semibold uppercase" style={{ color: "var(--muted)" }}>
+          <div
+            className="text-xs font-semibold uppercase"
+            style={{ color: "var(--muted)" }}
+          >
             Pertanyaan
           </div>
           <div className="font-bold">{question.question_text}</div>
@@ -529,8 +587,10 @@ function SurveyQuestionCard({
                 ? "border-red-600 bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300"
                 : "hover:bg-[var(--hover)]",
             )}
-            style={{ borderColor: selected === answer.id ? undefined : "var(--border)" }}
-            onClick={() => setSelected(answer.id)}
+            style={{
+              borderColor: selected === answer.id ? undefined : "var(--border)",
+            }}
+            onClick={() => handleSelect(answer.id)}
           >
             {answer.label}
           </button>
@@ -545,7 +605,7 @@ function SurveyQuestionCard({
               : "hover:bg-[var(--hover)]",
           )}
           style={{ borderColor: isOther ? undefined : "var(--border)" }}
-          onClick={() => setSelected("__other")}
+          onClick={() => handleSelect("__other")}
         >
           Lainnya
         </button>
@@ -557,7 +617,7 @@ function SurveyQuestionCard({
           <input
             className="input"
             value={otherText}
-            onChange={(e) => setOtherText(e.target.value)}
+            onChange={handleOtherText}
             maxLength={200}
             placeholder="Contoh: event komunitas"
           />
@@ -568,18 +628,24 @@ function SurveyQuestionCard({
         <button
           type="button"
           className="btn-primary min-w-32"
-          disabled={disabled || pending || !selected || (isOther && !otherText.trim())}
+          disabled={
+            disabled || pending || !selected || (isOther && !otherText.trim())
+          }
           onClick={submit}
         >
-          {pending ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+          {pending ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Plus size={16} />
+          )}
           Simpan
         </button>
       </div>
     </div>
   );
-}
+});
 
-function SurveyReport({
+const SurveyReport = memo(function SurveyReport({
   role,
   outlets,
   filter,
@@ -618,7 +684,10 @@ function SurveyReport({
     <div className="space-y-4">
       <div
         className="rounded-md border p-3"
-        style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}
+        style={{
+          borderColor: "var(--border)",
+          backgroundColor: "var(--card)",
+        }}
       >
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 font-bold">
@@ -672,7 +741,11 @@ function SurveyReport({
               disabled={filterPending || !hasDraftChanges}
               onClick={applyFilter}
             >
-              {filterPending ? <Loader2 size={16} className="animate-spin" /> : <Filter size={16} />}
+              {filterPending ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Filter size={16} />
+              )}
               Terapkan
             </button>
             {(hasActiveFilter || hasDraftChanges) && (
@@ -728,8 +801,14 @@ function SurveyReport({
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-3">
-            <ReportStat label="Total Respon" value={totalResponses.toLocaleString("id-ID")} />
-            <ReportStat label="Pertanyaan Terjawab" value={groups.length.toLocaleString("id-ID")} />
+            <ReportStat
+              label="Total Respon"
+              value={totalResponses.toLocaleString("id-ID")}
+            />
+            <ReportStat
+              label="Pertanyaan Terjawab"
+              value={groups.length.toLocaleString("id-ID")}
+            />
             <ReportStat
               label="Periode"
               value={`${filter.from} - ${filter.to}`}
@@ -747,90 +826,112 @@ function SurveyReport({
         </>
       )}
 
-      {!isInitialLoading && groups.map((group) => (
-        <div
-          key={group.question}
-          className="min-w-0 rounded-md border p-3 sm:p-4"
-          style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}
-        >
-          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-            <div>
-              <div className="text-xs font-semibold uppercase" style={{ color: "var(--muted)" }}>
-                Pertanyaan
+      {!isInitialLoading &&
+        groups.map((group) => (
+          <div
+            key={group.question}
+            className="min-w-0 rounded-md border p-3 sm:p-4"
+            style={{
+              borderColor: "var(--border)",
+              backgroundColor: "var(--card)",
+            }}
+          >
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <div
+                  className="text-xs font-semibold uppercase"
+                  style={{ color: "var(--muted)" }}
+                >
+                  Pertanyaan
+                </div>
+                <h2 className="text-sm font-bold leading-snug sm:text-base">
+                  {group.question}
+                </h2>
               </div>
-              <h2 className="text-sm font-bold leading-snug sm:text-base">{group.question}</h2>
+              <span className="badge">
+                {group.total.toLocaleString("id-ID")} respon
+              </span>
             </div>
-            <span className="badge">{group.total.toLocaleString("id-ID")} respon</span>
-          </div>
 
-          <div className="grid min-w-0 gap-3 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-center xl:grid-cols-[20rem_minmax(0,1fr)]">
-            <SurveyPieChart answers={group.answers} total={group.total} />
-            <div className="min-w-0 space-y-3">
-              {group.answers.map((answer, index) => {
-                const percent = group.total ? (answer.count / group.total) * 100 : 0;
-                return (
-                  <div key={answer.label} className="min-w-0">
-                    <div className="mb-1 grid min-w-0 gap-1 text-sm sm:flex sm:items-center sm:justify-between sm:gap-3">
-                      <span className="flex min-w-0 items-start gap-2">
+            <div className="grid min-w-0 gap-3 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-center xl:grid-cols-[20rem_minmax(0,1fr)]">
+              <SurveyPieChart answers={group.answers} total={group.total} />
+              <div className="min-w-0 space-y-3">
+                {group.answers.map((answer, index) => {
+                  const percent = group.total
+                    ? (answer.count / group.total) * 100
+                    : 0;
+                  return (
+                    <div key={answer.label} className="min-w-0">
+                      <div className="mb-1 grid min-w-0 gap-1 text-sm sm:flex sm:items-center sm:justify-between sm:gap-3">
+                        <span className="flex min-w-0 items-start gap-2">
+                          <span
+                            className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
+                            style={{
+                              backgroundColor:
+                                SURVEY_CHART_COLORS[
+                                  index % SURVEY_CHART_COLORS.length
+                                ],
+                            }}
+                          />
+                          <span className="min-w-0 break-words font-semibold leading-snug sm:truncate">
+                            {answer.label}
+                          </span>
+                        </span>
                         <span
-                          className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
+                          className="pl-5 text-xs tabular-nums sm:shrink-0 sm:pl-0 sm:text-sm"
+                          style={{ color: "var(--muted)" }}
+                        >
+                          {answer.count.toLocaleString("id-ID")} -{" "}
+                          {formatPercent(percent)}
+                        </span>
+                      </div>
+                      <div className="h-1.5 min-w-0 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800 sm:h-2">
+                        <div
+                          className="h-full rounded-full"
                           style={{
+                            width: `${Math.max(percent, answer.count ? 2 : 0)}%`,
                             backgroundColor:
-                              SURVEY_CHART_COLORS[index % SURVEY_CHART_COLORS.length],
+                              SURVEY_CHART_COLORS[
+                                index % SURVEY_CHART_COLORS.length
+                              ],
                           }}
                         />
-                        <span className="min-w-0 break-words font-semibold leading-snug sm:truncate">
-                          {answer.label}
-                        </span>
-                      </span>
-                      <span
-                        className="pl-5 text-xs tabular-nums sm:shrink-0 sm:pl-0 sm:text-sm"
-                        style={{ color: "var(--muted)" }}
-                      >
-                        {answer.count.toLocaleString("id-ID")} - {formatPercent(percent)}
-                      </span>
-                    </div>
-                    <div className="h-1.5 min-w-0 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800 sm:h-2">
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${Math.max(percent, answer.count ? 2 : 0)}%`,
-                          backgroundColor:
-                            SURVEY_CHART_COLORS[index % SURVEY_CHART_COLORS.length],
-                        }}
-                      />
-                    </div>
-                    {!!answer.examples.length && (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {answer.examples.map((example) => (
-                          <span key={example} className="badge">
-                            {example}
-                          </span>
-                        ))}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                      {!!answer.examples.length && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {answer.examples.map((example) => (
+                            <span key={example} className="badge">
+                              {example}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        ))}
     </div>
   );
-}
+});
 
-function SurveyPieChart({
+const SurveyPieChart = memo(function SurveyPieChart({
   answers,
   total,
 }: {
   answers: SurveyReportGroup["answers"];
   total: number;
 }) {
-  const data = answers.map((answer) => ({
-    name: answer.label,
-    value: answer.count,
-  }));
+  const data = useMemo(
+    () =>
+      answers.map((answer) => ({
+        name: answer.label,
+        value: answer.count,
+      })),
+    [answers],
+  );
 
   return (
     <div
@@ -886,9 +987,12 @@ function SurveyPieChart({
       </div>
     </div>
   );
-}
+});
 
-function SurveyPieTooltip({
+/**
+ * Pastikan tooltip tidak collide dengan chart label, pake wrapperStyle zIndex tinggi.
+ */
+const SurveyPieTooltip = memo(function SurveyPieTooltip({
   active,
   payload,
   total,
@@ -931,9 +1035,9 @@ function SurveyPieTooltip({
       </div>
     </div>
   );
-}
+});
 
-function ReportStat({
+const ReportStat = memo(function ReportStat({
   label,
   value,
   compact = false,
@@ -945,19 +1049,27 @@ function ReportStat({
   return (
     <div
       className="rounded-md border p-3"
-      style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}
+      style={{
+        borderColor: "var(--border)",
+        backgroundColor: "var(--card)",
+      }}
     >
-      <div className="text-xs font-semibold uppercase" style={{ color: "var(--muted)" }}>
+      <div
+        className="text-xs font-semibold uppercase"
+        style={{ color: "var(--muted)" }}
+      >
         {label}
       </div>
-      <div className={cn("mt-1 font-extrabold", compact ? "text-sm" : "text-xl")}>
+      <div
+        className={cn("mt-1 font-extrabold", compact ? "text-sm" : "text-xl")}
+      >
         {value}
       </div>
     </div>
   );
-}
+});
 
-function EmptyState({
+const EmptyState = memo(function EmptyState({
   icon,
   title,
   message,
@@ -969,7 +1081,10 @@ function EmptyState({
   return (
     <div
       className="rounded-md border p-6 text-center"
-      style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}
+      style={{
+        borderColor: "var(--border)",
+        backgroundColor: "var(--card)",
+      }}
     >
       <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300">
         {icon}
@@ -980,4 +1095,4 @@ function EmptyState({
       </div>
     </div>
   );
-}
+});

@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, useTransition } from "react";
+import { memo, useCallback, useMemo, useState, useTransition } from "react";
 import { ClipboardList, MessageSquare, Pencil, Plus } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { toast } from "@/components/Toast";
@@ -39,6 +39,8 @@ type Editing =
   | { type: "answer"; row: Answer | null }
   | null;
 
+type Row = Question | Answer;
+
 export function SurveyMasterClient({
   questions,
   answers,
@@ -61,66 +63,108 @@ export function SurveyMasterClient({
     return map;
   }, [questionAnswers]);
 
-  async function onSubmit(form: HTMLFormElement) {
-    if (!editing) return;
-    const fd = new FormData(form);
+  const onSubmit = useCallback(
+    (form: HTMLFormElement) => {
+      if (!editing) return;
+      const fd = new FormData(form);
 
-    start(async () => {
-      const res =
-        editing.type === "question"
-          ? editing.row
-            ? await updateSurveyQuestion(editing.row.id, fd)
-            : await createSurveyQuestion(fd)
-          : editing.row
-            ? await updateSurveyAnswer(editing.row.id, fd)
-            : await createSurveyAnswer(fd);
+      start(async () => {
+        const res =
+          editing.type === "question"
+            ? editing.row
+              ? await updateSurveyQuestion(editing.row.id, fd)
+              : await createSurveyQuestion(fd)
+            : editing.row
+              ? await updateSurveyAnswer(editing.row.id, fd)
+              : await createSurveyAnswer(fd);
 
-      if ((res as any)?.error) {
-        toast((res as any).error, "error");
-      } else {
-        toast("Survey tersimpan", "success");
-        setEditing(null);
-      }
-    });
-  }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((res as any)?.error) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          toast((res as any).error, "error");
+        } else {
+          toast("Survey tersimpan", "success");
+          setEditing(null);
+        }
+      });
+    },
+    [editing],
+  );
 
-  function toggleQuestion(row: Question) {
+  const toggleQuestion = useCallback((row: Question) => {
     const fd = new FormData();
     fd.set("question_text", row.question_text);
     fd.set("sort_order", String(row.sort_order));
     if (!row.is_active) fd.set("is_active", "on");
     start(async () => {
       const res = await updateSurveyQuestion(row.id, fd);
-      if ((res as any)?.error) toast((res as any).error, "error");
-      else toast(row.is_active ? "Pertanyaan dinonaktifkan" : "Pertanyaan diaktifkan", "success");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((res as any)?.error)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        toast((res as any).error, "error");
+      else
+        toast(
+          row.is_active ? "Pertanyaan dinonaktifkan" : "Pertanyaan diaktifkan",
+          "success",
+        );
     });
-  }
+  }, []);
 
-  function toggleAnswer(row: Answer) {
+  const toggleAnswer = useCallback((row: Answer) => {
     const fd = new FormData();
     fd.set("label", row.label);
     fd.set("sort_order", String(row.sort_order));
     if (!row.is_active) fd.set("is_active", "on");
     start(async () => {
       const res = await updateSurveyAnswer(row.id, fd);
-      if ((res as any)?.error) toast((res as any).error, "error");
-      else toast(row.is_active ? "Jawaban dinonaktifkan" : "Jawaban diaktifkan", "success");
-    });
-  }
-
-  function onAssignSubmit(form: HTMLFormElement) {
-    if (!assigning) return;
-    const fd = new FormData(form);
-    start(async () => {
-      const res = await syncQuestionAnswers(assigning.id, fd);
-      if ((res as any)?.error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((res as any)?.error)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         toast((res as any).error, "error");
-      } else {
-        toast("Relasi jawaban tersimpan", "success");
-        setAssigning(null);
-      }
+      else
+        toast(
+          row.is_active ? "Jawaban dinonaktifkan" : "Jawaban diaktifkan",
+          "success",
+        );
     });
-  }
+  }, []);
+
+  const onAssignSubmit = useCallback(
+    (form: HTMLFormElement) => {
+      if (!assigning) return;
+      const fd = new FormData(form);
+      start(async () => {
+        const res = await syncQuestionAnswers(assigning.id, fd);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((res as any)?.error) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          toast((res as any).error, "error");
+        } else {
+          toast("Relasi jawaban tersimpan", "success");
+          setAssigning(null);
+        }
+      });
+    },
+    [assigning],
+  );
+
+  const handleOpenAddAnswer = useCallback(
+    () => setEditing({ type: "answer", row: null }),
+    [],
+  );
+  const handleOpenAddQuestion = useCallback(
+    () => setEditing({ type: "question", row: null }),
+    [],
+  );
+  const handleCloseEditing = useCallback(() => setEditing(null), []);
+  const handleCloseAssigning = useCallback(() => setAssigning(null), []);
+  const handleEdit = useCallback(
+    (row: Row, type: "question" | "answer") =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setEditing({ type, row: row as any }),
+    [],
+  );
+  const handleAssign = useCallback((row: Question) => setAssigning(row), []);
 
   return (
     <div className="space-y-4">
@@ -135,7 +179,7 @@ export function SurveyMasterClient({
           <button
             type="button"
             className="btn-outline"
-            onClick={() => setEditing({ type: "answer", row: null })}
+            onClick={handleOpenAddAnswer}
           >
             <Plus size={16} />
             Jawaban
@@ -143,7 +187,7 @@ export function SurveyMasterClient({
           <button
             type="button"
             className="btn-primary"
-            onClick={() => setEditing({ type: "question", row: null })}
+            onClick={handleOpenAddQuestion}
           >
             <Plus size={16} />
             Pertanyaan
@@ -162,9 +206,11 @@ export function SurveyMasterClient({
             rows={questions}
             pending={pending}
             questionAnswerMap={questionAnswerMap}
-            onEdit={(row) => setEditing({ type: "question", row: row as Question })}
-            onAssign={(row) => setAssigning(row as Question)}
-            onToggle={(row) => toggleQuestion(row as Question)}
+            onEdit={handleEdit}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onAssign={handleAssign as any}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onToggle={toggleQuestion as any}
           />
         </MasterPanel>
 
@@ -177,15 +223,16 @@ export function SurveyMasterClient({
             type="answer"
             rows={answers}
             pending={pending}
-            onEdit={(row) => setEditing({ type: "answer", row: row as Answer })}
-            onToggle={(row) => toggleAnswer(row as Answer)}
+            onEdit={handleEdit}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onToggle={toggleAnswer as any}
           />
         </MasterPanel>
       </div>
 
       <Modal
         open={!!editing}
-        onClose={() => setEditing(null)}
+        onClose={handleCloseEditing}
         title={
           editing?.type === "question"
             ? editing.row
@@ -207,7 +254,7 @@ export function SurveyMasterClient({
 
       <Modal
         open={!!assigning}
-        onClose={() => setAssigning(null)}
+        onClose={handleCloseAssigning}
         title="Atur Jawaban Pertanyaan"
         size="lg"
       >
@@ -226,7 +273,7 @@ export function SurveyMasterClient({
   );
 }
 
-function MasterPanel({
+const MasterPanel = memo(function MasterPanel({
   icon,
   title,
   description,
@@ -240,7 +287,10 @@ function MasterPanel({
   return (
     <section
       className="rounded-md border"
-      style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}
+      style={{
+        borderColor: "var(--border)",
+        backgroundColor: "var(--card)",
+      }}
     >
       <div className="border-b p-4" style={{ borderColor: "var(--border)" }}>
         <div className="flex items-center gap-2 font-bold">
@@ -254,9 +304,9 @@ function MasterPanel({
       {children}
     </section>
   );
-}
+});
 
-function MasterTable({
+const MasterTable = memo(function MasterTable({
   type,
   rows,
   pending,
@@ -266,12 +316,15 @@ function MasterTable({
   onToggle,
 }: {
   type: "question" | "answer";
-  rows: Array<Question | Answer>;
+  rows: Row[];
   pending: boolean;
   questionAnswerMap?: Map<string, QuestionAnswer[]>;
-  onEdit: (row: Question | Answer) => void;
-  onAssign?: (row: Question | Answer) => void;
-  onToggle: (row: Question | Answer) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onEdit: (row: any, type: "question" | "answer") => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onAssign?: (row: any) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onToggle: (row: any) => void;
 }) {
   const isQuestionTable = type === "question";
 
@@ -294,50 +347,17 @@ function MasterTable({
                 ? (row as Question).question_text
                 : (row as Answer).label;
             return (
-              <tr key={row.id}>
-                <td className="min-w-64 font-medium">{text}</td>
-                <td className="text-center tabular-nums">{row.sort_order}</td>
-                {isQuestionTable && (
-                  <td className="text-center tabular-nums">
-                    {(questionAnswerMap?.get(row.id) ?? []).length}
-                  </td>
-                )}
-                <td>
-                  <StatusBadge active={row.is_active} />
-                </td>
-                <td className="whitespace-nowrap text-right">
-                  {isQuestionTable && (
-                    <button
-                      type="button"
-                      className="btn-ghost"
-                      onClick={() => onAssign?.(row)}
-                    >
-                      Jawaban
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="btn-ghost"
-                    onClick={() => onEdit(row)}
-                  >
-                    <Pencil size={15} />
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    className={cn(
-                      "btn-ghost",
-                      row.is_active
-                        ? "text-red-600 dark:text-red-300"
-                        : "text-emerald-700 dark:text-emerald-300",
-                    )}
-                    disabled={pending}
-                    onClick={() => onToggle(row)}
-                  >
-                    {row.is_active ? "Nonaktifkan" : "Aktifkan"}
-                  </button>
-                </td>
-              </tr>
+              <MasterTableRow
+                key={row.id}
+                type={type}
+                row={row}
+                text={text}
+                pending={pending}
+                questionAnswerMap={questionAnswerMap}
+                onEdit={onEdit}
+                onAssign={onAssign}
+                onToggle={onToggle}
+              />
             );
           })}
           {!rows.length && (
@@ -355,9 +375,81 @@ function MasterTable({
       </table>
     </div>
   );
-}
+});
 
-function StatusBadge({ active }: { active: boolean }) {
+const MasterTableRow = memo(function MasterTableRow({
+  type,
+  row,
+  text,
+  pending,
+  questionAnswerMap,
+  onEdit,
+  onAssign,
+  onToggle,
+}: {
+  type: "question" | "answer";
+  row: Row;
+  text: string;
+  pending: boolean;
+  questionAnswerMap?: Map<string, QuestionAnswer[]>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onEdit: (row: any, type: "question" | "answer") => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onAssign?: (row: any) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onToggle: (row: any) => void;
+}) {
+  const isQuestionTable = type === "question";
+
+  return (
+    <tr>
+      <td className="min-w-64 font-medium">{text}</td>
+      <td className="text-center tabular-nums">{row.sort_order}</td>
+      {isQuestionTable && (
+        <td className="text-center tabular-nums">
+          {(questionAnswerMap?.get(row.id) ?? []).length}
+        </td>
+      )}
+      <td>
+        <StatusBadge active={row.is_active} />
+      </td>
+      <td className="whitespace-nowrap text-right">
+        {isQuestionTable && (
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() => onAssign?.(row)}
+          >
+            Jawaban
+          </button>
+        )}
+        <button
+          type="button"
+          className="btn-ghost"
+          onClick={() => onEdit(row, type)}
+        >
+          <Pencil size={15} />
+          Edit
+        </button>
+        <button
+          type="button"
+          className={cn(
+            "btn-ghost",
+            row.is_active
+              ? "text-red-600 dark:text-red-300"
+              : "text-emerald-700 dark:text-emerald-300",
+          )}
+          disabled={pending}
+          onClick={() => onToggle(row)}
+        >
+          {row.is_active ? "Nonaktifkan" : "Aktifkan"}
+        </button>
+      </td>
+    </tr>
+  );
+});
+
+const StatusBadge = memo(function StatusBadge({ active }: { active: boolean }) {
   return (
     <span
       className={cn(
@@ -370,9 +462,9 @@ function StatusBadge({ active }: { active: boolean }) {
       {active ? "Aktif" : "Nonaktif"}
     </span>
   );
-}
+});
 
-function SurveyMasterForm({
+const SurveyMasterForm = memo(function SurveyMasterForm({
   editing,
   pending,
   onSubmit,
@@ -385,8 +477,8 @@ function SurveyMasterForm({
   const question = isQuestion ? (editing.row as Question | null) : null;
   const answer = !isQuestion ? (editing.row as Answer | null) : null;
   const active = isQuestion
-    ? question?.is_active ?? true
-    : answer?.is_active ?? true;
+    ? (question?.is_active ?? true)
+    : (answer?.is_active ?? true);
 
   return (
     <form
@@ -426,7 +518,11 @@ function SurveyMasterForm({
             min={0}
             max={9999}
             step={1}
-            defaultValue={isQuestion ? question?.sort_order ?? 0 : answer?.sort_order ?? 0}
+            defaultValue={
+              isQuestion
+                ? (question?.sort_order ?? 0)
+                : (answer?.sort_order ?? 0)
+            }
           />
         </div>
         <label
@@ -449,9 +545,9 @@ function SurveyMasterForm({
       </div>
     </form>
   );
-}
+});
 
-function QuestionAnswersForm({
+const QuestionAnswersForm = memo(function QuestionAnswersForm({
   question,
   answers,
   links,
@@ -464,7 +560,10 @@ function QuestionAnswersForm({
   pending: boolean;
   onSubmit: (form: HTMLFormElement) => void;
 }) {
-  const linksByAnswer = new Map(links.map((link) => [link.answer_id, link]));
+  const linksByAnswer = useMemo(
+    () => new Map(links.map((link) => [link.answer_id, link])),
+    [links],
+  );
 
   return (
     <form
@@ -476,9 +575,15 @@ function QuestionAnswersForm({
     >
       <div
         className="rounded-md border p-3 text-sm"
-        style={{ borderColor: "var(--border)", backgroundColor: "var(--bg)" }}
+        style={{
+          borderColor: "var(--border)",
+          backgroundColor: "var(--bg)",
+        }}
       >
-        <div className="text-xs font-semibold uppercase" style={{ color: "var(--muted)" }}>
+        <div
+          className="text-xs font-semibold uppercase"
+          style={{ color: "var(--muted)" }}
+        >
           Pertanyaan
         </div>
         <div className="font-bold">{question.question_text}</div>
@@ -502,14 +607,21 @@ function QuestionAnswersForm({
                   className="mt-1 h-4 w-4 shrink-0"
                 />
                 <span className="min-w-0">
-                  <span className="block truncate font-semibold">{answer.label}</span>
+                  <span className="block truncate font-semibold">
+                    {answer.label}
+                  </span>
                   <span className="text-xs" style={{ color: "var(--muted)" }}>
-                    {answer.is_active ? "Jawaban aktif" : "Jawaban global nonaktif"}
+                    {answer.is_active
+                      ? "Jawaban aktif"
+                      : "Jawaban global nonaktif"}
                   </span>
                 </span>
               </span>
               <span>
-                <span className="mb-1 block text-xs" style={{ color: "var(--muted)" }}>
+                <span
+                  className="mb-1 block text-xs"
+                  style={{ color: "var(--muted)" }}
+                >
                   Urutan
                 </span>
                 <input
@@ -528,7 +640,10 @@ function QuestionAnswersForm({
         {!answers.length && (
           <div
             className="rounded-md border p-4 text-center text-sm"
-            style={{ borderColor: "var(--border)", color: "var(--muted)" }}
+            style={{
+              borderColor: "var(--border)",
+              color: "var(--muted)",
+            }}
           >
             Belum ada template jawaban. Buat jawaban global terlebih dahulu.
           </div>
@@ -542,4 +657,4 @@ function QuestionAnswersForm({
       </div>
     </form>
   );
-}
+});

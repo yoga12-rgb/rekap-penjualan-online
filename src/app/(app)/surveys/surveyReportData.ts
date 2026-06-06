@@ -2,8 +2,10 @@ export type SurveyReportResponseRow = {
   question_id: string;
   answer_id: string | null;
   other_text: string | null;
+  outlet_id: string;
   survey_questions: { question_text: string } | null;
   survey_answers: { label: string } | null;
+  outlets: { name: string } | null;
 };
 
 export type SurveyReportAnswer = {
@@ -23,6 +25,12 @@ export type SurveyReportData = {
   groups: SurveyReportGroup[];
 };
 
+export type OutletCount = {
+  outletId: string;
+  outletName: string;
+  count: number;
+};
+
 export function buildSurveyReportData(
   responses: SurveyReportResponseRow[],
 ): SurveyReportData {
@@ -38,18 +46,16 @@ export function buildSurveyReportData(
   for (const row of responses) {
     const questionText =
       row.survey_questions?.question_text ?? "Pertanyaan tidak ditemukan";
-    const group =
-      map.get(row.question_id) ??
-      {
-        question: questionText,
-        total: 0,
-        answers: new Map<string, SurveyReportAnswer>(),
-      };
+    const group = map.get(row.question_id) ?? {
+      question: questionText,
+      total: 0,
+      answers: new Map<string, SurveyReportAnswer>(),
+    };
     group.total += 1;
 
     const key = row.answer_id ?? "__other";
     const label = row.answer_id
-      ? row.survey_answers?.label ?? "Jawaban dihapus"
+      ? (row.survey_answers?.label ?? "Jawaban dihapus")
       : "Lainnya";
     const answer = group.answers.get(key) ?? { label, count: 0, examples: [] };
     answer.count += 1;
@@ -69,4 +75,25 @@ export function buildSurveyReportData(
       }))
       .sort((a, b) => b.total - a.total),
   };
+}
+
+export function buildOutletCounts(
+  responses: SurveyReportResponseRow[],
+): OutletCount[] {
+  const map = new Map<string, { name: string; count: number }>();
+  for (const row of responses) {
+    const existing = map.get(row.outlet_id) ?? {
+      name: row.outlets?.name ?? "Outlet dihapus",
+      count: 0,
+    };
+    existing.count += 1;
+    map.set(row.outlet_id, existing);
+  }
+  return [...map.entries()]
+    .map(([outletId, info]) => ({
+      outletId,
+      outletName: info.name,
+      count: info.count,
+    }))
+    .sort((a, b) => b.count - a.count);
 }

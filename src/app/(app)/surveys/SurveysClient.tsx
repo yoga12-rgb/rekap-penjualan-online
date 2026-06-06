@@ -35,6 +35,7 @@ import {
 import { createSurveyResponse } from "./actions";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import type { SurveyReportData, SurveyReportGroup } from "./surveyReportData";
+import type { OutletCount } from "./surveyReportData";
 
 type Role = "super_admin" | "kasir";
 type Tab = "input" | "report";
@@ -145,6 +146,7 @@ export function SurveysClient({
   outlets,
   reportData,
   reportLoadError,
+  outletCounts,
   filter,
 }: {
   role: Role;
@@ -154,6 +156,7 @@ export function SurveysClient({
   outlets: Option[];
   reportData: SurveyReportData;
   reportLoadError: string | null;
+  outletCounts: OutletCount[];
   filter: SurveyFilter;
 }) {
   const router = useRouter();
@@ -343,6 +346,7 @@ export function SurveysClient({
           hasActiveFilter={hasActiveFilter}
           reportData={reportData}
           reportLoadError={reportLoadError}
+          outletCounts={outletCounts}
           isInitialLoading={isInitialReportLoading}
           rangeWasReversed={filter.rangeWasReversed}
         />
@@ -659,6 +663,7 @@ const SurveyReport = memo(function SurveyReport({
   hasActiveFilter,
   reportData,
   reportLoadError,
+  outletCounts,
   isInitialLoading,
   rangeWasReversed,
 }: {
@@ -675,6 +680,7 @@ const SurveyReport = memo(function SurveyReport({
   hasActiveFilter: boolean;
   reportData: SurveyReportData;
   reportLoadError: string | null;
+  outletCounts: OutletCount[];
   isInitialLoading: boolean;
   rangeWasReversed?: boolean;
 }) {
@@ -800,6 +806,10 @@ const SurveyReport = memo(function SurveyReport({
         />
       ) : (
         <>
+          {outletCounts.length > 0 && (
+            <OutletCountCard outletCounts={outletCounts} />
+          )}
+
           <div className="grid gap-3 sm:grid-cols-3">
             <ReportStat
               label="Total Respon"
@@ -989,9 +999,6 @@ const SurveyPieChart = memo(function SurveyPieChart({
   );
 });
 
-/**
- * Pastikan tooltip tidak collide dengan chart label, pake wrapperStyle zIndex tinggi.
- */
 const SurveyPieTooltip = memo(function SurveyPieTooltip({
   active,
   payload,
@@ -1064,6 +1071,41 @@ const ReportStat = memo(function ReportStat({
         className={cn("mt-1 font-extrabold", compact ? "text-sm" : "text-xl")}
       >
         {value}
+      </div>
+    </div>
+  );
+});
+
+const OutletCountCard = memo(function OutletCountCard({
+  outletCounts,
+}: {
+  outletCounts: OutletCount[];
+}) {
+  return (
+    <div
+      className="rounded-md border p-3"
+      style={{
+        borderColor: "var(--border)",
+        backgroundColor: "var(--card)",
+      }}
+    >
+      <div className="mb-3 flex items-center gap-2 font-bold">
+        <BarChart3 size={17} className="text-emerald-600" />
+        Respon per Outlet
+      </div>
+      <div className="grid gap-1 sm:gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {outletCounts.map((oc) => (
+          <div
+            key={oc.outletId}
+            className="flex items-center justify-between rounded border px-3 py-1.5 text-sm"
+            style={{ borderColor: "var(--border)" }}
+          >
+            <span className="font-medium truncate">{oc.outletName}</span>
+            <span className="tabular-nums font-bold ml-2">
+              {oc.count.toLocaleString("id-ID")}
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );

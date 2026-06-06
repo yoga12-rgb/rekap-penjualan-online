@@ -10,6 +10,7 @@ import {
 import { uuidParam } from "@/lib/utils";
 import {
   buildSurveyReportData,
+  buildOutletCounts,
   type SurveyReportResponseRow,
 } from "./surveyReportData";
 
@@ -104,7 +105,7 @@ export default async function SurveysPage({
   let responsesQuery = supabase
     .from("survey_responses")
     .select(
-      "question_id,answer_id,other_text,survey_questions(question_text),survey_answers(label)",
+      "question_id,answer_id,other_text,outlet_id,survey_questions(question_text),survey_answers(label),outlets(name)",
     )
     .gte("response_date", from)
     .lte("response_date", to)
@@ -124,28 +125,31 @@ export default async function SurveysPage({
     { data: outlets },
     reportRowsResult,
   ] = await Promise.all([
-      supabase
-        .from("survey_questions")
-        .select("id,question_text,is_active,sort_order")
-        .eq("is_active", true)
-        .order("sort_order")
-        .order("question_text"),
-      supabase
-        .from("survey_question_answers")
-        .select("question_id,answer_id,is_active,sort_order,survey_answers!inner(id,label,is_active,sort_order)")
-        .eq("is_active", true)
-        .eq("survey_answers.is_active", true)
-        .order("sort_order")
-        .order("sort_order", { referencedTable: "survey_answers" }),
-      outletsQuery,
-      activeTab === "report"
-        ? fetchAll<SurveyReportResponseRow>(
-            responsesQuery as unknown as QueryBuilder<SurveyReportResponseRow>,
-          )
-        : Promise.resolve(emptyLoadResult<SurveyReportResponseRow>()),
-    ]);
+    supabase
+      .from("survey_questions")
+      .select("id,question_text,is_active,sort_order")
+      .eq("is_active", true)
+      .order("sort_order")
+      .order("question_text"),
+    supabase
+      .from("survey_question_answers")
+      .select(
+        "question_id,answer_id,is_active,sort_order,survey_answers!inner(id,label,is_active,sort_order)",
+      )
+      .eq("is_active", true)
+      .eq("survey_answers.is_active", true)
+      .order("sort_order")
+      .order("sort_order", { referencedTable: "survey_answers" }),
+    outletsQuery,
+    activeTab === "report"
+      ? fetchAll<SurveyReportResponseRow>(
+          responsesQuery as unknown as QueryBuilder<SurveyReportResponseRow>,
+        )
+      : Promise.resolve(emptyLoadResult<SurveyReportResponseRow>()),
+  ]);
 
   const reportData = buildSurveyReportData(reportRowsResult.rows);
+  const outletCounts = buildOutletCounts(reportRowsResult.rows);
 
   return (
     <SurveysClient
@@ -156,6 +160,7 @@ export default async function SurveysPage({
       outlets={(outlets ?? []) as any}
       reportData={reportData}
       reportLoadError={reportRowsResult.error}
+      outletCounts={outletCounts}
       filter={{ tab: activeTab, from, to, outlet, rangeWasReversed }}
     />
   );

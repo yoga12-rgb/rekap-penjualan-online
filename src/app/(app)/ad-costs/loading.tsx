@@ -35,13 +35,18 @@ function PresetButton({ children }: { children: ReactNode }) {
   );
 }
 
-export default function TransactionsLoading() {
+export default function AdCostsLoading() {
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold">Transaksi</h1>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <h1 className="text-xl font-bold">Biaya Iklan Harian</h1>
+          <p className="text-sm" style={{ color: "var(--muted)" }}>
+            Satu record per tanggal, outlet, dan merchant.
+          </p>
+        </div>
         <button className="btn-primary" disabled>
-          <Plus size={16} /> Tambah Transaksi
+          <Plus size={16} /> Tambah Biaya
         </button>
       </div>
 
@@ -63,51 +68,42 @@ export default function TransactionsLoading() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
           <DisabledField label="Dari" value="Tanggal awal" />
           <DisabledField label="Sampai" value="Tanggal akhir" />
-          <DisabledField label="Outlet" value="Semua" />
-          <DisabledField label="Merchant" value="Semua" />
-          <DisabledField label="Varian" value="Semua" />
-          <DisabledField label="Cari" value="No. pesanan / produk" />
+          <DisabledField label="Outlet" value="Semua outlet" />
+          <DisabledField label="Merchant" value="Semua merchant" />
         </div>
 
         <div className="flex gap-1.5 overflow-x-auto pb-0.5">
           <PresetButton>Hari ini</PresetButton>
-          <PresetButton>7 Hari</PresetButton>
-          <PresetButton>30 Hari</PresetButton>
+          <PresetButton>7H</PresetButton>
+          <PresetButton>30H</PresetButton>
+          <PresetButton>Bulan ini</PresetButton>
+          <PresetButton>Bulan lalu</PresetButton>
           <PresetButton>YTD</PresetButton>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <SkeletonCard key={i} />
-        ))}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <SkeletonCard />
+        <SkeletonCard />
       </div>
 
-      <div className="space-y-3">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="card p-3 sm:p-4 space-y-3">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div className="space-y-2">
-                <Skeleton className="h-5 w-48" />
-                <Skeleton className="h-4 w-64 max-w-full" />
-              </div>
-              <Skeleton className="h-8 w-20" />
-            </div>
-            <div className="hidden space-y-2 sm:block">
-              {Array.from({ length: 3 }).map((_, j) => (
-                <Skeleton key={j} className="h-8 w-full" />
-              ))}
-            </div>
-            <div className="space-y-2 sm:hidden">
-              {Array.from({ length: 2 }).map((_, j) => (
-                <Skeleton key={j} className="h-16 w-full" />
-              ))}
-            </div>
-          </div>
-        ))}
+      <div className="card overflow-hidden">
+        <div className="hidden grid-cols-[1fr_1.2fr_1.2fr_1fr_1.4fr_64px] gap-3 border-b p-3 text-xs font-semibold uppercase sm:grid">
+          <span>Tanggal</span>
+          <span>Outlet</span>
+          <span>Merchant</span>
+          <span className="text-right">Biaya Iklan</span>
+          <span>Catatan</span>
+          <span />
+        </div>
+        <div className="space-y-2 p-3">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full" />
+          ))}
+        </div>
       </div>
     </div>
   );

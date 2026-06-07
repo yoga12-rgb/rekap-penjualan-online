@@ -168,12 +168,9 @@ export function SurveyMasterClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="mr-1">
           <h1 className="text-xl font-bold">Master Survey</h1>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>
-            Atur pertanyaan survey dan template jawaban global.
-          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button

@@ -3,10 +3,9 @@ import { MasterTableSkeleton } from "@/components/ui/MasterTableSkeleton";
 export default function SurveyMasterLoading() {
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="mr-1">
           <div className="h-7 w-40 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
-          <div className="mt-2 h-4 w-80 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
         </div>
         <div className="h-10 w-48 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
       </div>

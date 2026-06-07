@@ -448,8 +448,6 @@ export function DashboardClient({
     draftFilter.merchant !== filter.merchant ||
     draftFilter.variant !== filter.variant;
   const showResetFilter = hasActiveFilter || hasDraftChanges;
-  const showDataSkeleton = filterPending;
-
   function selectTab(tab: DashboardTab) {
     setActiveTab(tab);
   }
@@ -664,10 +662,7 @@ export function DashboardClient({
         </div>
       )}
 
-      {showDataSkeleton ? (
-        <DashboardLoadingSkeleton />
-      ) : (
-        <>
+      <>
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
             <KPI
               title="Total Omset"
@@ -777,8 +772,7 @@ export function DashboardClient({
             />
           )}
           {activeTab === "details" && <DetailTransactions filter={filter} />}
-        </>
-      )}
+      </>
     </div>
   );
 }
@@ -855,46 +849,6 @@ function PresetButton({
       )}
       {children}
     </button>
-  );
-}
-
-function DashboardLoadingSkeleton() {
-  return (
-    <div className="space-y-3" aria-label="Memuat data dashboard">
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
-        {Array.from({ length: 11 }, (_, index) => (
-          <div
-            key={index}
-            className="card min-h-24 animate-pulse p-3"
-            style={{ backgroundColor: "var(--card)" }}
-          >
-            <div className="h-3 w-20 rounded bg-slate-200 dark:bg-slate-800" />
-            <div className="mt-4 h-5 w-28 rounded bg-slate-200 dark:bg-slate-800" />
-            <div className="mt-3 h-3 w-16 rounded bg-slate-200 dark:bg-slate-800" />
-          </div>
-        ))}
-      </div>
-      <ChartSkeleton />
-    </div>
-  );
-}
-
-function ChartSkeleton() {
-  return (
-    <div className="card animate-pulse p-3" aria-label="Memuat grafik">
-      <div className="mb-3 h-4 w-44 rounded bg-slate-200 dark:bg-slate-800" />
-      <div className="h-56 rounded-md border sm:h-64 lg:h-72" style={{ borderColor: "var(--border)" }}>
-        <div className="flex h-full items-end gap-3 p-4">
-          {[42, 68, 54, 82, 47, 72, 58].map((height, index) => (
-            <div
-              key={index}
-              className="flex-1 rounded-t bg-slate-200 dark:bg-slate-800"
-              style={{ height: `${height}%` }}
-            />
-          ))}
-        </div>
-      </div>
-    </div>
   );
 }
 

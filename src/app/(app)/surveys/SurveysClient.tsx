@@ -21,12 +21,6 @@ import {
 import { toast } from "@/components/Toast";
 import { cn } from "@/lib/utils";
 import {
-  daysAgoWIBKey,
-  endOfMonthWIBKey,
-  startOfMonthWIBKey,
-  todayWIBKey,
-} from "@/lib/date";
-import {
   clearScopedFilterParams,
   copyPersistentUrlParams,
   queryString,
@@ -34,11 +28,21 @@ import {
 } from "@/lib/urlParams";
 import { createSurveyResponse } from "./actions";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
-import type { SurveyReportData, SurveyReportGroup } from "./surveyReportData";
-import type { OutletCount } from "./surveyReportData";
+import {
+  getSurveyReportDefaultRange,
+  getSurveyReportPresetRange,
+  hasActiveSurveyReportFilter,
+  isSurveyReportPresetActive,
+  type OutletCount,
+  type SurveyReportData,
+  type SurveyReportDatePreset,
+  type SurveyReportFilter,
+  type SurveyReportGroup,
+  type SurveyReportTab,
+} from "./surveyReportData";
 
 type Role = "super_admin" | "kasir";
-type Tab = "input" | "report";
+type Tab = SurveyReportTab;
 type Option = { id: string; name: string };
 type Question = {
   id: string;
@@ -59,14 +63,8 @@ type AnswerLink = {
   sort_order: number;
   survey_answers: Answer | null;
 };
-type SurveyFilter = {
-  tab: Tab;
-  from: string;
-  to: string;
-  outlet: string;
-  rangeWasReversed?: boolean;
-};
-type DatePreset = "today" | "7d" | "30d" | "month";
+type SurveyFilter = SurveyReportFilter;
+type DatePreset = SurveyReportDatePreset;
 type FilterKey = "from" | "to" | "outlet";
 type SurveyPieDatum = { name: string; value: number };
 type SurveyPieLabelProps = {
@@ -127,15 +125,6 @@ function renderSurveyPieLabel({
       {formatPercent(percent * 100)}
     </text>
   );
-}
-
-function presetRange(preset: DatePreset) {
-  if (preset === "today") return { from: todayWIBKey(), to: todayWIBKey() };
-  if (preset === "7d") return { from: daysAgoWIBKey(6), to: todayWIBKey() };
-  if (preset === "month") {
-    return { from: startOfMonthWIBKey(), to: endOfMonthWIBKey() };
-  }
-  return { from: daysAgoWIBKey(29), to: todayWIBKey() };
 }
 
 export function SurveysClient({
@@ -250,10 +239,11 @@ export function SurveysClient({
   );
 
   const clearFilter = useCallback(() => {
+    const defaultRange = getSurveyReportDefaultRange();
     const reset: SurveyFilter = {
       tab: "report",
-      from: daysAgoWIBKey(29),
-      to: todayWIBKey(),
+      from: defaultRange.from,
+      to: defaultRange.to,
       outlet: "",
     };
     const next = new URLSearchParams();
@@ -272,7 +262,7 @@ export function SurveysClient({
 
   const setRangePreset = useCallback(
     (preset: DatePreset) => {
-      const range = presetRange(preset);
+      const range = getSurveyReportPresetRange(preset);
       const nextFilter = { ...filter, ...range, tab: "report" as const };
       setDraftFilter(nextFilter);
       applyFilter(nextFilter);
@@ -284,24 +274,18 @@ export function SurveysClient({
     draftFilter.from !== filter.from ||
     draftFilter.to !== filter.to ||
     draftFilter.outlet !== filter.outlet;
-  const hasActiveFilter =
-    filter.from !== daysAgoWIBKey(29) ||
-    filter.to !== todayWIBKey() ||
-    !!filter.outlet;
+  const hasActiveFilter = hasActiveSurveyReportFilter(filter);
   const isInitialReportLoading =
     filterPending && visibleTab === "report" && filter.tab !== "report";
 
   return (
     <div className="space-y-4 pb-24 md:pb-0">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="space-y-3">
         <div>
           <h1 className="text-xl font-bold">Survey Customer</h1>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>
-            Catat dan analisis dari mana customer mengetahui produk.
-          </p>
         </div>
         <div
-          className="inline-flex w-full rounded-md border p-1 sm:w-auto"
+          className="inline-flex rounded-md border p-1"
           style={{
             borderColor: "var(--border)",
             backgroundColor: "var(--card)",
@@ -770,16 +754,33 @@ const SurveyReport = memo(function SurveyReport({
         <div className="mt-3 flex flex-wrap gap-2">
           {[
             ["today", "Hari ini"],
-            ["7d", "7 hari"],
-            ["30d", "30 hari"],
+            ["7d", "7H"],
+            ["30d", "30H"],
             ["month", "Bulan ini"],
+            ["lastMonth", "Bulan lalu"],
+            ["ytd", "YTD"],
+            ["year", "Tahun"],
           ].map(([key, label]) => (
             <button
               key={key}
               type="button"
-              className="btn-outline h-8 px-3 py-1 text-xs"
+              className={cn(
+                "btn-outline h-8 px-3 py-1 text-xs transition-colors",
+                isSurveyReportPresetActive(filter, key as DatePreset) &&
+                  "border-red-700 bg-red-700 text-white hover:bg-red-800 dark:border-red-500 dark:bg-red-600 dark:text-white dark:hover:bg-red-700",
+              )}
+              aria-pressed={isSurveyReportPresetActive(
+                filter,
+                key as DatePreset,
+              )}
               onClick={() => setRangePreset(key as DatePreset)}
             >
+              {isSurveyReportPresetActive(filter, key as DatePreset) && (
+                <span
+                  className="h-1.5 w-1.5 rounded-full bg-current"
+                  aria-hidden="true"
+                />
+              )}
               {label}
             </button>
           ))}

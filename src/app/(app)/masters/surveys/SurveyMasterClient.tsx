@@ -78,9 +78,9 @@ export function SurveyMasterClient({
               ? await updateSurveyAnswer(editing.row.id, fd)
               : await createSurveyAnswer(fd);
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         if ((res as any)?.error) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           toast((res as any).error, "error");
         } else {
           toast("Survey tersimpan", "success");
@@ -98,9 +98,9 @@ export function SurveyMasterClient({
     if (!row.is_active) fd.set("is_active", "on");
     start(async () => {
       const res = await updateSurveyQuestion(row.id, fd);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       if ((res as any)?.error)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         toast((res as any).error, "error");
       else
         toast(
@@ -117,9 +117,9 @@ export function SurveyMasterClient({
     if (!row.is_active) fd.set("is_active", "on");
     start(async () => {
       const res = await updateSurveyAnswer(row.id, fd);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       if ((res as any)?.error)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         toast((res as any).error, "error");
       else
         toast(
@@ -135,9 +135,9 @@ export function SurveyMasterClient({
       const fd = new FormData(form);
       start(async () => {
         const res = await syncQuestionAnswers(assigning.id, fd);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         if ((res as any)?.error) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           toast((res as any).error, "error");
         } else {
           toast("Relasi jawaban tersimpan", "success");
@@ -160,7 +160,7 @@ export function SurveyMasterClient({
   const handleCloseAssigning = useCallback(() => setAssigning(null), []);
   const handleEdit = useCallback(
     (row: Row, type: "question" | "answer") =>
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       setEditing({ type, row: row as any }),
     [],
   );
@@ -207,9 +207,9 @@ export function SurveyMasterClient({
             pending={pending}
             questionAnswerMap={questionAnswerMap}
             onEdit={handleEdit}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             onAssign={handleAssign as any}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             onToggle={toggleQuestion as any}
           />
         </MasterPanel>
@@ -224,7 +224,7 @@ export function SurveyMasterClient({
             rows={answers}
             pending={pending}
             onEdit={handleEdit}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             onToggle={toggleAnswer as any}
           />
         </MasterPanel>
@@ -319,11 +319,11 @@ const MasterTable = memo(function MasterTable({
   rows: Row[];
   pending: boolean;
   questionAnswerMap?: Map<string, QuestionAnswer[]>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   onEdit: (row: any, type: "question" | "answer") => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   onAssign?: (row: any) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   onToggle: (row: any) => void;
 }) {
   const isQuestionTable = type === "question";
@@ -392,11 +392,11 @@ const MasterTableRow = memo(function MasterTableRow({
   text: string;
   pending: boolean;
   questionAnswerMap?: Map<string, QuestionAnswer[]>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   onEdit: (row: any, type: "question" | "answer") => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   onAssign?: (row: any) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   onToggle: (row: any) => void;
 }) {
   const isQuestionTable = type === "question";

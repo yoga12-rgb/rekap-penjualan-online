@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   buildSurveyReportData,
+  getSurveyReportDefaultRange,
+  getSurveyReportPresetRange,
+  hasActiveSurveyReportFilter,
+  isSurveyReportPresetActive,
+  normalizeSurveyReportTab,
   type SurveyReportResponseRow,
 } from "./surveyReportData";
 
@@ -73,5 +78,36 @@ describe("buildSurveyReportData", () => {
       total: 1,
       answers: [{ label: "Instagram", count: 1, examples: [] }],
     });
+  });
+});
+
+describe("survey report filter helpers", () => {
+  it("matches the dashboard-style 7 day default range", () => {
+    expect(getSurveyReportDefaultRange()).toEqual(
+      getSurveyReportPresetRange("7d"),
+    );
+  });
+
+  it("detects active presets and active filters", () => {
+    const range = getSurveyReportPresetRange("month");
+
+    expect(isSurveyReportPresetActive(range, "month")).toBe(true);
+    expect(
+      hasActiveSurveyReportFilter({
+        ...getSurveyReportDefaultRange(),
+        outlet: "",
+      }),
+    ).toBe(false);
+    expect(
+      hasActiveSurveyReportFilter({
+        ...getSurveyReportDefaultRange(),
+        outlet: "outlet-1",
+      }),
+    ).toBe(true);
+  });
+
+  it("normalizes unknown tabs to input", () => {
+    expect(normalizeSurveyReportTab("report")).toBe("report");
+    expect(normalizeSurveyReportTab("anything")).toBe("input");
   });
 });

@@ -2,15 +2,15 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { SurveysClient } from "./SurveysClient";
 import {
-  daysAgoWIBKey,
   firstParam,
   isValidDateKey,
-  todayWIBKey,
 } from "@/lib/date";
 import { uuidParam } from "@/lib/utils";
 import {
   buildSurveyReportData,
   buildOutletCounts,
+  getSurveyReportDefaultRange,
+  normalizeSurveyReportTab,
   type SurveyReportResponseRow,
 } from "./surveyReportData";
 
@@ -28,10 +28,6 @@ type SP = {
   survey_to?: string | string[];
   survey_outlet?: string | string[];
 };
-
-function tabParam(value: string) {
-  return value === "report" ? "report" : "input";
-}
 
 type QueryError = { message?: string } | null;
 type QueryPage<T> = {
@@ -77,13 +73,14 @@ export default async function SurveysPage({
   const supabase = await createClient();
   const params = await searchParams;
 
-  const activeTab = tabParam(
+  const activeTab = normalizeSurveyReportTab(
     firstParam(params.tab) || firstParam(params.survey_tab),
   );
   const rawFrom = firstParam(params.from) || firstParam(params.survey_from);
   const rawTo = firstParam(params.to) || firstParam(params.survey_to);
-  let from = isValidDateKey(rawFrom) ? rawFrom : daysAgoWIBKey(29);
-  let to = isValidDateKey(rawTo) ? rawTo : todayWIBKey();
+  const defaultRange = getSurveyReportDefaultRange();
+  let from = isValidDateKey(rawFrom) ? rawFrom : defaultRange.from;
+  let to = isValidDateKey(rawTo) ? rawTo : defaultRange.to;
   let rangeWasReversed = false;
   if (from > to) {
     [from, to] = [to, from];

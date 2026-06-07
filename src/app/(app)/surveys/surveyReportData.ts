@@ -1,3 +1,33 @@
+import {
+  daysAgoWIBKey,
+  endOfMonthWIBKey,
+  endOfPreviousMonthWIBKey,
+  endOfYearWIBKey,
+  startOfMonthWIBKey,
+  startOfPreviousMonthWIBKey,
+  startOfYearWIBKey,
+  todayWIBKey,
+} from "@/lib/date";
+
+export type SurveyReportTab = "input" | "report";
+
+export type SurveyReportDatePreset =
+  | "today"
+  | "7d"
+  | "30d"
+  | "month"
+  | "lastMonth"
+  | "ytd"
+  | "year";
+
+export type SurveyReportFilter = {
+  tab: SurveyReportTab;
+  from: string;
+  to: string;
+  outlet: string;
+  rangeWasReversed?: boolean;
+};
+
 export type SurveyReportResponseRow = {
   question_id: string;
   answer_id: string | null;
@@ -30,6 +60,50 @@ export type OutletCount = {
   outletName: string;
   count: number;
 };
+
+export function normalizeSurveyReportTab(value: string) {
+  return value === "report" ? "report" : "input";
+}
+
+export function getSurveyReportDefaultRange() {
+  return { from: daysAgoWIBKey(6), to: todayWIBKey() };
+}
+
+export function getSurveyReportPresetRange(preset: SurveyReportDatePreset) {
+  if (preset === "today") return { from: todayWIBKey(), to: todayWIBKey() };
+  if (preset === "7d") return { from: daysAgoWIBKey(6), to: todayWIBKey() };
+  if (preset === "30d") return { from: daysAgoWIBKey(29), to: todayWIBKey() };
+  if (preset === "month")
+    return { from: startOfMonthWIBKey(), to: endOfMonthWIBKey() };
+  if (preset === "lastMonth") {
+    return {
+      from: startOfPreviousMonthWIBKey(),
+      to: endOfPreviousMonthWIBKey(),
+    };
+  }
+  if (preset === "ytd")
+    return { from: startOfYearWIBKey(), to: todayWIBKey() };
+  return { from: startOfYearWIBKey(), to: endOfYearWIBKey() };
+}
+
+export function isSurveyReportPresetActive(
+  filter: Pick<SurveyReportFilter, "from" | "to">,
+  preset: SurveyReportDatePreset,
+) {
+  const range = getSurveyReportPresetRange(preset);
+  return filter.from === range.from && filter.to === range.to;
+}
+
+export function hasActiveSurveyReportFilter(
+  filter: Pick<SurveyReportFilter, "from" | "to" | "outlet">,
+) {
+  const defaultRange = getSurveyReportDefaultRange();
+  return (
+    filter.from !== defaultRange.from ||
+    filter.to !== defaultRange.to ||
+    !!filter.outlet
+  );
+}
 
 export function buildSurveyReportData(
   responses: SurveyReportResponseRow[],

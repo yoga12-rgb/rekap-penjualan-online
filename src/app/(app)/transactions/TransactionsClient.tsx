@@ -1,5 +1,12 @@
 "use client";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type CSSProperties,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
 import { formatIDR } from "@/lib/utils";
@@ -87,6 +94,10 @@ type TransactionFilterKey =
   | "q";
 const INITIAL_VISIBLE_GROUPS = 12;
 const GROUPS_PER_LOAD = 12;
+const VIRTUAL_CARD_STYLE = {
+  contentVisibility: "auto",
+  containIntrinsicSize: "240px",
+} satisfies CSSProperties;
 
 export function TransactionsClient({
   role,
@@ -521,6 +532,7 @@ export function TransactionsClient({
               key={g.order_id}
               className="card relative overflow-hidden p-3 sm:p-4"
               style={{
+                ...VIRTUAL_CARD_STYLE,
                 borderColor: "var(--border)",
                 backgroundColor: "var(--card)",
                 boxShadow: "0 1px 2px rgba(15, 23, 42, 0.06)",

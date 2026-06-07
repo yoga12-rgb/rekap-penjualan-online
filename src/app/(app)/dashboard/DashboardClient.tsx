@@ -1,5 +1,6 @@
 "use client";
 import {
+  memo,
   useCallback,
   useEffect,
   useRef,
@@ -65,6 +66,7 @@ type DashboardFilter = {
 type DashboardFilterKey = "from" | "to" | "outlet" | "merchant" | "variant";
 
 const DASHBOARD_CHART_MARGIN = { top: 8, right: 12, bottom: 8, left: 16 };
+const DASHBOARD_CHART_ANIMATION = false;
 const MONEY_AXIS_WIDTH = 88;
 const COUNT_AXIS_WIDTH = 48;
 const DASHBOARD_TOOLTIP_CONTENT_STYLE: CSSProperties = {
@@ -446,6 +448,11 @@ export function DashboardClient({
     draftFilter.merchant !== filter.merchant ||
     draftFilter.variant !== filter.variant;
   const showResetFilter = hasActiveFilter || hasDraftChanges;
+  const showDataSkeleton = filterPending;
+
+  function selectTab(tab: DashboardTab) {
+    setActiveTab(tab);
+  }
 
   return (
     <div className="space-y-3 sm:space-y-4">
@@ -657,115 +664,121 @@ export function DashboardClient({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
-        <KPI
-          title="Total Omset"
-          value={formatIDR(totals.gross)}
-          variant="gross"
-        />
-        <KPI
-          title="Total Potongan Admin"
-          value={formatIDR(totals.fee)}
-          variant="fee"
-        />
-        <KPI
-          title="Potongan Admin (%)"
-          value={formatPercent(totals.feePercent)}
-          variant="percent"
-        />
-        <KPI title="Net Profit" value={formatIDR(totals.net)} variant="net" />
-        <KPI
-          title="Biaya Iklan"
-          value={formatIDR(totals.adCost)}
-          variant="ad"
-        />
-        <KPI
-          title="Profit Bersih"
-          value={formatIDR(totals.cleanProfit)}
-          variant="clean"
-        />
-        <KPI title="Total Qty" value={totals.qty.toLocaleString("id-ID")} />
-        <KPI
-          title="Total Transaksi"
-          value={totals.transactionCount.toLocaleString("id-ID")}
-        />
-        <KPI title="Rata-rata Omset" value={formatIDR(totals.avgGross)} />
-        <KPI
-          title="Rata-rata Qty"
-          value={totals.avgQty.toLocaleString("id-ID", {
-            maximumFractionDigits: 2,
-          })}
-        />
-        <KPI title="Rata-rata Net" value={formatIDR(totals.avgNet)} />
-      </div>
+      {showDataSkeleton ? (
+        <DashboardLoadingSkeleton />
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
+            <KPI
+              title="Total Omset"
+              value={formatIDR(totals.gross)}
+              variant="gross"
+            />
+            <KPI
+              title="Total Potongan Admin"
+              value={formatIDR(totals.fee)}
+              variant="fee"
+            />
+            <KPI
+              title="Potongan Admin (%)"
+              value={formatPercent(totals.feePercent)}
+              variant="percent"
+            />
+            <KPI title="Net Profit" value={formatIDR(totals.net)} variant="net" />
+            <KPI
+              title="Biaya Iklan"
+              value={formatIDR(totals.adCost)}
+              variant="ad"
+            />
+            <KPI
+              title="Profit Bersih"
+              value={formatIDR(totals.cleanProfit)}
+              variant="clean"
+            />
+            <KPI title="Total Qty" value={totals.qty.toLocaleString("id-ID")} />
+            <KPI
+              title="Total Transaksi"
+              value={totals.transactionCount.toLocaleString("id-ID")}
+            />
+            <KPI title="Rata-rata Omset" value={formatIDR(totals.avgGross)} />
+            <KPI
+              title="Rata-rata Qty"
+              value={totals.avgQty.toLocaleString("id-ID", {
+                maximumFractionDigits: 2,
+              })}
+            />
+            <KPI title="Rata-rata Net" value={formatIDR(totals.avgNet)} />
+          </div>
 
-      <div
-        className="flex overflow-x-auto border-b -mb-1"
-        style={{ borderColor: "var(--border)" }}
-      >
-        <TabButton
-          active={activeTab === "trend"}
-          onClick={() => setActiveTab("trend")}
-        >
-          Tren Harian
-        </TabButton>
-        <TabButton
-          active={activeTab === "products"}
-          onClick={() => setActiveTab("products")}
-        >
-          Produk Terlaris
-        </TabButton>
-        <TabButton
-          active={activeTab === "merchants"}
-          onClick={() => setActiveTab("merchants")}
-        >
-          Profit Merchant
-        </TabButton>
-        <TabButton
-          active={activeTab === "outlets"}
-          onClick={() => setActiveTab("outlets")}
-        >
-          Outlet
-        </TabButton>
-        <TabButton
-          active={activeTab === "hours"}
-          onClick={() => setActiveTab("hours")}
-        >
-          Jam Ramai
-        </TabButton>
-        <TabButton
-          active={activeTab === "insights"}
-          onClick={() => setActiveTab("insights")}
-        >
-          Insight
-        </TabButton>
-        <TabButton
-          active={activeTab === "details"}
-          onClick={() => setActiveTab("details")}
-        >
-          Detail Transaksi
-        </TabButton>
-      </div>
+          <div
+            className="flex overflow-x-auto border-b -mb-1"
+            style={{ borderColor: "var(--border)" }}
+          >
+            <TabButton
+              active={activeTab === "trend"}
+              onClick={() => selectTab("trend")}
+            >
+              Tren Harian
+            </TabButton>
+            <TabButton
+              active={activeTab === "products"}
+              onClick={() => selectTab("products")}
+            >
+              Produk Terlaris
+            </TabButton>
+            <TabButton
+              active={activeTab === "merchants"}
+              onClick={() => selectTab("merchants")}
+            >
+              Profit Merchant
+            </TabButton>
+            <TabButton
+              active={activeTab === "outlets"}
+              onClick={() => selectTab("outlets")}
+            >
+              Outlet
+            </TabButton>
+            <TabButton
+              active={activeTab === "hours"}
+              onClick={() => selectTab("hours")}
+            >
+              Jam Ramai
+            </TabButton>
+            <TabButton
+              active={activeTab === "insights"}
+              onClick={() => selectTab("insights")}
+            >
+              Insight
+            </TabButton>
+            <TabButton
+              active={activeTab === "details"}
+              onClick={() => selectTab("details")}
+            >
+              Detail Transaksi
+            </TabButton>
+          </div>
 
-      {activeTab === "trend" && <TrendTab daily={daily} />}
-      {activeTab === "products" && <ProductsTab leaderboard={leaderboard} />}
-      {activeTab === "merchants" && (
-        <MerchantsTab merchantBreakdown={merchantBreakdown} />
+          {activeTab === "trend" && <TrendTab daily={daily} />}
+          {activeTab === "products" && <ProductsTab leaderboard={leaderboard} />}
+          {activeTab === "merchants" && (
+            <MerchantsTab merchantBreakdown={merchantBreakdown} />
+          )}
+          {activeTab === "outlets" && (
+            <OutletsTab outletBreakdown={outletBreakdown} />
+          )}
+          {activeTab === "hours" && <HoursTab hourly={hourly} />}
+          {activeTab === "insights" && (
+            <InsightsTab
+              comparison={comparison}
+              previousRange={previousRange}
+              productDeclines={productDeclines}
+              merchantDeclines={merchantDeclines}
+              insights={insights}
+            />
+          )}
+          {activeTab === "details" && <DetailTransactions filter={filter} />}
+        </>
       )}
-      {activeTab === "outlets" && (
-        <OutletsTab outletBreakdown={outletBreakdown} />
-      )}
-      {activeTab === "hours" && <HoursTab hourly={hourly} />}
-      {activeTab === "insights" && (
-        <InsightsTab
-          comparison={comparison}
-          previousRange={previousRange}
-          productDeclines={productDeclines}
-          merchantDeclines={merchantDeclines}
-          insights={insights}
-        />
-      )}
-      {activeTab === "details" && <DetailTransactions filter={filter} />}
     </div>
   );
 }
@@ -845,6 +858,46 @@ function PresetButton({
   );
 }
 
+function DashboardLoadingSkeleton() {
+  return (
+    <div className="space-y-3" aria-label="Memuat data dashboard">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
+        {Array.from({ length: 11 }, (_, index) => (
+          <div
+            key={index}
+            className="card min-h-24 animate-pulse p-3"
+            style={{ backgroundColor: "var(--card)" }}
+          >
+            <div className="h-3 w-20 rounded bg-slate-200 dark:bg-slate-800" />
+            <div className="mt-4 h-5 w-28 rounded bg-slate-200 dark:bg-slate-800" />
+            <div className="mt-3 h-3 w-16 rounded bg-slate-200 dark:bg-slate-800" />
+          </div>
+        ))}
+      </div>
+      <ChartSkeleton />
+    </div>
+  );
+}
+
+function ChartSkeleton() {
+  return (
+    <div className="card animate-pulse p-3" aria-label="Memuat grafik">
+      <div className="mb-3 h-4 w-44 rounded bg-slate-200 dark:bg-slate-800" />
+      <div className="h-56 rounded-md border sm:h-64 lg:h-72" style={{ borderColor: "var(--border)" }}>
+        <div className="flex h-full items-end gap-3 p-4">
+          {[42, 68, 54, 82, 47, 72, 58].map((height, index) => (
+            <div
+              key={index}
+              className="flex-1 rounded-t bg-slate-200 dark:bg-slate-800"
+              style={{ height: `${height}%` }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function formatTooltipValue(value: unknown) {
   if (typeof value === "number") return value.toLocaleString("id-ID");
   return String(value ?? "-");
@@ -901,7 +954,7 @@ function DashboardTooltip({
   );
 }
 
-function TrendTab({
+const TrendTab = memo(function TrendTab({
   daily,
 }: {
   daily: Array<{
@@ -947,6 +1000,7 @@ function TrendTab({
                 stroke="#3b82f6"
                 dot={daily.length === 1}
                 strokeWidth={2}
+                isAnimationActive={DASHBOARD_CHART_ANIMATION}
               />
               <Line
                 type="monotone"
@@ -955,6 +1009,7 @@ function TrendTab({
                 stroke="#22c55e"
                 dot={daily.length === 1}
                 strokeWidth={2}
+                isAnimationActive={DASHBOARD_CHART_ANIMATION}
               />
               <Line
                 type="monotone"
@@ -963,6 +1018,7 @@ function TrendTab({
                 stroke="#8b5cf6"
                 dot={daily.length === 1}
                 strokeWidth={2}
+                isAnimationActive={DASHBOARD_CHART_ANIMATION}
               />
               <Line
                 type="monotone"
@@ -971,6 +1027,7 @@ function TrendTab({
                 stroke="#ef4444"
                 dot={daily.length === 1}
                 strokeWidth={2}
+                isAnimationActive={DASHBOARD_CHART_ANIMATION}
               />
               <Line
                 type="monotone"
@@ -979,6 +1036,7 @@ function TrendTab({
                 stroke="#f97316"
                 dot={daily.length === 1}
                 strokeWidth={2}
+                isAnimationActive={DASHBOARD_CHART_ANIMATION}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -986,9 +1044,9 @@ function TrendTab({
       </div>
     </div>
   );
-}
+});
 
-function ProductsTab({
+const ProductsTab = memo(function ProductsTab({
   leaderboard,
 }: {
   leaderboard: Array<{ name: string; qty: number; gross: number; net: number }>;
@@ -1012,7 +1070,12 @@ function ProductsTab({
               <Tooltip
                 content={<DashboardTooltip />}
               />
-              <Bar dataKey="qty" name="Qty" fill="#b91c1c" />
+              <Bar
+                dataKey="qty"
+                name="Qty"
+                fill="#b91c1c"
+                isAnimationActive={DASHBOARD_CHART_ANIMATION}
+              />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -1050,9 +1113,9 @@ function ProductsTab({
       </div>
     </div>
   );
-}
+});
 
-function MerchantsTab({
+const MerchantsTab = memo(function MerchantsTab({
   merchantBreakdown,
 }: {
   merchantBreakdown: Array<{
@@ -1089,7 +1152,11 @@ function MerchantsTab({
                   />
                 }
               />
-              <Bar dataKey="cleanProfit" name="Profit Bersih">
+              <Bar
+                dataKey="cleanProfit"
+                name="Profit Bersih"
+                isAnimationActive={DASHBOARD_CHART_ANIMATION}
+              >
                 {merchantBreakdown.map((m) => (
                   <Cell
                     key={m.name}
@@ -1108,9 +1175,9 @@ function MerchantsTab({
       </div>
     </div>
   );
-}
+});
 
-function OutletsTab({
+const OutletsTab = memo(function OutletsTab({
   outletBreakdown,
 }: {
   outletBreakdown: Array<{
@@ -1150,9 +1217,24 @@ function OutletsTab({
                 }
               />
               <Legend />
-              <Bar dataKey="gross" name="Omset" fill="#3b82f6" />
-              <Bar dataKey="net" name="Net Profit" fill="#22c55e" />
-              <Bar dataKey="cleanProfit" name="Profit Bersih" fill="#8b5cf6" />
+              <Bar
+                dataKey="gross"
+                name="Omset"
+                fill="#3b82f6"
+                isAnimationActive={DASHBOARD_CHART_ANIMATION}
+              />
+              <Bar
+                dataKey="net"
+                name="Net Profit"
+                fill="#22c55e"
+                isAnimationActive={DASHBOARD_CHART_ANIMATION}
+              />
+              <Bar
+                dataKey="cleanProfit"
+                name="Profit Bersih"
+                fill="#8b5cf6"
+                isAnimationActive={DASHBOARD_CHART_ANIMATION}
+              />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -1202,9 +1284,9 @@ function OutletsTab({
       </div>
     </div>
   );
-}
+});
 
-function HoursTab({
+const HoursTab = memo(function HoursTab({
   hourly,
 }: {
   hourly: Array<{
@@ -1238,8 +1320,18 @@ function HoursTab({
                 content={<DashboardTooltip />}
               />
               <Legend />
-              <Bar dataKey="transactionCount" name="Transaksi" fill="#b91c1c" />
-              <Bar dataKey="qty" name="Qty" fill="#3b82f6" />
+              <Bar
+                dataKey="transactionCount"
+                name="Transaksi"
+                fill="#b91c1c"
+                isAnimationActive={DASHBOARD_CHART_ANIMATION}
+              />
+              <Bar
+                dataKey="qty"
+                name="Qty"
+                fill="#3b82f6"
+                isAnimationActive={DASHBOARD_CHART_ANIMATION}
+              />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -1283,9 +1375,9 @@ function HoursTab({
       </div>
     </div>
   );
-}
+});
 
-function InsightsTab({
+const InsightsTab = memo(function InsightsTab({
   comparison,
   previousRange,
   productDeclines,
@@ -1347,7 +1439,7 @@ function InsightsTab({
       />
     </div>
   );
-}
+});
 
 function ComparisonCard({ item }: { item: ComparisonMetric }) {
   const isUp = item.delta >= 0;
@@ -1519,7 +1611,7 @@ function getViewportPageSize() {
   return Math.min(100, Math.max(20, visibleRows * 2));
 }
 
-function DetailTransactions({ filter }: { filter: DashboardFilter }) {
+const DetailTransactions = memo(function DetailTransactions({ filter }: { filter: DashboardFilter }) {
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const loadingRef = useRef(false);
@@ -1684,7 +1776,7 @@ function DetailTransactions({ filter }: { filter: DashboardFilter }) {
       </div>
     </div>
   );
-}
+});
 
 type KPIVariant =
   | "default"

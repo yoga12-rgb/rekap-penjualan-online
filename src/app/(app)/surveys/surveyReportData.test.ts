@@ -10,9 +10,11 @@ function row(
   return {
     question_id: "q1",
     answer_id: "a1",
+    outlet_id: "outlet-1",
     other_text: null,
     survey_questions: { question_text: "Dari mana tahu produk?" },
     survey_answers: { label: "Instagram" },
+    outlets: { name: "Outlet A" },
     ...overrides,
   };
 }

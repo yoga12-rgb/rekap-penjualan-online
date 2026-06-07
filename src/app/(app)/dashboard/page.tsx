@@ -2,8 +2,10 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { DashboardClient } from "./DashboardClient";
 import {
+  attachDashboardInsights,
   buildDashboardData,
   type AdCostRow,
+  type DashboardData,
   type Merchant,
   type Option,
   type SummaryRow,
@@ -39,6 +41,10 @@ type SP = {
 type QueryError = { message?: string } | null;
 type QueryPage<T> = PromiseLike<{ data: T[] | null; error: QueryError }>;
 type LoadResult<T> = { rows: T[]; error: string | null };
+type DashboardRpcResult = {
+  data: DashboardData | null;
+  error: string | null;
+};
 
 function asQueryPage<T>(query: unknown): QueryPage<T> {
   return query as QueryPage<T>;
@@ -46,6 +52,10 @@ function asQueryPage<T>(query: unknown): QueryPage<T> {
 
 function emptyLoadResult<T>(): LoadResult<T> {
   return { rows: [], error: null };
+}
+
+function nullableUuid(value: string) {
+  return value || null;
 }
 
 export default async function DashboardPage({
@@ -89,15 +99,6 @@ export default async function DashboardPage({
       : outletsQuery.is("id", null);
   }
 
-  const [outletsResult, merchantsResult, variantsResult] = await Promise.all([
-    outletsQuery,
-    supabase.from("food_merchants").select("id,name,color").order("name"),
-    supabase
-      .from("product_variants")
-      .select("id,name,base_price")
-      .order("name"),
-  ]);
-
   function formatLoadError(label: string, error: QueryError) {
     return error?.message ? `${label}: ${error.message}` : null;
   }
@@ -115,6 +116,28 @@ export default async function DashboardPage({
       if (pageRows.length < PAGE_SIZE) break;
     }
     return { rows, error: null };
+  }
+
+  async function fetchDashboardRpc(): Promise<DashboardRpcResult> {
+    const { data, error } = await (supabase as any).rpc("get_dashboard_summary", {
+      p_from: fromStr,
+      p_to: toStr,
+      p_previous_from: previousRange.from,
+      p_previous_to: previousRange.to,
+      p_outlet: nullableUuid(outlet),
+      p_merchant: nullableUuid(merchant),
+      p_variant: nullableUuid(variant),
+    });
+    if (error) {
+      return {
+        data: null,
+        error: formatLoadError("RPC dashboard", error),
+      };
+    }
+    return {
+      data: attachDashboardInsights(data as DashboardData),
+      error: null,
+    };
   }
 
   function buildTransactionsQuery(
@@ -168,25 +191,70 @@ export default async function DashboardPage({
     return asQueryPage<AdCostRow>(query);
   }
 
-  const [rowsResult, previousRowsResult, adCostsResult, previousAdCostsResult] =
-    await Promise.all([
-      fetchAll("Transaksi periode ini", (offset) =>
-        buildTransactionsQuery(fromStr, toStr, offset),
-      ),
-      fetchAll("Transaksi periode sebelumnya", (offset) =>
-        buildTransactionsQuery(previousRange.from, previousRange.to, offset),
-      ),
-      variant
-        ? Promise.resolve(emptyLoadResult<AdCostRow>())
-        : fetchAll("Biaya iklan periode ini", (offset) =>
-            buildAdCostsQuery(fromStr, toStr, offset),
-          ),
-      variant
-        ? Promise.resolve(emptyLoadResult<AdCostRow>())
-        : fetchAll("Biaya iklan periode sebelumnya", (offset) =>
-            buildAdCostsQuery(previousRange.from, previousRange.to, offset),
-          ),
-    ]);
+  const [
+    outletsResult,
+    merchantsResult,
+    variantsResult,
+    rpcResult,
+  ] = await Promise.all([
+    outletsQuery,
+    supabase.from("food_merchants").select("id,name,color").order("name"),
+    supabase
+      .from("product_variants")
+      .select("id,name,base_price")
+      .order("name"),
+    fetchDashboardRpc(),
+  ]);
+
+  let dashboardData = rpcResult.data;
+  let dashboardSource = "rpc";
+  let rowsResult = emptyLoadResult<SummaryRow>();
+  let previousRowsResult = emptyLoadResult<SummaryRow>();
+  let adCostsResult = emptyLoadResult<AdCostRow>();
+  let previousAdCostsResult = emptyLoadResult<AdCostRow>();
+
+  if (!dashboardData) {
+    dashboardSource = "fallback";
+    if (rpcResult.error) {
+      console.warn(
+        `Dashboard RPC failed; falling back to row fetch: ${rpcResult.error}`,
+      );
+    }
+    [
+      rowsResult,
+      previousRowsResult,
+      adCostsResult,
+      previousAdCostsResult,
+    ] = await Promise.all([
+        fetchAll("Transaksi periode ini", (offset) =>
+          buildTransactionsQuery(fromStr, toStr, offset),
+        ),
+        fetchAll("Transaksi periode sebelumnya", (offset) =>
+          buildTransactionsQuery(previousRange.from, previousRange.to, offset),
+        ),
+        variant
+          ? Promise.resolve(emptyLoadResult<AdCostRow>())
+          : fetchAll("Biaya iklan periode ini", (offset) =>
+              buildAdCostsQuery(fromStr, toStr, offset),
+            ),
+        variant
+          ? Promise.resolve(emptyLoadResult<AdCostRow>())
+          : fetchAll("Biaya iklan periode sebelumnya", (offset) =>
+              buildAdCostsQuery(previousRange.from, previousRange.to, offset),
+            ),
+      ]);
+
+    dashboardData = buildDashboardData({
+      rows: rowsResult.rows,
+      previousRows: previousRowsResult.rows,
+      adCosts: adCostsResult.rows,
+      previousAdCosts: previousAdCostsResult.rows,
+    });
+  }
+
+  console.info(
+    `Dashboard data source: ${dashboardSource}`,
+  );
 
   const loadErrors = [
     formatLoadError("Outlet", outletsResult.error),
@@ -197,12 +265,6 @@ export default async function DashboardPage({
     adCostsResult.error,
     previousAdCostsResult.error,
   ].filter((error): error is string => Boolean(error));
-  const dashboardData = buildDashboardData({
-    rows: rowsResult.rows,
-    previousRows: previousRowsResult.rows,
-    adCosts: adCostsResult.rows,
-    previousAdCosts: previousAdCostsResult.rows,
-  });
 
   return (
     <DashboardClient

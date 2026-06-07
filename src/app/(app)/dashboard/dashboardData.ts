@@ -165,6 +165,20 @@ export function buildDashboardData({
   };
 }
 
+export function attachDashboardInsights(data: DashboardData): DashboardData {
+  return {
+    ...data,
+    insights: buildInsights({
+      totals: data.totals,
+      comparison: data.comparison,
+      hourly: data.hourly,
+      leaderboard: data.leaderboard,
+      merchantBreakdown: data.merchantBreakdown,
+      outletBreakdown: data.outletBreakdown,
+    }),
+  };
+}
+
 export function getGross(row: SummaryRow) {
   return row.qty * row.initial_price;
 }

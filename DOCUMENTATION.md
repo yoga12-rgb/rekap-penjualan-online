@@ -185,7 +185,7 @@ npm install
 1. Buka [supabase.com](https://supabase.com) → **New Project**
 2. Catat **Project URL**, **anon key**, dan **service_role key** dari Settings → API
 3. Buka SQL Editor → paste isi `supabase/schema.sql` → **Run**
-4. Jika database sudah ada, jalankan migrasi bertahap di `supabase/migrations/` sesuai nomor versi, termasuk `007_daily_ad_costs.sql` dan `008_user_presence.sql`
+4. Jika database sudah ada, jalankan migrasi bertahap di `supabase/migrations/` sesuai nomor versi, termasuk `007_daily_ad_costs.sql`, `008_user_presence.sql`, dan `011_dashboard_summary_rpc.sql`
 5. (Opsional) Paste `supabase/seed.sql` untuk data contoh
 
 ### Langkah 3: Konfigurasi Environment
@@ -385,6 +385,13 @@ Kebijakan per tabel:
   - **INSERT/UPDATE**: user hanya heartbeat sendiri
   - **DELETE**: hanya super_admin
 
+### Database RPC
+
+- `get_dashboard_summary(p_from, p_to, p_previous_from, p_previous_to, p_outlet, p_merchant, p_variant)` mengembalikan ringkasan dashboard dalam satu payload JSON.
+- RPC ini dipakai oleh halaman Dashboard untuk mengurangi transfer data transaksi mentah dari Supabase ke server Next.js.
+- Jika RPC belum tersedia atau gagal, aplikasi masih punya fallback ke fetch transaksi bertahap.
+- Function dibuat sebagai SQL `stable` dengan `search_path = public`; akses data tetap mengikuti RLS user yang sedang login.
+
 ---
 
 ## 5. Hak Akses & Role
@@ -448,7 +455,8 @@ Tampilkan UI sesuai role
 Catatan:
 
 - Reset menghapus filter aktif sekaligus cookie filter tersimpan.
-- Dashboard mengambil data transaksi dan biaya iklan bertahap per 1000 baris agar hasil tidak terpotong batas default API.
+- Dashboard memprioritaskan RPC `get_dashboard_summary` untuk mengambil agregasi transaksi, biaya iklan, perbandingan periode, leaderboard, dan insight dalam satu request.
+- Jika RPC tidak tersedia, dashboard fallback ke pengambilan transaksi dan biaya iklan bertahap per 1000 baris agar hasil tidak terpotong batas default API.
 - Saat filter varian produk aktif, biaya iklan tidak dikurangkan ke Profit Bersih karena biaya iklan dicatat per outlet dan merchant, bukan per varian.
 
 #### Tab Analitik
@@ -610,6 +618,26 @@ Endpoint untuk infinite scroll detail transaksi.
 }
 ```
 
+### Supabase RPC
+
+#### `public.get_dashboard_summary(...)`
+
+RPC utama untuk agregasi Dashboard. Dipanggil dari Server Component `/dashboard` dengan parameter tanggal periode aktif, periode pembanding, dan filter outlet/merchant/varian.
+
+Output berupa JSON dengan bagian:
+
+- `totals`
+- `comparison`
+- `daily`
+- `leaderboard`
+- `merchantBreakdown`
+- `outletBreakdown`
+- `hourly`
+- `productDeclines`
+- `merchantDeclines`
+
+Untuk database baru, function ini sudah ada di `supabase/schema.sql`. Untuk database existing, jalankan `supabase/migrations/011_dashboard_summary_rpc.sql`.
+
 ### Server Actions
 
 #### `createOrder(payload)`
@@ -742,7 +770,7 @@ npm start  # atau gunakan PM2 untuk production
 Jika data sudah mencapai puluhan ribu transaksi per hari:
 
 1. **Partisi tabel** `transactions` per bulan
-2. **Materialized views** untuk agregasi dashboard
+2. **Materialized views** di atas RPC dashboard jika volume transaksi harian sudah sangat besar
 3. **Redis cache** untuk data dashboard yang sering diakses
 4. **Pagination** server-side penuh (sudah diimplementasikan untuk detail transaksi)
 

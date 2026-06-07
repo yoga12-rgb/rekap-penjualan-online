@@ -33,12 +33,14 @@ import {
   getSurveyReportPresetRange,
   hasActiveSurveyReportFilter,
   isSurveyReportPresetActive,
-  type OutletCount,
-  type SurveyReportData,
-  type SurveyReportDatePreset,
-  type SurveyReportFilter,
-  type SurveyReportGroup,
-  type SurveyReportTab,
+} from "./surveyReportData";
+import type {
+  OutletCount,
+  SurveyReportData,
+  SurveyReportDatePreset,
+  SurveyReportFilter,
+  SurveyReportGroup,
+  SurveyReportTab,
 } from "./surveyReportData";
 
 type Role = "super_admin" | "kasir";
@@ -514,11 +516,11 @@ const SurveyQuestionCard = memo(function SurveyQuestionCard({
     else fd.set("answer_id", selected);
 
     start(async () => {
-       
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const res = await createSurveyResponse(fd);
-       
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if ((res as any)?.error) {
-         
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         toast((res as any).error, "error");
       } else {
         toast("Survey tersimpan", "success");

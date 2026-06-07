@@ -1,6 +1,7 @@
 "use client";
 import {
   useEffect,
+  useCallback,
   useMemo,
   useRef,
   useState,
@@ -37,44 +38,19 @@ import {
   queryString,
   setScopedFilterParams,
 } from "@/lib/urlParams";
+import {
+  EMPTY_TRANSACTION_SUMMARY,
+  type TransactionGroup,
+  type TransactionMerchant,
+  type TransactionOption,
+  type TransactionSummary,
+  type TransactionVariant,
+} from "./transactionData";
 
-type Option = { id: string; name: string };
-type Merchant = Option & { color?: string | null };
-type VariantPrice = { food_merchant_id: string; price: number };
-type Variant = Option & {
-  base_price: number;
-  product_variant_prices?: VariantPrice[] | null;
-};
-type Row = {
-  id: string;
-  order_id: string | null;
-  order_number: string | null;
-  transaction_date: string;
-  qty: number;
-  initial_price: number;
-  deduction_fee: number;
-  net_profit: number;
-  outlet_id: string;
-  food_merchant_id: string;
-  product_variant_id: string;
-  outlets: { name: string } | null;
-  food_merchants: { name: string; color: string | null } | null;
-  product_variants: { name: string } | null;
-};
-
-type Group = {
-  order_id: string;
-  orderNumber: string | null;
-  date: string;
-  outlet: string;
-  merchant: string;
-  merchantColor: string | null;
-  rows: Row[];
-  qty: number;
-  gross: number;
-  fee: number;
-  net: number;
-};
+type Option = TransactionOption;
+type Merchant = TransactionMerchant;
+type Variant = TransactionVariant;
+type Group = TransactionGroup;
 type TransactionDatePreset = "today" | "7d" | "30d" | "ytd";
 type TransactionFilter = {
   from: string;
@@ -92,7 +68,6 @@ type TransactionFilterKey =
   | "merchant"
   | "variant"
   | "q";
-const INITIAL_VISIBLE_GROUPS = 12;
 const GROUPS_PER_LOAD = 12;
 const VIRTUAL_CARD_STYLE = {
   contentVisibility: "auto",
@@ -105,16 +80,24 @@ export function TransactionsClient({
   outlets,
   merchants,
   variants,
-  rows,
+  initialGroups,
+  initialNextOffset,
+  initialHasMore,
+  summary,
   filter,
+  loadError,
 }: {
   role: "super_admin" | "kasir";
   myOutletId: string | null;
   outlets: Option[];
   merchants: Merchant[];
   variants: Variant[];
-  rows: Row[];
+  initialGroups: Group[];
+  initialNextOffset: number;
+  initialHasMore: boolean;
+  summary: TransactionSummary;
   filter: TransactionFilter;
+  loadError?: string | null;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -133,9 +116,10 @@ export function TransactionsClient({
     variant: filter.variant,
     q: filter.q,
   });
-  const [visibleGroupCount, setVisibleGroupCount] = useState(
-    INITIAL_VISIBLE_GROUPS,
-  );
+  const [groups, setGroups] = useState<Group[]>(initialGroups);
+  const [nextOffset, setNextOffset] = useState(initialNextOffset);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [showFloatingFilter, setShowFloatingFilter] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -159,7 +143,7 @@ export function TransactionsClient({
     filter.q,
   ]);
 
-  function buildFilterParams(nextFilter: TransactionFilter) {
+  const buildFilterParams = useCallback((nextFilter: TransactionFilter) => {
     const next = new URLSearchParams();
     copyPersistentUrlParams(searchParams, next);
     next.set("from", nextFilter.from);
@@ -177,7 +161,7 @@ export function TransactionsClient({
       q: nextFilter.q,
     });
     return next;
-  }
+  }, [searchParams]);
   function setDraftParam(key: TransactionFilterKey, value: string) {
     setDraftFilter((current) => ({ ...current, [key]: value }));
   }
@@ -238,40 +222,15 @@ export function TransactionsClient({
     draftFilter.q !== filter.q;
   const showResetFilter = hasActiveFilter || hasDraftChanges;
 
-  const filteredRows = rows;
-
-  const groups: Group[] = useMemo(() => {
-    const map = new Map<string, Group>();
-    for (const r of filteredRows) {
-      const key = r.order_id ?? r.id;
-      const cur = map.get(key) ?? {
-        order_id: key,
-        orderNumber: r.order_number ?? null,
-        date: r.transaction_date,
-        outlet: r.outlets?.name ?? "",
-        merchant: r.food_merchants?.name ?? "",
-        merchantColor: r.food_merchants?.color ?? null,
-        rows: [],
-        qty: 0,
-        gross: 0,
-        fee: 0,
-        net: 0,
-      };
-      cur.rows.push(r);
-      cur.qty += r.qty;
-      cur.gross += r.qty * r.initial_price;
-      cur.fee += Number(r.deduction_fee || 0);
-      cur.net += Number(r.net_profit || 0);
-      map.set(key, cur);
-    }
-    return Array.from(map.values()).sort((a, b) =>
-      b.date.localeCompare(a.date),
-    );
-  }, [filteredRows]);
-
   useEffect(() => {
-    setVisibleGroupCount(INITIAL_VISIBLE_GROUPS);
+    setGroups(initialGroups);
+    setNextOffset(initialNextOffset);
+    setHasMore(initialHasMore);
+    setIsLoadingMore(false);
   }, [
+    initialGroups,
+    initialNextOffset,
+    initialHasMore,
     filter.from,
     filter.to,
     filter.outlet,
@@ -280,16 +239,45 @@ export function TransactionsClient({
     filter.q,
   ]);
 
+  const totals = summary ?? EMPTY_TRANSACTION_SUMMARY;
+
+  const loadMoreOrders = useCallback(async () => {
+    if (isLoadingMore || !hasMore) return;
+    setIsLoadingMore(true);
+    const params = buildFilterParams(filter);
+    params.set("offset", String(nextOffset));
+    params.set("limit", String(GROUPS_PER_LOAD));
+
+    try {
+      const response = await fetch(`/api/transactions/orders?${params}`, {
+        cache: "no-store",
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error ?? "Gagal memuat data");
+
+      setGroups((current) => [...current, ...(payload.groups ?? [])]);
+      setNextOffset(Number(payload.nextOffset ?? nextOffset));
+      setHasMore(Boolean(payload.hasMore));
+    } catch (error) {
+      toast(
+        error instanceof Error
+          ? error.message
+          : "Gagal memuat transaksi berikutnya",
+        "error",
+      );
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [buildFilterParams, filter, hasMore, isLoadingMore, nextOffset]);
+
   useEffect(() => {
     const target = loadMoreRef.current;
-    if (!target || visibleGroupCount >= groups.length) return;
+    if (!target || !hasMore || isLoadingMore) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) {
-          setVisibleGroupCount((current) =>
-            Math.min(current + GROUPS_PER_LOAD, groups.length),
-          );
+          void loadMoreOrders();
         }
       },
       { rootMargin: "320px 0px" },
@@ -297,7 +285,7 @@ export function TransactionsClient({
 
     observer.observe(target);
     return () => observer.disconnect();
-  }, [groups.length, visibleGroupCount]);
+  }, [hasMore, isLoadingMore, loadMoreOrders]);
 
   useEffect(() => {
     function onScroll() {
@@ -309,24 +297,6 @@ export function TransactionsClient({
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const visibleGroups = useMemo(
-    () => groups.slice(0, visibleGroupCount),
-    [groups, visibleGroupCount],
-  );
-
-  const totals = useMemo(() => {
-    return filteredRows.reduce(
-      (acc, r) => {
-        acc.gross += r.qty * r.initial_price;
-        acc.fee += Number(r.deduction_fee || 0);
-        acc.net += Number(r.net_profit || 0);
-        acc.qty += r.qty;
-        return acc;
-      },
-      { gross: 0, fee: 0, net: 0, qty: 0 },
-    );
-  }, [filteredRows]);
-
   async function onConfirmDeleteOrder() {
     if (!deletingOrder) return;
     startDelete(async () => {
@@ -335,11 +305,13 @@ export function TransactionsClient({
       else {
         toast("Transaksi dihapus", "success");
         setDeletingOrder(null);
+        router.refresh();
       }
     });
   }
   function closeCreateModalAndFocusAddButton() {
     setOpenCreate(false);
+    router.refresh();
     requestAnimationFrame(() => {
       addTransactionButtonRef.current?.focus();
     });
@@ -510,7 +482,7 @@ export function TransactionsClient({
       <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
         <Stat
           title="Transaksi"
-          value={`${groups.length} order`}
+          value={`${totals.orderCount.toLocaleString("id-ID")} order`}
           sub={`${totals.qty.toLocaleString("id-ID")} QTY`}
           tone="indigo"
         />
@@ -525,7 +497,12 @@ export function TransactionsClient({
       </div>
 
       <div className="space-y-3">
-        {visibleGroups.map((g) => {
+        {loadError && (
+          <div className="card p-3 text-sm text-amber-700 dark:text-amber-300">
+            {loadError}
+          </div>
+        )}
+        {groups.map((g) => {
           const theme = getMerchantTheme(g.merchant, g.merchantColor);
           return (
             <div
@@ -708,7 +685,7 @@ export function TransactionsClient({
             </div>
           );
         })}
-        {!groups.length && (
+        {!groups.length && !hasMore && (
           <div
             className="card p-6 text-center"
             style={{ color: "var(--muted)" }}
@@ -716,13 +693,15 @@ export function TransactionsClient({
             Belum ada transaksi.
           </div>
         )}
-        {groups.length > visibleGroups.length && (
+        {hasMore && (
           <div
             ref={loadMoreRef}
             className="py-4 text-center text-sm"
             style={{ color: "var(--muted)" }}
           >
-            Memuat transaksi berikutnya...
+            {isLoadingMore
+              ? "Memuat transaksi berikutnya..."
+              : "Scroll untuk memuat transaksi berikutnya"}
           </div>
         )}
       </div>
@@ -758,7 +737,10 @@ export function TransactionsClient({
             merchants={merchants}
             variants={variants}
             group={editingOrder}
-            onDone={() => setEditingOrder(null)}
+            onDone={() => {
+              setEditingOrder(null);
+              router.refresh();
+            }}
           />
         )}
       </Modal>

@@ -185,7 +185,7 @@ npm install
 1. Buka [supabase.com](https://supabase.com) → **New Project**
 2. Catat **Project URL**, **anon key**, dan **service_role key** dari Settings → API
 3. Buka SQL Editor → paste isi `supabase/schema.sql` → **Run**
-4. Jika database sudah ada, jalankan migrasi bertahap di `supabase/migrations/` sesuai nomor versi, termasuk `007_daily_ad_costs.sql`, `008_user_presence.sql`, dan `011_dashboard_summary_rpc.sql`
+4. Jika database sudah ada, jalankan migrasi bertahap di `supabase/migrations/` sesuai nomor versi, termasuk `007_daily_ad_costs.sql`, `008_user_presence.sql`, `011_dashboard_summary_rpc.sql`, dan `012_transactions_summary_rpc.sql`
 5. (Opsional) Paste `supabase/seed.sql` untuk data contoh
 
 ### Langkah 3: Konfigurasi Environment
@@ -390,6 +390,8 @@ Kebijakan per tabel:
 - `get_dashboard_summary(p_from, p_to, p_previous_from, p_previous_to, p_outlet, p_merchant, p_variant)` mengembalikan ringkasan dashboard dalam satu payload JSON.
 - RPC ini dipakai oleh halaman Dashboard untuk mengurangi transfer data transaksi mentah dari Supabase ke server Next.js.
 - Jika RPC belum tersedia atau gagal, aplikasi masih punya fallback ke fetch transaksi bertahap.
+- `get_transactions_summary(p_from, p_to, p_outlet, p_merchant, p_variant, p_q)` menghitung total card halaman Transaksi tanpa mengirim semua baris transaksi ke Next.js.
+- `get_transaction_order_page(p_from, p_to, p_outlet, p_merchant, p_variant, p_q, p_offset, p_limit)` mengembalikan batch order transaksi beserta item-itemnya untuk infinite scroll.
 - Function dibuat sebagai SQL `stable` dengan `search_path = public`; akses data tetap mengikuti RLS user yang sedang login.
 
 ---
@@ -525,7 +527,9 @@ Catatan:
 - Klik **Terapkan Filter** untuk mengambil data baru; preset tanggal langsung diterapkan hanya untuk tanggal yang sudah aktif
 - Filter otomatis tersimpan ke cookie browser & URL (tidak perlu terapkan ulang saat kembali ke halaman)
 - Reset menghapus filter aktif sekaligus cookie filter tersimpan
-- Data transaksi diambil bertahap per 1000 baris agar hasil filter/search tidak terpotong
+- Total card transaksi dihitung melalui RPC `get_transactions_summary`.
+- List order transaksi dimuat bertahap melalui RPC `get_transaction_order_page` dan endpoint `/api/transactions/orders`.
+- Jika RPC transaksi belum tersedia, halaman fallback ke pengambilan transaksi bertahap agar halaman tetap bisa dipakai.
 
 ### 6.3 Biaya Iklan Harian
 
@@ -618,6 +622,46 @@ Endpoint untuk infinite scroll detail transaksi.
 }
 ```
 
+#### `GET /api/transactions/orders`
+
+Endpoint untuk infinite scroll card order pada halaman Transaksi. Endpoint ini memanggil RPC `get_transaction_order_page`.
+
+**Query Parameters**:
+| Parameter | Tipe | Required | Default | Keterangan |
+|-----------|------|----------|---------|------------|
+| from | string (YYYY-MM-DD) | ✅ | 7 hari terakhir | Tanggal awal (WIB) |
+| to | string (YYYY-MM-DD) | ✅ | hari ini | Tanggal akhir (WIB) |
+| offset | number | ❌ | 0 | Offset order |
+| limit | number | ❌ | 12 | Max 48 order per request |
+| outlet | UUID | ❌ | - | Filter outlet (super_admin only) |
+| merchant | UUID | ❌ | - | Filter merchant |
+| variant | UUID | ❌ | - | Filter variant |
+| q | string | ❌ | - | Pencarian no. pesanan, outlet, merchant, atau produk |
+
+**Response**:
+
+```json
+{
+  "groups": [
+    {
+      "order_id": "uuid",
+      "orderNumber": "string | null",
+      "date": "timestamptz",
+      "outlet": "string",
+      "merchant": "string",
+      "merchantColor": "string | null",
+      "qty": 0,
+      "gross": 0,
+      "fee": 0,
+      "net": 0,
+      "rows": []
+    }
+  ],
+  "nextOffset": 12,
+  "hasMore": true
+}
+```
+
 ### Supabase RPC
 
 #### `public.get_dashboard_summary(...)`
@@ -637,6 +681,16 @@ Output berupa JSON dengan bagian:
 - `merchantDeclines`
 
 Untuk database baru, function ini sudah ada di `supabase/schema.sql`. Untuk database existing, jalankan `supabase/migrations/011_dashboard_summary_rpc.sql`.
+
+#### `public.get_transactions_summary(...)`
+
+RPC untuk total card halaman Transaksi: jumlah order, qty, omset, potongan/komisi, dan net profit.
+
+#### `public.get_transaction_order_page(...)`
+
+RPC untuk mengambil batch card order transaksi beserta item transaksi di dalamnya. Dipakai oleh Server Component `/transactions` untuk render awal dan route `/api/transactions/orders` untuk batch berikutnya.
+
+Untuk database baru, function transaksi ini sudah ada di `supabase/schema.sql`. Untuk database existing, jalankan `supabase/migrations/012_transactions_summary_rpc.sql`.
 
 ### Server Actions
 

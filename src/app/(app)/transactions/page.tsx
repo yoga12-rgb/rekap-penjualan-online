@@ -2,6 +2,17 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { TransactionsClient } from "./TransactionsClient";
 import {
+  EMPTY_TRANSACTION_ORDER_PAGE,
+  EMPTY_TRANSACTION_SUMMARY,
+  groupTransactionRows,
+  summarizeTransactionRows,
+  type TransactionMerchant,
+  type TransactionOrderPage,
+  type TransactionRow,
+  type TransactionSummary,
+  type TransactionVariant,
+} from "./transactionData";
+import {
   todayWIBKey,
   daysAgoWIBKey,
   wibStartOfDay,
@@ -29,7 +40,8 @@ type SP = {
 };
 
 const EMPTY_UUID = "00000000-0000-0000-0000-000000000000";
-const PAGE_SIZE = 1000;
+const FALLBACK_PAGE_SIZE = 1000;
+const INITIAL_ORDER_PAGE_SIZE = 12;
 
 function sanitizeSearchTerm(value: string) {
   return value.trim().slice(0, 100);
@@ -47,6 +59,35 @@ function matchingIds<T extends { id: string; name: string }>(
   return (items ?? [])
     .filter((item) => item.name.toLowerCase().includes(needle))
     .map((item) => item.id);
+}
+
+function normalizeNumber(value: unknown) {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeSummary(data: unknown): TransactionSummary {
+  if (!data || typeof data !== "object") return EMPTY_TRANSACTION_SUMMARY;
+  const item = data as Record<string, unknown>;
+  return {
+    orderCount: normalizeNumber(item.orderCount),
+    qty: normalizeNumber(item.qty),
+    gross: normalizeNumber(item.gross),
+    fee: normalizeNumber(item.fee),
+    net: normalizeNumber(item.net),
+  };
+}
+
+function normalizeOrderPage(data: unknown): TransactionOrderPage {
+  if (!data || typeof data !== "object") return EMPTY_TRANSACTION_ORDER_PAGE;
+  const item = data as Record<string, unknown>;
+  return {
+    groups: Array.isArray(item.groups)
+      ? (item.groups as TransactionOrderPage["groups"])
+      : [],
+    nextOffset: normalizeNumber(item.nextOffset),
+    hasMore: Boolean(item.hasMore),
+  };
 }
 
 export default async function TransactionsPage({
@@ -100,6 +141,24 @@ export default async function TransactionsPage({
         .order("name"),
     ]);
 
+  const rpcParams = {
+    p_from: filter.from,
+    p_to: filter.to,
+    p_outlet: filter.outlet || null,
+    p_merchant: filter.merchant || null,
+    p_variant: filter.variant || null,
+    p_q: filter.q || null,
+  };
+
+  const [summaryResult, orderPageResult] = await Promise.all([
+    (supabase as any).rpc("get_transactions_summary", rpcParams),
+    (supabase as any).rpc("get_transaction_order_page", {
+      ...rpcParams,
+      p_offset: 0,
+      p_limit: INITIAL_ORDER_PAGE_SIZE,
+    }),
+  ]);
+
   function buildQuery(offset: number) {
     let query = supabase
       .from("transactions")
@@ -109,7 +168,7 @@ export default async function TransactionsPage({
       .gte("transaction_date", wibStartOfDay(filter.from))
       .lte("transaction_date", wibEndOfDay(filter.to))
       .order("transaction_date", { ascending: false })
-      .range(offset, offset + PAGE_SIZE - 1);
+      .range(offset, offset + FALLBACK_PAGE_SIZE - 1);
 
     if (profile.role === "kasir")
       query = profile.outlet_id
@@ -138,12 +197,28 @@ export default async function TransactionsPage({
     return query;
   }
 
-  const rows: any[] = [];
-  for (let offset = 0; ; offset += PAGE_SIZE) {
-    const { data } = await buildQuery(offset);
-    const pageRows = data ?? [];
-    rows.push(...pageRows);
-    if (pageRows.length < PAGE_SIZE) break;
+  let summary = normalizeSummary(summaryResult.data);
+  let orderPage = normalizeOrderPage(orderPageResult.data);
+  let loadError: string | null = null;
+
+  if (summaryResult.error || orderPageResult.error) {
+    const rows: TransactionRow[] = [];
+    for (let offset = 0; ; offset += FALLBACK_PAGE_SIZE) {
+      const { data } = await buildQuery(offset);
+      const pageRows = (data ?? []) as any[];
+      rows.push(...(pageRows as TransactionRow[]));
+      if (pageRows.length < FALLBACK_PAGE_SIZE) break;
+    }
+
+    const fallbackGroups = groupTransactionRows(rows);
+    summary = summarizeTransactionRows(rows);
+    orderPage = {
+      groups: fallbackGroups,
+      nextOffset: fallbackGroups.length,
+      hasMore: false,
+    };
+    loadError =
+      "Mode fallback transaksi aktif. Jalankan migration 012 agar pagination server berjalan penuh.";
   }
 
   return (
@@ -151,10 +226,14 @@ export default async function TransactionsPage({
       role={profile.role}
       myOutletId={profile.outlet_id}
       outlets={outlets ?? []}
-      merchants={(merchants ?? []) as any}
-      variants={(variants ?? []) as any}
-      rows={rows as any}
+      merchants={(merchants ?? []) as TransactionMerchant[]}
+      variants={(variants ?? []) as TransactionVariant[]}
+      initialGroups={orderPage.groups}
+      initialNextOffset={orderPage.nextOffset}
+      initialHasMore={orderPage.hasMore}
+      summary={summary}
       filter={filter}
+      loadError={loadError}
     />
   );
 }

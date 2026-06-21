@@ -31,10 +31,13 @@ export function Combobox({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [dropdownPosition, setDropdownPosition] = useState<{
-    top: number;
+    top?: number;
+    bottom?: number;
     left: number;
     width: number;
-  }>({ top: 0, left: 0, width: 0 });
+    openUpward: boolean;
+    listMaxHeight: number;
+  }>({ left: 0, width: 0, openUpward: false, listMaxHeight: 224 });
 
   const selected = options.find((o) => o.value === value);
 
@@ -52,10 +55,28 @@ export function Combobox({
   useEffect(() => {
     if (open && wrapRef.current) {
       const rect = wrapRef.current.getBoundingClientRect();
+      const viewportH = window.innerHeight;
+      const gap = 4;
+      const searchBarH = 40;
+      const paddingV = 8;
+
+      const spaceBelow = viewportH - rect.bottom - gap;
+      const spaceAbove = rect.top - gap;
+
+      const openUpward = spaceBelow < 200 && spaceAbove > spaceBelow;
+      const availableSpace = openUpward ? spaceAbove : spaceBelow;
+      const listMaxHeight = Math.max(
+        80,
+        Math.min(224, availableSpace - searchBarH - paddingV),
+      );
+
       setDropdownPosition({
-        top: rect.bottom + 4,
+        top: openUpward ? undefined : rect.bottom + gap,
+        bottom: openUpward ? viewportH - rect.top + gap : undefined,
         left: rect.left,
         width: rect.width,
+        openUpward,
+        listMaxHeight,
       });
     }
   }, [open]);
@@ -103,10 +124,28 @@ export function Combobox({
     function updatePos() {
       if (wrapRef.current) {
         const rect = wrapRef.current.getBoundingClientRect();
+        const viewportH = window.innerHeight;
+        const gap = 4;
+        const searchBarH = 40;
+        const paddingV = 8;
+
+        const spaceBelow = viewportH - rect.bottom - gap;
+        const spaceAbove = rect.top - gap;
+
+        const openUpward = spaceBelow < 200 && spaceAbove > spaceBelow;
+        const availableSpace = openUpward ? spaceAbove : spaceBelow;
+        const listMaxHeight = Math.max(
+          80,
+          Math.min(224, availableSpace - searchBarH - paddingV),
+        );
+
         setDropdownPosition({
-          top: rect.bottom + 4,
+          top: openUpward ? undefined : rect.bottom + gap,
+          bottom: openUpward ? viewportH - rect.top + gap : undefined,
           left: rect.left,
           width: rect.width,
+          openUpward,
+          listMaxHeight,
         });
       }
     }
@@ -144,7 +183,9 @@ export function Combobox({
       ref={dropdownRef}
       className="pointer-events-auto fixed z-[9999] rounded-md border shadow-lg overflow-hidden"
       style={{
-        top: `${dropdownPosition.top}px`,
+        ...(dropdownPosition.openUpward
+          ? { bottom: `${dropdownPosition.bottom}px` }
+          : { top: `${dropdownPosition.top}px` }),
         left: `${dropdownPosition.left}px`,
         width: `${dropdownPosition.width}px`,
         maxWidth: "calc(100vw - 16px)",
@@ -169,7 +210,11 @@ export function Combobox({
           className="w-full bg-transparent text-sm outline-none"
         />
       </div>
-      <div ref={listRef} className="max-h-56 overflow-auto py-1">
+      <div
+        ref={listRef}
+        className="overflow-auto py-1"
+        style={{ maxHeight: `${dropdownPosition.listMaxHeight}px` }}
+      >
         {filtered.length === 0 ? (
           <div
             className="px-3 py-3 text-sm text-center"

@@ -1,4 +1,9 @@
-import { isoToWIBDateKey, isoToWIBHour } from "@/lib/date";
+import {
+  isoToWIBDateKey,
+  isoToWIBHour,
+  isoToWIBDayOfWeek,
+  dayOfWeekLabel,
+} from "@/lib/date";
 import { formatIDR } from "@/lib/utils";
 
 export type Option = { id: string; name: string };
@@ -108,6 +113,17 @@ export type HourPoint = {
   transactionCount: number;
 };
 
+export type DayOfWeekPoint = {
+  dayIndex: number;
+  label: string;
+  gross: number;
+  net: number;
+  adCost: number;
+  cleanProfit: number;
+  qty: number;
+  transactionCount: number;
+};
+
 export type DashboardData = {
   totals: Totals;
   comparison: ComparisonMetric[];
@@ -119,6 +135,7 @@ export type DashboardData = {
   productDeclines: DeclineMetric[];
   merchantDeclines: DeclineMetric[];
   insights: string[];
+  dayOfWeek: DayOfWeekPoint[];
 };
 
 export function buildDashboardData({
@@ -140,8 +157,19 @@ export function buildDashboardData({
   const merchantBreakdown = buildMerchantBreakdown(rows, adCosts);
   const outletBreakdown = buildOutletBreakdown(rows, adCosts);
   const hourly = buildHourly(rows);
-  const productDeclines = buildDeclines(rows, previousRows, "product", "qty").slice(0, 5);
-  const merchantDeclines = buildDeclines(rows, previousRows, "merchant", "net").slice(0, 5);
+  const dayOfWeek = buildDayOfWeek(rows, adCosts);
+  const productDeclines = buildDeclines(
+    rows,
+    previousRows,
+    "product",
+    "qty",
+  ).slice(0, 5);
+  const merchantDeclines = buildDeclines(
+    rows,
+    previousRows,
+    "merchant",
+    "net",
+  ).slice(0, 5);
   const insights = buildInsights({
     totals,
     comparison,
@@ -162,6 +190,7 @@ export function buildDashboardData({
     productDeclines,
     merchantDeclines,
     insights,
+    dayOfWeek,
   };
 }
 
@@ -176,6 +205,7 @@ export function attachDashboardInsights(data: DashboardData): DashboardData {
       merchantBreakdown: data.merchantBreakdown,
       outletBreakdown: data.outletBreakdown,
     }),
+    dayOfWeek: data.dayOfWeek ?? [],
   };
 }
 
@@ -341,16 +371,11 @@ function buildMerchantBreakdown(rows: SummaryRow[], adCosts: AdCostRow[]) {
     cur.cleanProfit = cur.net - cur.adCost;
     map.set(key, cur);
   }
-  return Array.from(map.values()).sort(
-    (a, b) => b.cleanProfit - a.cleanProfit,
-  );
+  return Array.from(map.values()).sort((a, b) => b.cleanProfit - a.cleanProfit);
 }
 
 function buildOutletBreakdown(rows: SummaryRow[], adCosts: AdCostRow[]) {
-  const map = new Map<
-    string,
-    OutletPoint & { transactionKeys: Set<string> }
-  >();
+  const map = new Map<string, OutletPoint & { transactionKeys: Set<string> }>();
   for (const r of rows) {
     const key = r.outlet_id || "unknown";
     const cur = map.get(key) ?? {
@@ -392,6 +417,51 @@ function buildOutletBreakdown(rows: SummaryRow[], adCosts: AdCostRow[]) {
       transactionCount: transactionKeys.size,
     }))
     .sort((a, b) => b.cleanProfit - a.cleanProfit);
+}
+
+function buildDayOfWeek(rows: SummaryRow[], adCosts: AdCostRow[]) {
+  const buckets: Array<{
+    dayIndex: number;
+    label: string;
+    gross: number;
+    net: number;
+    adCost: number;
+    cleanProfit: number;
+    qty: number;
+    transactionKeys: Set<string>;
+  }> = Array.from({ length: 7 }, (_, i) => ({
+    dayIndex: i,
+    label: dayOfWeekLabel(i),
+    gross: 0,
+    net: 0,
+    adCost: 0,
+    cleanProfit: 0,
+    qty: 0,
+    transactionKeys: new Set<string>(),
+  }));
+  for (const r of rows) {
+    const bucket = buckets[isoToWIBDayOfWeek(r.transaction_date)];
+    bucket.gross += getGross(r);
+    bucket.net += Number(r.net_profit || 0);
+    bucket.cleanProfit = bucket.net - bucket.adCost;
+    bucket.qty += r.qty;
+    bucket.transactionKeys.add(getTransactionKey(r));
+  }
+  for (const cost of adCosts) {
+    const bucket = buckets[isoToWIBDayOfWeek(cost.cost_date)];
+    bucket.adCost += Number(cost.amount || 0);
+    bucket.cleanProfit = bucket.net - bucket.adCost;
+  }
+  return buckets.map((b) => ({
+    dayIndex: b.dayIndex,
+    label: b.label,
+    gross: b.gross,
+    net: b.net,
+    adCost: b.adCost,
+    cleanProfit: b.cleanProfit,
+    qty: b.qty,
+    transactionCount: b.transactionKeys.size,
+  }));
 }
 
 function buildHourly(rows: SummaryRow[]) {
@@ -493,7 +563,8 @@ function buildInsights({
   const topMerchant = merchantBreakdown[0];
   const topOutlet = outletBreakdown[0];
   const busiestHour = hourly.reduce(
-    (best, item) => (item.transactionCount > best.transactionCount ? item : best),
+    (best, item) =>
+      item.transactionCount > best.transactionCount ? item : best,
     hourly[0],
   );
   const strongestComparison = comparison

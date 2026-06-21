@@ -17,7 +17,7 @@ export function formatWIBDateKey(d: Date): string {
     timeZone: WIB_TZ,
     year: "numeric",
     month: "2-digit",
-    day: "2-digit"
+    day: "2-digit",
   });
   return fmt.format(d); // en-CA → "YYYY-MM-DD"
 }
@@ -51,12 +51,15 @@ export function inclusiveDaysBetween(from: string, to: string): number {
 }
 
 /** Rentang periode sebelumnya dengan panjang hari yang sama. */
-export function previousPeriodForRange(from: string, to: string): { from: string; to: string } {
+export function previousPeriodForRange(
+  from: string,
+  to: string,
+): { from: string; to: string } {
   const length = inclusiveDaysBetween(from, to);
   const previousTo = addDaysToDateKey(from, -1);
   return {
     from: addDaysToDateKey(previousTo, -(length - 1)),
-    to: previousTo
+    to: previousTo,
   };
 }
 
@@ -131,7 +134,7 @@ export function isoToWIBLocalInput(iso: string): string {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-    hour12: false
+    hour12: false,
   });
   // sv-SE → "YYYY-MM-DD HH:MM"
   return fmt.format(d).replace(" ", "T");
@@ -147,9 +150,42 @@ export function isoToWIBHour(iso: string): number {
   const hour = new Intl.DateTimeFormat("en-US", {
     timeZone: WIB_TZ,
     hour: "2-digit",
-    hour12: false
+    hour12: false,
   }).format(new Date(iso));
   return Number(hour === "24" ? "0" : hour);
+}
+
+/** Hari dalam seminggu di WIB, 0=Senin, 6=Minggu */
+export function isoToWIBDayOfWeek(iso: string): number {
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: WIB_TZ,
+    weekday: "short",
+  }).format(new Date(iso));
+  // Map English short weekday to 0=Senin index
+  const map: Record<string, number> = {
+    Mon: 0,
+    Tue: 1,
+    Wed: 2,
+    Thu: 3,
+    Fri: 4,
+    Sat: 5,
+    Sun: 6,
+  };
+  return map[fmt] ?? 0;
+}
+
+/** Label hari dari indeks (0=Senin, 6=Minggu) */
+export function dayOfWeekLabel(index: number): string {
+  const labels = [
+    "Senin",
+    "Selasa",
+    "Rabu",
+    "Kamis",
+    "Jumat",
+    "Sabtu",
+    "Minggu",
+  ];
+  return labels[index] ?? "-";
 }
 
 /** Format ISO timestamp ke string lokal WIB (untuk export & label tabel). */
@@ -157,7 +193,7 @@ export function isoToWIBDisplay(iso: string): string {
   return new Date(iso).toLocaleString("id-ID", {
     timeZone: WIB_TZ,
     dateStyle: "short",
-    timeStyle: "short"
+    timeStyle: "short",
   });
 }
 

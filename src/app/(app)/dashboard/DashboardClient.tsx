@@ -114,7 +114,8 @@ type DashboardTab =
   | "outlets"
   | "hours"
   | "insights"
-  | "details";
+  | "details"
+  | "hari";
 type DatePreset =
   | "today"
   | "7d"
@@ -131,6 +132,7 @@ const TAB_LABELS: Record<DashboardTab, string> = {
   hours: "Jam",
   insights: "Insight",
   details: "Detail",
+  hari: "Hari",
 };
 
 export function DashboardClient({
@@ -221,6 +223,7 @@ export function DashboardClient({
     productDeclines,
     merchantDeclines,
     insights,
+    dayOfWeek = [],
   } = dashboardData;
   const hasSummaryRows = totals.transactionCount > 0 || totals.qty > 0;
 
@@ -309,6 +312,31 @@ export function DashboardClient({
             r.net,
           ]),
           `jam_ramai_${filter.from}_to_${filter.to}.csv`,
+        );
+        return;
+      }
+
+      if (activeTab === "hari") {
+        downloadCsv(
+          [
+            "Hari",
+            "Transaksi",
+            "Qty",
+            "Omset",
+            "NetProfit",
+            "BiayaIklan",
+            "ProfitBersih",
+          ],
+          dayOfWeek.map((r) => [
+            r.label,
+            r.transactionCount,
+            r.qty,
+            r.gross,
+            r.net,
+            r.adCost,
+            r.cleanProfit,
+          ]),
+          `performa_hari_${filter.from}_to_${filter.to}.csv`,
         );
         return;
       }
@@ -618,7 +646,10 @@ export function DashboardClient({
             <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600" />
             <div className="min-w-0 flex-1">
               <div className="font-semibold">Sebagian data gagal dimuat.</div>
-              <ul className="mt-1 list-disc space-y-1 pl-4" style={{ color: "var(--muted)" }}>
+              <ul
+                className="mt-1 list-disc space-y-1 pl-4"
+                style={{ color: "var(--muted)" }}
+              >
                 {loadErrors.map((error) => (
                   <li key={error}>{error}</li>
                 ))}
@@ -663,115 +694,122 @@ export function DashboardClient({
       )}
 
       <>
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
-            <KPI
-              title="Total Omset"
-              value={formatIDR(totals.gross)}
-              variant="gross"
-            />
-            <KPI
-              title="Total Potongan Admin"
-              value={formatIDR(totals.fee)}
-              variant="fee"
-            />
-            <KPI
-              title="Potongan Admin (%)"
-              value={formatPercent(totals.feePercent)}
-              variant="percent"
-            />
-            <KPI title="Net Profit" value={formatIDR(totals.net)} variant="net" />
-            <KPI
-              title="Biaya Iklan"
-              value={formatIDR(totals.adCost)}
-              variant="ad"
-            />
-            <KPI
-              title="Profit Bersih"
-              value={formatIDR(totals.cleanProfit)}
-              variant="clean"
-            />
-            <KPI title="Total Qty" value={totals.qty.toLocaleString("id-ID")} />
-            <KPI
-              title="Total Transaksi"
-              value={totals.transactionCount.toLocaleString("id-ID")}
-            />
-            <KPI title="Rata-rata Omset" value={formatIDR(totals.avgGross)} />
-            <KPI
-              title="Rata-rata Qty"
-              value={totals.avgQty.toLocaleString("id-ID", {
-                maximumFractionDigits: 2,
-              })}
-            />
-            <KPI title="Rata-rata Net" value={formatIDR(totals.avgNet)} />
-          </div>
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
+          <KPI
+            title="Total Omset"
+            value={formatIDR(totals.gross)}
+            variant="gross"
+          />
+          <KPI
+            title="Total Potongan Admin"
+            value={formatIDR(totals.fee)}
+            variant="fee"
+          />
+          <KPI
+            title="Potongan Admin (%)"
+            value={formatPercent(totals.feePercent)}
+            variant="percent"
+          />
+          <KPI title="Net Profit" value={formatIDR(totals.net)} variant="net" />
+          <KPI
+            title="Biaya Iklan"
+            value={formatIDR(totals.adCost)}
+            variant="ad"
+          />
+          <KPI
+            title="Profit Bersih"
+            value={formatIDR(totals.cleanProfit)}
+            variant="clean"
+          />
+          <KPI title="Total Qty" value={totals.qty.toLocaleString("id-ID")} />
+          <KPI
+            title="Total Transaksi"
+            value={totals.transactionCount.toLocaleString("id-ID")}
+          />
+          <KPI title="Rata-rata Omset" value={formatIDR(totals.avgGross)} />
+          <KPI
+            title="Rata-rata Qty"
+            value={totals.avgQty.toLocaleString("id-ID", {
+              maximumFractionDigits: 2,
+            })}
+          />
+          <KPI title="Rata-rata Net" value={formatIDR(totals.avgNet)} />
+        </div>
 
-          <div
-            className="flex overflow-x-auto border-b -mb-1"
-            style={{ borderColor: "var(--border)" }}
+        <div
+          className="flex overflow-x-auto border-b -mb-1"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <TabButton
+            active={activeTab === "trend"}
+            onClick={() => selectTab("trend")}
           >
-            <TabButton
-              active={activeTab === "trend"}
-              onClick={() => selectTab("trend")}
-            >
-              Tren Harian
-            </TabButton>
-            <TabButton
-              active={activeTab === "products"}
-              onClick={() => selectTab("products")}
-            >
-              Produk Terlaris
-            </TabButton>
-            <TabButton
-              active={activeTab === "merchants"}
-              onClick={() => selectTab("merchants")}
-            >
-              Profit Merchant
-            </TabButton>
-            <TabButton
-              active={activeTab === "outlets"}
-              onClick={() => selectTab("outlets")}
-            >
-              Outlet
-            </TabButton>
-            <TabButton
-              active={activeTab === "hours"}
-              onClick={() => selectTab("hours")}
-            >
-              Jam Ramai
-            </TabButton>
-            <TabButton
-              active={activeTab === "insights"}
-              onClick={() => selectTab("insights")}
-            >
-              Insight
-            </TabButton>
-            <TabButton
-              active={activeTab === "details"}
-              onClick={() => selectTab("details")}
-            >
-              Detail Transaksi
-            </TabButton>
-          </div>
+            Tren Harian
+          </TabButton>
+          <TabButton
+            active={activeTab === "products"}
+            onClick={() => selectTab("products")}
+          >
+            Produk Terlaris
+          </TabButton>
+          <TabButton
+            active={activeTab === "merchants"}
+            onClick={() => selectTab("merchants")}
+          >
+            Profit Merchant
+          </TabButton>
+          <TabButton
+            active={activeTab === "outlets"}
+            onClick={() => selectTab("outlets")}
+          >
+            Outlet
+          </TabButton>
+          <TabButton
+            active={activeTab === "hours"}
+            onClick={() => selectTab("hours")}
+          >
+            Jam Ramai
+          </TabButton>
+          <TabButton
+            active={activeTab === "insights"}
+            onClick={() => selectTab("insights")}
+          >
+            Insight
+          </TabButton>
+          <TabButton
+            active={activeTab === "hari"}
+            onClick={() => selectTab("hari")}
+          >
+            Hari
+          </TabButton>
+          <TabButton
+            active={activeTab === "details"}
+            onClick={() => selectTab("details")}
+          >
+            Detail Transaksi
+          </TabButton>
+        </div>
 
-          {activeTab === "trend" && <TrendTab daily={daily} />}
-          {activeTab === "products" && <ProductsTab leaderboard={leaderboard} />}
-          {activeTab === "merchants" && (
-            <MerchantsTab merchantBreakdown={merchantBreakdown} />
-          )}
-          {activeTab === "outlets" && (
-            <OutletsTab outletBreakdown={outletBreakdown} />
-          )}
-          {activeTab === "hours" && <HoursTab hourly={hourly} />}
-          {activeTab === "insights" && (
-            <InsightsTab
-              comparison={comparison}
-              previousRange={previousRange}
-              productDeclines={productDeclines}
-              merchantDeclines={merchantDeclines}
-              insights={insights}
-            />
-          )}
-          {activeTab === "details" && <DetailTransactions filter={filter} />}
+        {activeTab === "trend" && <TrendTab daily={daily} />}
+        {activeTab === "products" && <ProductsTab leaderboard={leaderboard} />}
+        {activeTab === "merchants" && (
+          <MerchantsTab merchantBreakdown={merchantBreakdown} />
+        )}
+        {activeTab === "outlets" && (
+          <OutletsTab outletBreakdown={outletBreakdown} />
+        )}
+        {activeTab === "hours" && <HoursTab hourly={hourly} />}
+        {activeTab === "hari" && <DayOfWeekTab dayOfWeek={dayOfWeek} />}
+        {activeTab === "insights" && (
+          <InsightsTab
+            comparison={comparison}
+            previousRange={previousRange}
+            productDeclines={productDeclines}
+            merchantDeclines={merchantDeclines}
+            insights={insights}
+          />
+        )}
+        {activeTab === "details" && <DetailTransactions filter={filter} />}
       </>
     </div>
   );
@@ -869,11 +907,16 @@ function DashboardTooltip({
   valueFormatter?: DashboardTooltipValueFormatter;
 }) {
   const items =
-    payload?.filter((item) => item.value !== null && item.value !== undefined) ?? [];
+    payload?.filter(
+      (item) => item.value !== null && item.value !== undefined,
+    ) ?? [];
   if (!active || !items.length) return null;
 
   return (
-    <div className="min-w-44 rounded-xl" style={DASHBOARD_TOOLTIP_CONTENT_STYLE}>
+    <div
+      className="min-w-44 rounded-xl"
+      style={DASHBOARD_TOOLTIP_CONTENT_STYLE}
+    >
       {label !== undefined && label !== null && (
         <div className="text-sm" style={DASHBOARD_TOOLTIP_LABEL_STYLE}>
           {label}
@@ -896,7 +939,10 @@ function DashboardTooltip({
               />
               <div className="min-w-0">
                 <div className="font-semibold leading-snug">{name}</div>
-                <div className="tabular-nums leading-snug" style={{ color: "var(--muted)" }}>
+                <div
+                  className="tabular-nums leading-snug"
+                  style={{ color: "var(--muted)" }}
+                >
                   {valueFormatter(item.value, item.name, item.dataKey)}
                 </div>
               </div>
@@ -1021,9 +1067,7 @@ const ProductsTab = memo(function ProductsTab({
                 tickMargin={8}
                 stroke="var(--muted)"
               />
-              <Tooltip
-                content={<DashboardTooltip />}
-              />
+              <Tooltip content={<DashboardTooltip />} />
               <Bar
                 dataKey="qty"
                 name="Qty"
@@ -1270,9 +1314,7 @@ const HoursTab = memo(function HoursTab({
                 tickMargin={8}
                 stroke="var(--muted)"
               />
-              <Tooltip
-                content={<DashboardTooltip />}
-              />
+              <Tooltip content={<DashboardTooltip />} />
               <Legend />
               <Bar
                 dataKey="transactionCount"
@@ -1565,7 +1607,11 @@ function getViewportPageSize() {
   return Math.min(100, Math.max(20, visibleRows * 2));
 }
 
-const DetailTransactions = memo(function DetailTransactions({ filter }: { filter: DashboardFilter }) {
+const DetailTransactions = memo(function DetailTransactions({
+  filter,
+}: {
+  filter: DashboardFilter;
+}) {
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const loadingRef = useRef(false);
@@ -1798,6 +1844,124 @@ function KPI({
     </div>
   );
 }
+
+const DAY_OF_WEEK_COLORS = [
+  "#ef4444", // Senin - red
+  "#f97316", // Selasa - orange
+  "#eab308", // Rabu - yellow
+  "#22c55e", // Kamis - green
+  "#3b82f6", // Jumat - blue
+  "#8b5cf6", // Sabtu - violet
+  "#ec4899", // Minggu - pink
+];
+
+const DayOfWeekTab = memo(function DayOfWeekTab({
+  dayOfWeek,
+}: {
+  dayOfWeek: Array<{
+    dayIndex: number;
+    label: string;
+    gross: number;
+    net: number;
+    adCost: number;
+    cleanProfit: number;
+    qty: number;
+    transactionCount: number;
+  }>;
+}) {
+  return (
+    <div className="card p-3">
+      <h3 className="text-sm font-semibold mb-2">Performa per Hari</h3>
+      <div className="h-52 sm:h-60 lg:h-64">
+        {dayOfWeek.every((d) => d.transactionCount === 0 && d.qty === 0) ? (
+          <EmptyChart />
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={dayOfWeek}
+              margin={DASHBOARD_CHART_MARGIN}
+              layout="vertical"
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis type="number" stroke="var(--muted)" />
+              <YAxis
+                dataKey="label"
+                type="category"
+                width={60}
+                tickMargin={8}
+                stroke="var(--muted)"
+              />
+              <Tooltip
+                content={
+                  <DashboardTooltip
+                    valueFormatter={(value) =>
+                      typeof value === "number" && value >= 1000
+                        ? formatIDR(value as number)
+                        : formatTooltipValue(value)
+                    }
+                  />
+                }
+              />
+              <Legend />
+              <Bar
+                dataKey="net"
+                name="Net Profit"
+                isAnimationActive={DASHBOARD_CHART_ANIMATION}
+              >
+                {dayOfWeek.map((d) => (
+                  <Cell
+                    key={d.label}
+                    fill={DAY_OF_WEEK_COLORS[d.dayIndex] ?? "#94a3b8"}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+      <div className="overflow-auto mt-2">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Hari</th>
+              <th className="text-right">Transaksi</th>
+              <th className="text-right">Qty</th>
+              <th className="text-right">Omset</th>
+              <th className="text-right">Net Profit</th>
+              <th className="text-right">Biaya Iklan</th>
+              <th className="text-right">Profit Bersih</th>
+            </tr>
+          </thead>
+          <tbody>
+            {dayOfWeek.map((d) => (
+              <tr
+                key={d.label}
+                className={d.transactionCount > 0 ? "font-medium" : ""}
+                style={
+                  d.transactionCount > 0
+                    ? { color: DAY_OF_WEEK_COLORS[d.dayIndex] }
+                    : { color: "var(--muted)" }
+                }
+              >
+                <td>{d.label}</td>
+                <td className="text-right">
+                  {d.transactionCount.toLocaleString("id-ID")}
+                </td>
+                <td className="text-right">{d.qty.toLocaleString("id-ID")}</td>
+                <td className="text-right">{formatIDR(d.gross)}</td>
+                <td className="text-right">{formatIDR(d.net)}</td>
+                <td className="text-right">{formatIDR(d.adCost)}</td>
+                <td className="text-right font-semibold">
+                  {formatIDR(d.cleanProfit)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+});
 
 function EmptyChart() {
   return (

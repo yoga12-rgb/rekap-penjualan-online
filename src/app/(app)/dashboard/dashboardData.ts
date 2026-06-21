@@ -194,6 +194,19 @@ export function buildDashboardData({
   };
 }
 
+export function emptyDayOfWeekSkeleton(): DayOfWeekPoint[] {
+  return Array.from({ length: 7 }, (_, i) => ({
+    dayIndex: i,
+    label: dayOfWeekLabel(i),
+    gross: 0,
+    net: 0,
+    adCost: 0,
+    cleanProfit: 0,
+    qty: 0,
+    transactionCount: 0,
+  }));
+}
+
 export function attachDashboardInsights(data: DashboardData): DashboardData {
   return {
     ...data,
@@ -207,16 +220,7 @@ export function attachDashboardInsights(data: DashboardData): DashboardData {
     }),
     dayOfWeek: data.dayOfWeek?.length
       ? data.dayOfWeek
-      : Array.from({ length: 7 }, (_, i) => ({
-          dayIndex: i,
-          label: dayOfWeekLabel(i),
-          gross: 0,
-          net: 0,
-          adCost: 0,
-          cleanProfit: 0,
-          qty: 0,
-          transactionCount: 0,
-        })),
+      : emptyDayOfWeekSkeleton(),
   };
 }
 
@@ -430,7 +434,7 @@ function buildOutletBreakdown(rows: SummaryRow[], adCosts: AdCostRow[]) {
     .sort((a, b) => b.cleanProfit - a.cleanProfit);
 }
 
-function buildDayOfWeek(rows: SummaryRow[], adCosts: AdCostRow[]) {
+export function buildDayOfWeek(rows: SummaryRow[], adCosts: AdCostRow[]) {
   const buckets: Array<{
     dayIndex: number;
     label: string;

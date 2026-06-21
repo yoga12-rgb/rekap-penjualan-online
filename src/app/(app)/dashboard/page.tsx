@@ -4,6 +4,7 @@ import { DashboardClient } from "./DashboardClient";
 import {
   attachDashboardInsights,
   buildDashboardData,
+  buildDayOfWeek,
   type AdCostRow,
   type DashboardData,
   type Merchant,
@@ -119,15 +120,18 @@ export default async function DashboardPage({
   }
 
   async function fetchDashboardRpc(): Promise<DashboardRpcResult> {
-    const { data, error } = await (supabase as any).rpc("get_dashboard_summary", {
-      p_from: fromStr,
-      p_to: toStr,
-      p_previous_from: previousRange.from,
-      p_previous_to: previousRange.to,
-      p_outlet: nullableUuid(outlet),
-      p_merchant: nullableUuid(merchant),
-      p_variant: nullableUuid(variant),
-    });
+    const { data, error } = await (supabase as any).rpc(
+      "get_dashboard_summary",
+      {
+        p_from: fromStr,
+        p_to: toStr,
+        p_previous_from: previousRange.from,
+        p_previous_to: previousRange.to,
+        p_outlet: nullableUuid(outlet),
+        p_merchant: nullableUuid(merchant),
+        p_variant: nullableUuid(variant),
+      },
+    );
     if (error) {
       return {
         data: null,
@@ -196,6 +200,8 @@ export default async function DashboardPage({
     merchantsResult,
     variantsResult,
     rpcResult,
+    rowsResult,
+    adCostsResult,
   ] = await Promise.all([
     outletsQuery,
     supabase.from("food_merchants").select("id,name,color").order("name"),
@@ -204,13 +210,19 @@ export default async function DashboardPage({
       .select("id,name,base_price")
       .order("name"),
     fetchDashboardRpc(),
+    fetchAll("Transaksi periode ini", (offset) =>
+      buildTransactionsQuery(fromStr, toStr, offset),
+    ),
+    variant
+      ? Promise.resolve(emptyLoadResult<AdCostRow>())
+      : fetchAll("Biaya iklan periode ini", (offset) =>
+          buildAdCostsQuery(fromStr, toStr, offset),
+        ),
   ]);
 
   let dashboardData = rpcResult.data;
   let dashboardSource = "rpc";
-  let rowsResult = emptyLoadResult<SummaryRow>();
   let previousRowsResult = emptyLoadResult<SummaryRow>();
-  let adCostsResult = emptyLoadResult<AdCostRow>();
   let previousAdCostsResult = emptyLoadResult<AdCostRow>();
 
   if (!dashboardData) {
@@ -220,41 +232,42 @@ export default async function DashboardPage({
         `Dashboard RPC failed; falling back to row fetch: ${rpcResult.error}`,
       );
     }
-    [
-      rowsResult,
-      previousRowsResult,
-      adCostsResult,
-      previousAdCostsResult,
-    ] = await Promise.all([
-        fetchAll("Transaksi periode ini", (offset) =>
-          buildTransactionsQuery(fromStr, toStr, offset),
-        ),
-        fetchAll("Transaksi periode sebelumnya", (offset) =>
-          buildTransactionsQuery(previousRange.from, previousRange.to, offset),
-        ),
-        variant
-          ? Promise.resolve(emptyLoadResult<AdCostRow>())
-          : fetchAll("Biaya iklan periode ini", (offset) =>
-              buildAdCostsQuery(fromStr, toStr, offset),
-            ),
-        variant
-          ? Promise.resolve(emptyLoadResult<AdCostRow>())
-          : fetchAll("Biaya iklan periode sebelumnya", (offset) =>
-              buildAdCostsQuery(previousRange.from, previousRange.to, offset),
-            ),
-      ]);
+    const fallbackRowsResult = await fetchAll(
+      "Transaksi periode ini",
+      (offset) => buildTransactionsQuery(fromStr, toStr, offset),
+    );
+    previousRowsResult = await fetchAll(
+      "Transaksi periode sebelumnya",
+      (offset) =>
+        buildTransactionsQuery(previousRange.from, previousRange.to, offset),
+    );
+    const fallbackAdCostsResult = variant
+      ? emptyLoadResult<AdCostRow>()
+      : await fetchAll("Biaya iklan periode ini", (offset) =>
+          buildAdCostsQuery(fromStr, toStr, offset),
+        );
+    previousAdCostsResult = variant
+      ? emptyLoadResult<AdCostRow>()
+      : await fetchAll("Biaya iklan periode sebelumnya", (offset) =>
+          buildAdCostsQuery(previousRange.from, previousRange.to, offset),
+        );
 
     dashboardData = buildDashboardData({
-      rows: rowsResult.rows,
+      rows: fallbackRowsResult.rows,
       previousRows: previousRowsResult.rows,
-      adCosts: adCostsResult.rows,
+      adCosts: fallbackAdCostsResult.rows,
       previousAdCosts: previousAdCostsResult.rows,
     });
   }
 
-  console.info(
-    `Dashboard data source: ${dashboardSource}`,
-  );
+  if (dashboardData && rowsResult.rows.length) {
+    dashboardData = {
+      ...dashboardData,
+      dayOfWeek: buildDayOfWeek(rowsResult.rows, adCostsResult.rows),
+    };
+  }
+
+  console.info(`Dashboard data source: ${dashboardSource}`);
 
   const loadErrors = [
     formatLoadError("Outlet", outletsResult.error),

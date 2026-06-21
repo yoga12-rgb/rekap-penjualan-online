@@ -1873,51 +1873,47 @@ const DayOfWeekTab = memo(function DayOfWeekTab({
     <div className="card p-3">
       <h3 className="text-sm font-semibold mb-2">Performa per Hari</h3>
       <div className="h-52 sm:h-60 lg:h-64">
-        {dayOfWeek.every((d) => d.transactionCount === 0 && d.qty === 0) ? (
-          <EmptyChart />
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={dayOfWeek}
-              margin={DASHBOARD_CHART_MARGIN}
-              layout="vertical"
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={dayOfWeek}
+            margin={DASHBOARD_CHART_MARGIN}
+            layout="vertical"
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis type="number" stroke="var(--muted)" />
+            <YAxis
+              dataKey="label"
+              type="category"
+              width={60}
+              tickMargin={8}
+              stroke="var(--muted)"
+            />
+            <Tooltip
+              content={
+                <DashboardTooltip
+                  valueFormatter={(value) =>
+                    typeof value === "number" && value >= 1000
+                      ? formatIDR(value as number)
+                      : formatTooltipValue(value)
+                  }
+                />
+              }
+            />
+            <Legend />
+            <Bar
+              dataKey="net"
+              name="Net Profit"
+              isAnimationActive={DASHBOARD_CHART_ANIMATION}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis type="number" stroke="var(--muted)" />
-              <YAxis
-                dataKey="label"
-                type="category"
-                width={60}
-                tickMargin={8}
-                stroke="var(--muted)"
-              />
-              <Tooltip
-                content={
-                  <DashboardTooltip
-                    valueFormatter={(value) =>
-                      typeof value === "number" && value >= 1000
-                        ? formatIDR(value as number)
-                        : formatTooltipValue(value)
-                    }
-                  />
-                }
-              />
-              <Legend />
-              <Bar
-                dataKey="net"
-                name="Net Profit"
-                isAnimationActive={DASHBOARD_CHART_ANIMATION}
-              >
-                {dayOfWeek.map((d) => (
-                  <Cell
-                    key={d.label}
-                    fill={DAY_OF_WEEK_COLORS[d.dayIndex] ?? "#94a3b8"}
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        )}
+              {dayOfWeek.map((d) => (
+                <Cell
+                  key={d.label}
+                  fill={DAY_OF_WEEK_COLORS[d.dayIndex] ?? "#94a3b8"}
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </div>
       <div className="overflow-auto mt-2">
         <table className="table">

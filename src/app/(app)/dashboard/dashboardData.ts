@@ -205,7 +205,18 @@ export function attachDashboardInsights(data: DashboardData): DashboardData {
       merchantBreakdown: data.merchantBreakdown,
       outletBreakdown: data.outletBreakdown,
     }),
-    dayOfWeek: data.dayOfWeek ?? [],
+    dayOfWeek: data.dayOfWeek?.length
+      ? data.dayOfWeek
+      : Array.from({ length: 7 }, (_, i) => ({
+          dayIndex: i,
+          label: dayOfWeekLabel(i),
+          gross: 0,
+          net: 0,
+          adCost: 0,
+          cleanProfit: 0,
+          qty: 0,
+          transactionCount: 0,
+        })),
   };
 }
 

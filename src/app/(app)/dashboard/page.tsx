@@ -20,6 +20,7 @@ import {
   firstParam,
   isValidDateKey,
   previousPeriodForRange,
+  yoyPeriodForRange,
 } from "@/lib/date";
 import { uuidParam } from "@/lib/utils";
 
@@ -37,6 +38,12 @@ type SP = {
   dash_outlet?: string | string[];
   dash_merchant?: string | string[];
   dash_variant?: string | string[];
+  comp_mode?: string | string[];
+  comp_from?: string | string[];
+  comp_to?: string | string[];
+  dash_comp_mode?: string | string[];
+  dash_comp_from?: string | string[];
+  dash_comp_to?: string | string[];
 };
 
 type QueryError = { message?: string } | null;
@@ -91,7 +98,36 @@ export default async function DashboardPage({
   const variant = uuidParam(
     firstParam(params.variant) || firstParam(params.dash_variant),
   );
-  const previousRange = previousPeriodForRange(fromStr, toStr);
+  const compMode =
+    firstParam(params.comp_mode) ||
+    firstParam(params.dash_comp_mode) ||
+    "auto";
+  const rawCompFrom =
+    firstParam(params.comp_from) || firstParam(params.dash_comp_from);
+  const rawCompTo =
+    firstParam(params.comp_to) || firstParam(params.dash_comp_to);
+
+  let compFromStr = isValidDateKey(rawCompFrom) ? rawCompFrom : "";
+  let compToStr = isValidDateKey(rawCompTo) ? rawCompTo : "";
+
+  let previousRange: { from: string; to: string };
+  if (compMode === "yoy") {
+    previousRange = yoyPeriodForRange(fromStr, toStr);
+  } else if (compMode === "custom") {
+    if (compFromStr && compToStr) {
+      if (compFromStr > compToStr) {
+        [compFromStr, compToStr] = [compToStr, compFromStr];
+      }
+      previousRange = { from: compFromStr, to: compToStr };
+    } else {
+      previousRange = previousPeriodForRange(fromStr, toStr);
+    }
+  } else if (compMode === "none") {
+    previousRange = { from: "1970-01-01", to: "1970-01-01" };
+  } else {
+    // default: "auto"
+    previousRange = previousPeriodForRange(fromStr, toStr);
+  }
 
   let outletsQuery = supabase.from("outlets").select("id,name").order("name");
   if (profile.role === "kasir") {
@@ -294,6 +330,9 @@ export default async function DashboardPage({
         merchant,
         variant,
         rangeWasReversed,
+        compMode,
+        compFrom: compFromStr,
+        compTo: compToStr,
       }}
       loadErrors={loadErrors}
     />

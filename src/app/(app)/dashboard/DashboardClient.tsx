@@ -62,8 +62,19 @@ type DashboardFilter = {
   merchant: string;
   variant: string;
   rangeWasReversed?: boolean;
+  compMode: string;
+  compFrom: string;
+  compTo: string;
 };
-type DashboardFilterKey = "from" | "to" | "outlet" | "merchant" | "variant";
+type DashboardFilterKey =
+  | "from"
+  | "to"
+  | "outlet"
+  | "merchant"
+  | "variant"
+  | "compMode"
+  | "compFrom"
+  | "compTo";
 
 const DASHBOARD_CHART_MARGIN = { top: 8, right: 12, bottom: 8, left: 16 };
 const DASHBOARD_CHART_ANIMATION = false;
@@ -165,6 +176,9 @@ export function DashboardClient({
     outlet: filter.outlet,
     merchant: filter.merchant,
     variant: filter.variant,
+    compMode: filter.compMode || "auto",
+    compFrom: filter.compFrom || "",
+    compTo: filter.compTo || "",
   });
 
   // Filter hidup di query string agar URL bisa dibagikan dan tidak perlu cookie.
@@ -176,8 +190,20 @@ export function DashboardClient({
       outlet: filter.outlet,
       merchant: filter.merchant,
       variant: filter.variant,
+      compMode: filter.compMode || "auto",
+      compFrom: filter.compFrom || "",
+      compTo: filter.compTo || "",
     });
-  }, [filter.from, filter.to, filter.outlet, filter.merchant, filter.variant]);
+  }, [
+    filter.from,
+    filter.to,
+    filter.outlet,
+    filter.merchant,
+    filter.variant,
+    filter.compMode,
+    filter.compFrom,
+    filter.compTo,
+  ]);
 
   function buildFilterParams(nextFilter: DashboardFilter) {
     const next = new URLSearchParams();
@@ -187,12 +213,20 @@ export function DashboardClient({
     if (nextFilter.outlet) next.set("outlet", nextFilter.outlet);
     if (nextFilter.merchant) next.set("merchant", nextFilter.merchant);
     if (nextFilter.variant) next.set("variant", nextFilter.variant);
+
+    if (nextFilter.compMode) next.set("comp_mode", nextFilter.compMode);
+    if (nextFilter.compFrom) next.set("comp_from", nextFilter.compFrom);
+    if (nextFilter.compTo) next.set("comp_to", nextFilter.compTo);
+
     setScopedFilterParams("dashboard", next, {
       from: nextFilter.from,
       to: nextFilter.to,
       outlet: nextFilter.outlet,
       merchant: nextFilter.merchant,
       variant: nextFilter.variant,
+      comp_mode: nextFilter.compMode,
+      comp_from: nextFilter.compFrom,
+      comp_to: nextFilter.compTo,
     });
     return next;
   }
@@ -459,6 +493,9 @@ export function DashboardClient({
       outlet: "",
       merchant: "",
       variant: "",
+      compMode: "auto",
+      compFrom: "",
+      compTo: "",
     });
     startFilterTransition(() => router.push(`/dashboard${queryString(next)}`));
   }
@@ -468,13 +505,19 @@ export function DashboardClient({
     filter.to !== todayWIBKey() ||
     !!filter.outlet ||
     !!filter.merchant ||
-    !!filter.variant;
+    !!filter.variant ||
+    (filter.compMode || "auto") !== "auto" ||
+    !!filter.compFrom ||
+    !!filter.compTo;
   const hasDraftChanges =
     draftFilter.from !== filter.from ||
     draftFilter.to !== filter.to ||
     draftFilter.outlet !== filter.outlet ||
     draftFilter.merchant !== filter.merchant ||
-    draftFilter.variant !== filter.variant;
+    draftFilter.variant !== filter.variant ||
+    draftFilter.compMode !== (filter.compMode || "auto") ||
+    draftFilter.compFrom !== (filter.compFrom || "") ||
+    draftFilter.compTo !== (filter.compTo || "");
   const showResetFilter = hasActiveFilter || hasDraftChanges;
   function selectTab(tab: DashboardTab) {
     setActiveTab(tab);
@@ -519,7 +562,11 @@ export function DashboardClient({
             <button
               className="btn-primary h-9 flex-1 px-3 text-xs sm:flex-none sm:text-sm"
               onClick={exportCsv}
-              disabled={!hasSummaryRows || isExporting}
+              disabled={
+                !hasSummaryRows ||
+                isExporting ||
+                (activeTab === "insights" && (filter.compMode || "auto") === "none")
+              }
             >
               {isExporting ? "Exporting..." : `Export ${TAB_LABELS[activeTab]}`}
             </button>
@@ -621,6 +668,44 @@ export function DashboardClient({
           >
             Tahun
           </PresetButton>
+        </div>
+
+        <div className="border-t border-slate-100 dark:border-slate-800/60 my-2.5" />
+
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+          <Field label="Pembanding Periode">
+            <select
+              className="input w-full"
+              value={draftFilter.compMode}
+              onChange={(e) => setDraftParam("compMode", e.target.value)}
+            >
+              <option value="auto">Periode Sebelumnya (Otomatis)</option>
+              <option value="yoy">Tahun Lalu (YoY)</option>
+              <option value="custom">Periode Kustom</option>
+              <option value="none">Tanpa Pembanding</option>
+            </select>
+          </Field>
+
+          {draftFilter.compMode === "custom" && (
+            <>
+              <Field label="Bandingkan Dari">
+                <input
+                  type="date"
+                  className="input w-full"
+                  value={draftFilter.compFrom}
+                  onChange={(e) => setDraftParam("compFrom", e.target.value)}
+                />
+              </Field>
+              <Field label="Bandingkan Sampai">
+                <input
+                  type="date"
+                  className="input w-full"
+                  value={draftFilter.compTo}
+                  onChange={(e) => setDraftParam("compTo", e.target.value)}
+                />
+              </Field>
+            </>
+          )}
         </div>
       </div>
 
@@ -807,6 +892,7 @@ export function DashboardClient({
             productDeclines={productDeclines}
             merchantDeclines={merchantDeclines}
             insights={insights}
+            compMode={filter.compMode}
           />
         )}
         {activeTab === "details" && <DetailTransactions filter={filter} />}
@@ -1379,13 +1465,27 @@ const InsightsTab = memo(function InsightsTab({
   productDeclines,
   merchantDeclines,
   insights,
+  compMode = "auto",
 }: {
   comparison: ComparisonMetric[];
   previousRange: { from: string; to: string };
   productDeclines: DeclineMetric[];
   merchantDeclines: DeclineMetric[];
   insights: string[];
+  compMode?: string;
 }) {
+  if (compMode === "none") {
+    return (
+      <div className="card p-6 text-center space-y-2 flex flex-col items-center justify-center min-h-[300px]">
+        <AlertCircle className="text-slate-400 dark:text-slate-600 mb-1" size={32} />
+        <h3 className="text-sm font-semibold">Perbandingan Periode Dinonaktifkan</h3>
+        <p className="text-xs max-w-sm" style={{ color: "var(--muted)" }}>
+          Aktifkan pembanding periode di bagian filter jika Anda ingin melihat rangkuman performa dan perbandingan periode.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
       <div className="card p-3">

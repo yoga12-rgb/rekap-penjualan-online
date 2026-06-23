@@ -63,6 +63,30 @@ export function previousPeriodForRange(
   };
 }
 
+/** Rentang periode tahun lalu (YoY) dengan tanggal/bulan yang sama. */
+export function yoyPeriodForRange(
+  from: string,
+  to: string,
+): { from: string; to: string } {
+  const [y1, m1, d1] = from.split("-").map(Number);
+  const [y2, m2, d2] = to.split("-").map(Number);
+
+  const prevYearFromStr = `${y1 - 1}-${String(m1).padStart(2, "0")}-${String(d1).padStart(2, "0")}`;
+  const prevYearToStr = `${y2 - 1}-${String(m2).padStart(2, "0")}-${String(d2).padStart(2, "0")}`;
+
+  const finalFrom = isValidDateKey(prevYearFromStr)
+    ? prevYearFromStr
+    : addDaysToDateKey(prevYearFromStr, -1);
+  const finalTo = isValidDateKey(prevYearToStr)
+    ? prevYearToStr
+    : addDaysToDateKey(prevYearToStr, -1);
+
+  return {
+    from: finalFrom,
+    to: finalTo,
+  };
+}
+
 export function startOfMonthWIBKey(): string {
   return todayWIBKey().slice(0, 7) + "-01";
 }

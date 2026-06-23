@@ -12,7 +12,16 @@ const FILTER_PREFIX: Record<FilterScope, string> = {
 };
 
 const FILTER_KEYS: Record<FilterScope, string[]> = {
-  dashboard: ["from", "to", "outlet", "merchant", "variant"],
+  dashboard: [
+    "from",
+    "to",
+    "outlet",
+    "merchant",
+    "variant",
+    "comp_mode",
+    "comp_from",
+    "comp_to",
+  ],
   transactions: ["from", "to", "outlet", "merchant", "variant", "q"],
   adCosts: ["from", "to", "outlet", "merchant"],
   surveys: ["tab", "from", "to", "outlet"],

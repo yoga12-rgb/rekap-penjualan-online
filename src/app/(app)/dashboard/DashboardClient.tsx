@@ -35,6 +35,8 @@ import {
   endOfMonthWIBKey,
   startOfPreviousMonthWIBKey,
   endOfPreviousMonthWIBKey,
+  startOfWeekWIBKey,
+  endOfWeekWIBKey,
   startOfYearWIBKey,
   endOfYearWIBKey,
 } from "@/lib/date";
@@ -130,6 +132,7 @@ type DashboardTab =
 type DatePreset =
   | "today"
   | "7d"
+  | "week"
   | "30d"
   | "month"
   | "lastMonth"
@@ -469,6 +472,8 @@ export function DashboardClient({
   function getPresetRange(preset: DatePreset) {
     if (preset === "today") return { from: todayWIBKey(), to: todayWIBKey() };
     if (preset === "7d") return { from: daysAgoWIBKey(6), to: todayWIBKey() };
+    if (preset === "week")
+      return { from: startOfWeekWIBKey(), to: endOfWeekWIBKey() };
     if (preset === "30d") return { from: daysAgoWIBKey(29), to: todayWIBKey() };
     if (preset === "month")
       return { from: startOfMonthWIBKey(), to: endOfMonthWIBKey() };
@@ -646,6 +651,12 @@ export function DashboardClient({
             onClick={() => setRangePreset("7d")}
           >
             7H
+          </PresetButton>
+          <PresetButton
+            active={isPresetActive("week")}
+            onClick={() => setRangePreset("week")}
+          >
+            Minggu ini
           </PresetButton>
           <PresetButton
             active={isPresetActive("30d")}

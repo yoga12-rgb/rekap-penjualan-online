@@ -113,6 +113,20 @@ export function endOfYearWIBKey(): string {
   return todayWIBKey().slice(0, 4) + "-12-31";
 }
 
+export function startOfWeekWIBKey(): string {
+  const todayKey = todayWIBKey();
+  const [y, m, d] = todayKey.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  const day = dt.getUTCDay();
+  const diff = day === 0 ? 6 : day - 1;
+  dt.setUTCDate(dt.getUTCDate() - diff);
+  return dt.toISOString().slice(0, 10);
+}
+
+export function endOfWeekWIBKey(): string {
+  return addDaysToDateKey(startOfWeekWIBKey(), 6);
+}
+
 /** Validasi date key dari query/input agar tidak mengirim range malformed ke DB. */
 export function isValidDateKey(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;

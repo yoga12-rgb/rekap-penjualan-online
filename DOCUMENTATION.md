@@ -27,11 +27,12 @@ Aplikasi ini dibuat untuk merekap dan menganalisis penjualan **Abon Gulung Rajak
 
 ### Fitur Utama
 
-- 📊 **Dashboard Analitik** — 7 tab visualisasi data (tren harian, produk terlaris, profit merchant, performa outlet, jam ramai, insight otomatis, detail transaksi)
+- 📊 **Dashboard Analitik** — 8 tab visualisasi data (tren harian, produk terlaris, profit merchant, performa outlet, jam ramai, performa hari, insight otomatis, detail transaksi)
 - 📝 **Manajemen Transaksi** — Input multi-varian dengan perhitungan komisi otomatis
 - 📣 **Biaya Iklan Harian** — Catat biaya iklan per outlet + merchant, terpisah dari potongan admin transaksi
+- 🗳️ **Survey Customer** — Kumpulkan sumber informasi konsumen (misal: dari Instagram, Teman, dll) beserta visualisasi laporannya
 - 🟢 **User Online** — Super Admin dapat melihat status online, IP tersamarkan, lokasi perkiraan, dan last seen user
-- 🏪 **Master Data** — CRUD untuk outlet, food merchant, varian produk, dan akun kasir
+- 🏪 **Master Data** — CRUD untuk outlet, food merchant, varian produk, template survey, dan akun kasir
 - 🔐 **Role-based Access** — Super Admin vs Kasir dengan RLS database
 - 🌙 **Dark/Light Mode** — Toggle tema
 - 📥 **Export CSV** — Semua tab analitik bisa diexport
@@ -86,10 +87,13 @@ Aplikasi ini dibuat untuk merekap dan menganalisis penjualan **Abon Gulung Rajak
 │   │   │   │   ├── actions.ts           # Server Actions (create/update/delete)
 │   │   │   │   └── loading.tsx
 │   │   │   ├── 📁 ad-costs/             # Biaya iklan harian
+│   │   │   ├── 📁 surveys/              # Survey customer (input & laporan)
 │   │   │   └── 📁 masters/              # Master data CRUD
 │   │   │       ├── 📁 merchants/        # Food merchant
 │   │   │       ├── 📁 outlets/          # Outlet cabang
 │   │   │       ├── 📁 products/         # Varian produk + pricing
+│   │   │       ├── 📁 surveys/          # Template pertanyaan & jawaban survey
+│   │   │       ├── 📁 user-presence/    # Monitor kasir online
 │   │   │       └── 📁 users/            # Akun kasir
 │   │   └── 📁 api/                      # API Route Handlers
 │   │       └── 📁 dashboard/
@@ -185,7 +189,7 @@ npm install
 1. Buka [supabase.com](https://supabase.com) → **New Project**
 2. Catat **Project URL**, **anon key**, dan **service_role key** dari Settings → API
 3. Buka SQL Editor → paste isi `supabase/schema.sql` → **Run**
-4. Jika database sudah ada, jalankan migrasi bertahap di `supabase/migrations/` sesuai nomor versi, termasuk `007_daily_ad_costs.sql`, `008_user_presence.sql`, `011_dashboard_summary_rpc.sql`, dan `012_transactions_summary_rpc.sql`
+4. Jika database sudah ada, jalankan migrasi bertahap di `supabase/migrations/` sesuai nomor versi, termasuk `007_daily_ad_costs.sql`, `008_user_presence.sql`, `009_surveys.sql`, `010_survey_question_answers.sql`, `011_dashboard_summary_rpc.sql`, `012_transactions_summary_rpc.sql`, dan `013_add_merchant_increases_to_dashboard_summary.sql`
 5. (Opsional) Paste `supabase/seed.sql` untuk data contoh
 
 ### Langkah 3: Konfigurasi Environment
@@ -343,6 +347,68 @@ Buka `http://localhost:3000` dan login dengan email yang didaftarkan.
 | created_at / updated_at | TIMESTAMPTZ   | Auto                                       |
 | UNIQUE                  | -             | `(cost_date, outlet_id, food_merchant_id)` |
 
+#### `user_presence`
+
+| Kolom        | Tipe          | Keterangan                           |
+| ------------ | ------------- | ------------------------------------ |
+| user_id      | UUID (PK, FK) | Ref → profiles(id) ON DELETE CASCADE |
+| last_seen_at | TIMESTAMPTZ   | Waktu heartbeat terakhir             |
+| ip_address   | TEXT          | IP Address tersamarkan               |
+| country      | TEXT          | Lokasi perkiraan negara              |
+| region       | TEXT          | Lokasi perkiraan wilayah/provinsi    |
+| city         | TEXT          | Lokasi perkiraan kota                |
+| timezone     | TEXT          | Zona waktu perangkat                 |
+| user_agent   | TEXT          | Ringkasan user agent browser/device  |
+| path         | TEXT          | Halaman terakhir yang diakses        |
+| created_at   | TIMESTAMPTZ   | Default now()                        |
+| updated_at   | TIMESTAMPTZ   | Default now()                        |
+
+#### `survey_questions`
+
+| Kolom         | Tipe        | Keterangan                             |
+| ------------- | ----------- | -------------------------------------- |
+| id            | UUID (PK)   | Auto-generate                          |
+| question_text | TEXT        | Teks pertanyaan survey                 |
+| is_active     | BOOLEAN     | Menandakan status aktif                |
+| sort_order    | INTEGER     | Urutan pengurutan                      |
+| created_at    | TIMESTAMPTZ | Default now()                          |
+| updated_at    | TIMESTAMPTZ | Default now()                          |
+
+#### `survey_answers`
+
+| Kolom      | Tipe        | Keterangan                             |
+| ---------- | ----------- | -------------------------------------- |
+| id         | UUID (PK)   | Auto-generate                          |
+| label      | TEXT UNIQUE | Opsi label jawaban                     |
+| is_active  | BOOLEAN     | Menandakan status aktif                |
+| sort_order | INTEGER     | Urutan pengurutan                      |
+| created_at | TIMESTAMPTZ | Default now()                          |
+| updated_at | TIMESTAMPTZ | Default now()                          |
+
+#### `survey_responses`
+
+| Kolom         | Tipe        | Keterangan                             |
+| ------------- | ----------- | -------------------------------------- |
+| id            | UUID (PK)   | Auto-generate                          |
+| question_id   | UUID (FK)   | Ref → survey_questions(id)             |
+| answer_id     | UUID (FK)   | Ref → survey_answers(id) (nullable)    |
+| outlet_id     | UUID (FK)   | Ref → outlets(id)                      |
+| created_by    | UUID (FK)   | Ref → profiles(id)                     |
+| other_text    | TEXT        | Jawaban kustom jika opsi "Lainnya"     |
+| response_date | DATE        | Tanggal respon (Default WIB)           |
+| created_at    | TIMESTAMPTZ | Default now()                          |
+
+#### `survey_question_answers`
+
+| Kolom       | Tipe         | Keterangan                  |
+| ----------- | ------------ | --------------------------- |
+| question_id | UUID (PK, FK)| Ref → survey_questions(id)  |
+| answer_id   | UUID (PK, FK)| Ref → survey_answers(id)    |
+| is_active   | BOOLEAN      | Status aktif                |
+| sort_order  | INTEGER      | Urutan opsi per pertanyaan  |
+| created_at  | TIMESTAMPTZ  | Default now()               |
+| updated_at  | TIMESTAMPTZ  | Default now()               |
+
 ### Indexes
 
 ```sql
@@ -357,6 +423,15 @@ idx_variant_prices_merchant (food_merchant_id)
 idx_ad_costs_date (cost_date DESC)
 idx_ad_costs_outlet (outlet_id)
 idx_ad_costs_merchant (food_merchant_id)
+idx_user_presence_last_seen (last_seen_at DESC)
+idx_survey_questions_order (is_active, sort_order, question_text)
+idx_survey_answers_order (is_active, sort_order, label)
+idx_survey_responses_date (response_date DESC)
+idx_survey_responses_outlet (outlet_id)
+idx_survey_responses_question (question_id)
+idx_survey_responses_answer (answer_id)
+idx_survey_question_answers_question (question_id, is_active, sort_order)
+idx_survey_question_answers_answer (answer_id)
 ```
 
 ### Row Level Security (RLS)
@@ -412,11 +487,14 @@ Kebijakan per tabel:
 | Biaya Iklan — Tambah     | ✅ Semua outlet | ✅ Outlet ditugaskan |
 | Biaya Iklan — Edit       |       ✅        |  ✅ Outlet sendiri   |
 | Biaya Iklan — Hapus      |       ✅        |  ✅ Outlet sendiri   |
+| Survey — Input           | ✅ Semua outlet | ✅ Outlet ditugaskan |
+| Survey — Laporan         |    ✅ Semua     |  ✅ Outlet sendiri   |
 | User Online              |       ✅        |          ❌          |
 | Master Outlet            |       ✅        |          ❌          |
 | Master Merchant          |       ✅        |          ❌          |
 | Master Produk            |       ✅        |          ❌          |
 | Master User/Akun         |       ✅        |          ❌          |
+| Master Survey (Q&A)      |       ✅        |          ❌          |
 
 ### Alur Autentikasi
 
@@ -470,6 +548,7 @@ Catatan:
 | **Profit Merchant**  | Profit bersih per food merchant dengan warna badge                                | Bar Chart (warna) |
 | **Outlet**           | Performa per outlet (omset, net, biaya iklan, profit bersih, qty, transaksi)      | Bar Chart + Tabel |
 | **Jam Ramai**        | Distribusi transaksi per jam (24 jam)                                             | Bar Chart + Tabel |
+| **Hari**             | Distribusi dan performa penjualan berdasarkan hari dalam seminggu (Senin-Minggu)  | Bar Chart + Tabel |
 | **Insight**          | Perbandingan periode + insight otomatis + penurunan performa                      | Kartu + Tabel     |
 | **Detail Transaksi** | List semua transaksi (infinite scroll)                                            | Tabel             |
 
@@ -578,6 +657,22 @@ Akses dari sidebar → **Master Data** (hanya Super Admin).
 - Tambah/Edit/Hapus akun kasir
 - Assign outlet untuk batasan akses
 
+#### Template Survey
+
+- Tambah/Edit/Hapus pertanyaan survey (misal: "Dari mana Anda mengetahui Abon Gulung Rajaklana?").
+- Mengelola opsi jawaban (misal: "Instagram", "Teman/Keluarga", "Rekomendasi Ojek Online", "Lainnya").
+- Opsi "Lainnya" secara dinamis memungkinkan pengisian teks kustom oleh kasir saat input survey.
+
+---
+
+### 6.5 Survey Customer
+
+Digunakan untuk mendata umpan balik dari pelanggan mengenai dari mana mereka mengetahui produk Abon Gulung Rajaklana, untuk membantu analisis pemasaran.
+
+- **Akses Kasir**: Kasir dapat menginput respon survey baru berdasarkan outlet tempat mereka ditugaskan.
+- **Akses Super Admin**: Dapat menginput respon survey untuk seluruh outlet, serta melihat laporan grafik persentase sumber pelanggan secara keseluruhan maupun terfilter per outlet dan rentang tanggal.
+- **Laporan/Report**: Menampilkan total respon dan visualisasi distribusi jawaban per pertanyaan untuk memetakan media promosi yang paling efektif.
+
 ---
 
 ## 7. API Endpoints
@@ -679,8 +774,9 @@ Output berupa JSON dengan bagian:
 - `hourly`
 - `productDeclines`
 - `merchantDeclines`
+- `merchantIncreases` (Ditambahkan pada versi migrasi 013)
 
-Untuk database baru, function ini sudah ada di `supabase/schema.sql`. Untuk database existing, jalankan `supabase/migrations/011_dashboard_summary_rpc.sql`.
+Untuk database baru, function ini sudah ada di `supabase/schema.sql`. Untuk database existing, jalankan `supabase/migrations/013_add_merchant_increases_to_dashboard_summary.sql`.
 
 #### `public.get_transactions_summary(...)`
 

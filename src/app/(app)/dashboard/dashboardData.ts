@@ -134,6 +134,7 @@ export type DashboardData = {
   hourly: HourPoint[];
   productDeclines: DeclineMetric[];
   merchantDeclines: DeclineMetric[];
+  merchantIncreases: DeclineMetric[];
   insights: string[];
   dayOfWeek: DayOfWeekPoint[];
 };
@@ -170,6 +171,12 @@ export function buildDashboardData({
     "merchant",
     "net",
   ).slice(0, 5);
+  const merchantIncreases = buildIncreases(
+    rows,
+    previousRows,
+    "merchant",
+    "net",
+  ).slice(0, 5);
   const insights = buildInsights({
     totals,
     comparison,
@@ -189,6 +196,7 @@ export function buildDashboardData({
     hourly,
     productDeclines,
     merchantDeclines,
+    merchantIncreases,
     insights,
     dayOfWeek,
   };
@@ -537,6 +545,67 @@ function buildDeclines(
     })
     .filter((item) => item.delta < 0 && item.previous > 0)
     .sort((a, b) => a.delta - b.delta);
+}
+
+function buildIncreases(
+  rows: SummaryRow[],
+  previousRows: SummaryRow[],
+  type: "product" | "merchant",
+  metricKey: "qty" | "net",
+): DeclineMetric[] {
+  const currentMap = new Map<string, { name: string; val: number }>();
+  for (const r of rows) {
+    const key =
+      type === "product" ? r.product_variant_id : r.food_merchant_id;
+    const name =
+      type === "product"
+        ? r.product_variants?.name ?? "-"
+        : r.food_merchants?.name ?? "-";
+    const val = type === "product" ? r.qty : Number(r.net_profit || 0);
+    const existing = currentMap.get(key) ?? { name, val: 0 };
+    existing.val += val;
+    currentMap.set(key, existing);
+  }
+
+  const previousMap = new Map<string, { name: string; val: number }>();
+  for (const r of previousRows) {
+    const key =
+      type === "product" ? r.product_variant_id : r.food_merchant_id;
+    const name =
+      type === "product"
+        ? r.product_variants?.name ?? "-"
+        : r.food_merchants?.name ?? "-";
+    const val = type === "product" ? r.qty : Number(r.net_profit || 0);
+    const existing = previousMap.get(key) ?? { name, val: 0 };
+    existing.val += val;
+    previousMap.set(key, existing);
+  }
+
+  const keys = new Set([...currentMap.keys(), ...previousMap.keys()]);
+  const metrics: DeclineMetric[] = [];
+
+  for (const key of keys) {
+    const currentObj = currentMap.get(key);
+    const prevObj = previousMap.get(key);
+    const currentVal = currentObj?.val ?? 0;
+    const prevVal = prevObj?.val ?? 0;
+    const name = currentObj?.name ?? prevObj?.name ?? "-";
+    const delta = currentVal - prevVal;
+    const percentChange = prevVal > 0 ? (delta / prevVal) * 100 : 0;
+
+    metrics.push({
+      key,
+      name,
+      current: currentVal,
+      previous: prevVal,
+      delta,
+      percentChange,
+    });
+  }
+
+  return Array.from(metrics.values())
+    .filter((m) => m.delta > 0)
+    .sort((a, b) => b.delta - a.delta);
 }
 
 function groupRows(

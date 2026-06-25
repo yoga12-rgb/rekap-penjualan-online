@@ -256,6 +256,7 @@ export function DashboardClient({
     hourly,
     productDeclines,
     merchantDeclines,
+    merchantIncreases = [],
     insights,
     dayOfWeek = [],
   } = dashboardData;
@@ -396,6 +397,14 @@ export function DashboardClient({
             ]),
             ...productDeclines.map((r) => [
               "Produk Turun",
+              r.name,
+              r.current,
+              r.previous,
+              r.delta,
+              formatPercent(r.percentChange),
+            ]),
+            ...merchantIncreases.map((r) => [
+              "Merchant Naik",
               r.name,
               r.current,
               r.previous,
@@ -891,6 +900,7 @@ export function DashboardClient({
             previousRange={previousRange}
             productDeclines={productDeclines}
             merchantDeclines={merchantDeclines}
+            merchantIncreases={merchantIncreases}
             insights={insights}
             compMode={filter.compMode}
           />
@@ -1459,11 +1469,77 @@ const HoursTab = memo(function HoursTab({
   );
 });
 
+function IncreaseTable({
+  title,
+  metricLabel,
+  rows,
+  currency,
+}: {
+  title: string;
+  metricLabel: string;
+  rows: DeclineMetric[];
+  currency?: boolean;
+}) {
+  return (
+    <div className="card p-3">
+      <h3 className="text-sm font-semibold mb-2">{title}</h3>
+      <div className="overflow-auto">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Nama</th>
+              <th className="text-right">Saat Ini</th>
+              <th className="text-right">Sebelumnya</th>
+              <th className="text-right">Naik</th>
+              <th className="text-right">%</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.name}>
+                <td>{row.name}</td>
+                <td className="text-right">
+                  {currency
+                    ? formatIDR(row.current)
+                    : row.current.toLocaleString("id-ID")}
+                </td>
+                <td className="text-right">
+                  {currency
+                    ? formatIDR(row.previous)
+                    : row.previous.toLocaleString("id-ID")}
+                </td>
+                <td className="text-right text-emerald-600 dark:text-emerald-400 font-medium">
+                  +{currency ? formatIDR(row.delta) : row.delta.toLocaleString("id-ID")}
+                </td>
+                <td className="text-right text-emerald-600 dark:text-emerald-400">
+                  +{formatPercent(row.percentChange)}
+                </td>
+              </tr>
+            ))}
+            {!rows.length && (
+              <tr>
+                <td
+                  colSpan={5}
+                  className="text-center py-4"
+                  style={{ color: "var(--muted)" }}
+                >
+                  Tidak ada data
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 const InsightsTab = memo(function InsightsTab({
   comparison,
   previousRange,
   productDeclines,
   merchantDeclines,
+  merchantIncreases,
   insights,
   compMode = "auto",
 }: {
@@ -1471,6 +1547,7 @@ const InsightsTab = memo(function InsightsTab({
   previousRange: { from: string; to: string };
   productDeclines: DeclineMetric[];
   merchantDeclines: DeclineMetric[];
+  merchantIncreases: DeclineMetric[];
   insights: string[];
   compMode?: string;
 }) {
@@ -1526,6 +1603,12 @@ const InsightsTab = memo(function InsightsTab({
         title="Produk yang Performanya Turun"
         metricLabel="Qty"
         rows={productDeclines}
+      />
+      <IncreaseTable
+        title="Merchant yang Performanya Naik"
+        metricLabel="Net Profit"
+        rows={merchantIncreases}
+        currency
       />
       <DeclineTable
         title="Merchant yang Performanya Turun"

@@ -1,10 +1,11 @@
-import {
   daysAgoWIBKey,
   endOfMonthWIBKey,
   endOfPreviousMonthWIBKey,
+  endOfWeekWIBKey,
   endOfYearWIBKey,
   startOfMonthWIBKey,
   startOfPreviousMonthWIBKey,
+  startOfWeekWIBKey,
   startOfYearWIBKey,
   todayWIBKey,
 } from "@/lib/date";
@@ -14,6 +15,7 @@ export type SurveyReportTab = "input" | "report";
 export type SurveyReportDatePreset =
   | "today"
   | "7d"
+  | "week"
   | "30d"
   | "month"
   | "lastMonth"
@@ -72,6 +74,8 @@ export function getSurveyReportDefaultRange() {
 export function getSurveyReportPresetRange(preset: SurveyReportDatePreset) {
   if (preset === "today") return { from: todayWIBKey(), to: todayWIBKey() };
   if (preset === "7d") return { from: daysAgoWIBKey(6), to: todayWIBKey() };
+  if (preset === "week")
+    return { from: startOfWeekWIBKey(), to: endOfWeekWIBKey() };
   if (preset === "30d") return { from: daysAgoWIBKey(29), to: todayWIBKey() };
   if (preset === "month")
     return { from: startOfMonthWIBKey(), to: endOfMonthWIBKey() };

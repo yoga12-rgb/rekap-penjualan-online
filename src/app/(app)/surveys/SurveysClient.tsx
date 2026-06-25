@@ -757,6 +757,7 @@ const SurveyReport = memo(function SurveyReport({
           {[
             ["today", "Hari ini"],
             ["7d", "7H"],
+            ["week", "Minggu ini"],
             ["30d", "30H"],
             ["month", "Bulan ini"],
             ["lastMonth", "Bulan lalu"],

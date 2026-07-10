@@ -536,6 +536,11 @@ export function TransactionsClient({
                       {g.orderNumber && (
                         <span className="badge">No. {g.orderNumber}</span>
                       )}
+                      {g.is_fake && (
+                        <span className="badge border-red-200 bg-red-100 text-red-800 dark:border-red-900/30 dark:bg-red-900/40 dark:text-red-200">
+                          Fake Order
+                        </span>
+                      )}
                       <MerchantBadge
                         name={g.merchant}
                         color={g.merchantColor}
@@ -957,6 +962,7 @@ function CreateOrderForm({
     isoToWIBLocalInput(new Date().toISOString()),
   );
   const [netIncome, setNetIncome] = useState<string>("");
+  const [isFake, setIsFake] = useState(false);
   const [items, setItems] = useState<Item[]>([
     { key: 1, product_variant_id: "", qty: 1, initial_price: "" },
   ]);
@@ -1042,6 +1048,7 @@ function CreateOrderForm({
         food_merchant_id: merchantId,
         transaction_date: date,
         deduction_fee: feeValue,
+        is_fake: isFake,
         items: items.map((it) => ({
           product_variant_id: it.product_variant_id,
           qty: it.qty,
@@ -1256,6 +1263,10 @@ function CreateOrderForm({
                 pendapatan bersih.
               </p>
             </div>
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
+              <input type="checkbox" checked={isFake} onChange={(e) => setIsFake(e.target.checked)} className="rounded text-red-600 focus:ring-red-500" />
+              Tandai sebagai Fake Order
+            </label>
             <div className="grid grid-cols-1 gap-2 min-w-0">
               <SummaryMetric
                 label="Total Omset"
@@ -1436,6 +1447,7 @@ function EditOrderForm({
   const [netIncome, setNetIncome] = useState<string>(() =>
     formatNumberInput(group.net),
   );
+  const [isFake, setIsFake] = useState(group.is_fake ?? false);
   const [items, setItems] = useState<Item[]>(() =>
     group.rows.map((row, index) => ({
       key: index + 1,
@@ -1523,6 +1535,7 @@ function EditOrderForm({
         food_merchant_id: merchantId,
         transaction_date: date,
         deduction_fee: totals.fee,
+        is_fake: isFake,
         items: items.map((it) => ({
           id: it.id,
           product_variant_id: it.product_variant_id,
@@ -1712,6 +1725,10 @@ function EditOrderForm({
           </p>
         </div>
         <div className="min-w-0 text-left sm:text-right space-y-1">
+          <label className="flex sm:justify-end items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+            <input type="checkbox" checked={isFake} onChange={(e) => setIsFake(e.target.checked)} className="rounded text-red-600 focus:ring-red-500" />
+            Tandai sebagai Fake Order
+          </label>
           <div className="text-sm" style={{ color: "var(--muted)" }}>
             Total Omset
           </div>

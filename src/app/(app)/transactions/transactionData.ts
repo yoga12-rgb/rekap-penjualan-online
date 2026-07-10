@@ -23,6 +23,7 @@ export type TransactionRow = {
   initial_price: number;
   deduction_fee: number;
   net_profit: number;
+  is_fake: boolean;
   outlet_id: string;
   food_merchant_id: string;
   product_variant_id: string;
@@ -43,6 +44,7 @@ export type TransactionGroup = {
   gross: number;
   fee: number;
   net: number;
+  is_fake: boolean;
 };
 
 export type TransactionSummary = {
@@ -87,11 +89,12 @@ export function groupTransactionRows(
       outlet: row.outlets?.name ?? "",
       merchant: row.food_merchants?.name ?? "",
       merchantColor: row.food_merchants?.color ?? null,
-      rows: [],
+      rows: [] as TransactionRow[],
       qty: 0,
       gross: 0,
       fee: 0,
       net: 0,
+      is_fake: row.is_fake,
     };
 
     current.rows.push(row);

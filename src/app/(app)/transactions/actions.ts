@@ -19,6 +19,7 @@ const OrderSchema = z.object({
   food_merchant_id: z.string().uuid(),
   transaction_date: z.string().min(1),
   deduction_fee: z.coerce.number().nonnegative(),
+  is_fake: z.boolean().default(false),
   items: z.array(ItemSchema).min(1),
 });
 
@@ -65,7 +66,7 @@ export async function createOrder(payload: unknown) {
     outlet_id = profile.outlet_id;
   }
 
-  const { items, food_merchant_id, transaction_date, deduction_fee } =
+  const { items, food_merchant_id, transaction_date, deduction_fee, is_fake } =
     parsed.data;
   const order_number = parsed.data.order_number?.trim() || null;
   const grosses = items.map((it) => ({ gross: it.qty * it.initial_price }));
@@ -84,6 +85,7 @@ export async function createOrder(payload: unknown) {
     qty: it.qty,
     initial_price: it.initial_price,
     deduction_fee: fees[i],
+    is_fake,
     created_by: profile.id,
   }));
 
@@ -103,7 +105,7 @@ export async function updateOrder(payload: unknown) {
   if (!parsed.success)
     return { error: parsed.error.issues[0]?.message ?? "Data tidak valid" };
 
-  const { order_id, items, food_merchant_id, transaction_date, deduction_fee } =
+  const { order_id, items, food_merchant_id, transaction_date, deduction_fee, is_fake } =
     parsed.data;
   const order_number = parsed.data.order_number?.trim() || null;
 
@@ -138,6 +140,7 @@ export async function updateOrder(payload: unknown) {
       qty: item.qty,
       initial_price: item.initial_price,
       deduction_fee: fees[i],
+      is_fake,
     };
 
     if (item.id && existingIds.has(item.id)) {

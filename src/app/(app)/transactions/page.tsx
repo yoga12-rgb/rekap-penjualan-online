@@ -31,12 +31,14 @@ type SP = {
   merchant?: string | string[];
   variant?: string | string[];
   q?: string | string[];
+  is_fake?: string | string[];
   tx_from?: string | string[];
   tx_to?: string | string[];
   tx_outlet?: string | string[];
   tx_merchant?: string | string[];
   tx_variant?: string | string[];
   tx_q?: string | string[];
+  tx_is_fake?: string | string[];
 };
 
 const EMPTY_UUID = "00000000-0000-0000-0000-000000000000";
@@ -126,6 +128,7 @@ export default async function TransactionsPage({
       firstParam(params.variant) || firstParam(params.tx_variant),
     ),
     q: searchTerm,
+    is_fake: firstParam(params.is_fake) || firstParam(params.tx_is_fake) || "all",
     rangeWasReversed,
   };
 
@@ -148,6 +151,7 @@ export default async function TransactionsPage({
     p_merchant: filter.merchant || null,
     p_variant: filter.variant || null,
     p_q: filter.q || null,
+    p_is_fake: filter.is_fake,
   };
 
   const [summaryResult, orderPageResult] = await Promise.all([

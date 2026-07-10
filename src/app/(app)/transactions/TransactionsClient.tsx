@@ -59,6 +59,7 @@ type TransactionFilter = {
   merchant: string;
   variant: string;
   q: string;
+  is_fake: string;
   rangeWasReversed?: boolean;
 };
 type TransactionFilterKey =
@@ -67,7 +68,8 @@ type TransactionFilterKey =
   | "outlet"
   | "merchant"
   | "variant"
-  | "q";
+  | "q"
+  | "is_fake";
 const GROUPS_PER_LOAD = 12;
 const VIRTUAL_CARD_STYLE = {
   contentVisibility: "auto",
@@ -115,6 +117,7 @@ export function TransactionsClient({
     merchant: filter.merchant,
     variant: filter.variant,
     q: filter.q,
+    is_fake: filter.is_fake,
   });
   const [groups, setGroups] = useState<Group[]>(initialGroups);
   const [nextOffset, setNextOffset] = useState(initialNextOffset);
@@ -133,6 +136,7 @@ export function TransactionsClient({
       merchant: filter.merchant,
       variant: filter.variant,
       q: filter.q,
+      is_fake: filter.is_fake,
     });
   }, [
     filter.from,
@@ -141,6 +145,7 @@ export function TransactionsClient({
     filter.merchant,
     filter.variant,
     filter.q,
+    filter.is_fake,
   ]);
 
   const buildFilterParams = useCallback((nextFilter: TransactionFilter) => {
@@ -152,6 +157,7 @@ export function TransactionsClient({
     if (nextFilter.merchant) next.set("merchant", nextFilter.merchant);
     if (nextFilter.variant) next.set("variant", nextFilter.variant);
     if (nextFilter.q) next.set("q", nextFilter.q);
+    if (nextFilter.is_fake && nextFilter.is_fake !== "all") next.set("is_fake", nextFilter.is_fake);
     setScopedFilterParams("transactions", next, {
       from: nextFilter.from,
       to: nextFilter.to,
@@ -159,6 +165,7 @@ export function TransactionsClient({
       merchant: nextFilter.merchant,
       variant: nextFilter.variant,
       q: nextFilter.q,
+      is_fake: nextFilter.is_fake,
     });
     return next;
   }, [searchParams]);
@@ -203,6 +210,7 @@ export function TransactionsClient({
       merchant: "",
       variant: "",
       q: "",
+      is_fake: "all",
     });
   }
 
@@ -212,14 +220,16 @@ export function TransactionsClient({
     !!filter.outlet ||
     !!filter.merchant ||
     !!filter.variant ||
-    !!filter.q;
+    !!filter.q ||
+    (filter.is_fake !== "all" && !!filter.is_fake);
   const hasDraftChanges =
     draftFilter.from !== filter.from ||
     draftFilter.to !== filter.to ||
     draftFilter.outlet !== filter.outlet ||
     draftFilter.merchant !== filter.merchant ||
     draftFilter.variant !== filter.variant ||
-    draftFilter.q !== filter.q;
+    draftFilter.q !== filter.q ||
+    draftFilter.is_fake !== filter.is_fake;
   const showResetFilter = hasActiveFilter || hasDraftChanges;
 
   useEffect(() => {
@@ -237,6 +247,7 @@ export function TransactionsClient({
     filter.merchant,
     filter.variant,
     filter.q,
+    filter.is_fake,
   ]);
 
   const totals = summary ?? EMPTY_TRANSACTION_SUMMARY;
@@ -372,7 +383,7 @@ export function TransactionsClient({
             </button>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           <div>
             <label className="label">Dari</label>
             <input
@@ -426,6 +437,18 @@ export function TransactionsClient({
               placeholder="Semua"
               clearable
             />
+          </div>
+          <div>
+            <label className="label">Status</label>
+            <select
+              className="input text-sm"
+              value={draftFilter.is_fake}
+              onChange={(e) => setDraftParam("is_fake", e.target.value)}
+            >
+              <option value="all">Semua</option>
+              <option value="normal">Normal</option>
+              <option value="fake">Fake Order</option>
+            </select>
           </div>
           <div>
             <label className="label">Cari</label>

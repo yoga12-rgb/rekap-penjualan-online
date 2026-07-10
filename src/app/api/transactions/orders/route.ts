@@ -39,6 +39,7 @@ export async function GET(request: Request) {
   const merchant = uuidParam(searchParams.get("merchant") ?? "");
   const variant = uuidParam(searchParams.get("variant") ?? "");
   const q = sanitizeSearchTerm(searchParams.get("q"));
+  const is_fake = searchParams.get("is_fake") || "all";
   const offset = boundedInteger(searchParams.get("offset"), 0, 1000000);
   const limit = boundedInteger(searchParams.get("limit"), 12, MAX_LIMIT);
 
@@ -53,6 +54,7 @@ export async function GET(request: Request) {
       p_q: q || null,
       p_offset: offset,
       p_limit: limit,
+      p_is_fake: is_fake,
     },
   );
 

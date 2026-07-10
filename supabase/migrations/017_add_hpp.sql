@@ -82,6 +82,7 @@ previous_tx as (
     t.deduction_fee::numeric as deduction_fee,
     coalesce(t.order_id::text, t.id::text) as transaction_key,
     coalesce(m.name, '-') as merchant_name,
+    m.color as merchant_color,
     coalesce(v.name, '-') as product_name
   from public.transactions t
   left join public.food_merchants m on m.id = t.food_merchant_id

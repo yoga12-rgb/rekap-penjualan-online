@@ -1046,6 +1046,11 @@ function CreateOrderForm({
         "Pendapatan bersih tidak boleh lebih besar dari total omset",
         "error",
       );
+      
+    if (isFake && parseNumberInput(companyExpense) < netValue) {
+      return toast("Pengeluaran perusahaan tidak boleh lebih kecil dari pendapatan bersih", "error");
+    }
+
     const feeValue = grossValue - netValue;
     start(async () => {
       const res = await createOrder({

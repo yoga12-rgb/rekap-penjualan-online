@@ -93,7 +93,7 @@ export async function createOrder(payload: unknown) {
     deduction_fee: fees[i],
     is_fake,
     company_expense: companyExpenses[i],
-    total_hpp: (hppMap.get(it.product_variant_id) || 0) * it.qty,
+    total_hpp: is_fake ? 0 : (hppMap.get(it.product_variant_id) || 0) * it.qty,
     created_by: profile.id,
   }));
 
@@ -155,7 +155,7 @@ export async function updateOrder(payload: unknown) {
       deduction_fee: fees[i],
       is_fake,
       company_expense: companyExpenses[i],
-      total_hpp: (hppMap.get(item.product_variant_id) || 0) * item.qty,
+      total_hpp: is_fake ? 0 : (hppMap.get(item.product_variant_id) || 0) * item.qty,
     };
 
     if (item.id && existingIds.has(item.id)) {

@@ -957,7 +957,7 @@ function CreateOrderForm({
   variants: Variant[];
   onDone: () => void;
 }) {
-  const [pending, start] = useTransition();
+  const [pending, startTransition] = useTransition();
   const [outletId, setOutletId] = useState<string>(
     role === "kasir" ? (myOutletId ?? "") : "",
   );
@@ -966,6 +966,7 @@ function CreateOrderForm({
   const [date, setDate] = useState<string>(() =>
     isoToWIBLocalInput(new Date().toISOString()),
   );
+  const [feeAmount, setFeeAmount] = useState<string>("");
   const [netIncome, setNetIncome] = useState<string>("");
   const [isFake, setIsFake] = useState(false);
   const [companyExpense, setCompanyExpense] = useState<string>("");
@@ -1015,7 +1016,7 @@ function CreateOrderForm({
       0,
     );
     const net = parseNumberInput(netIncome);
-    const fee = Math.max(gross - net, 0);
+    const fee = isFake ? Math.max(gross - net, 0) : parseNumberInput(feeAmount);
     return {
       gross,
       net,
@@ -1023,7 +1024,7 @@ function CreateOrderForm({
       feePercent: feePercent(fee, gross),
       isNetTooHigh: net > gross,
     };
-  }, [items, netIncome]);
+  }, [items, netIncome, feeAmount, isFake]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -1036,24 +1037,19 @@ function CreateOrderForm({
       if (parseNumberInput(it.initial_price) < 0)
         return toast("Harga tidak valid", "error");
     }
-    const netValue = parseNumberInput(netIncome);
-    const grossValue = items.reduce(
-      (a, it) => a + it.qty * parseNumberInput(it.initial_price),
-      0,
-    );
-    if (netValue > grossValue)
+    if (totals.isNetTooHigh)
       return toast(
         "Pendapatan bersih tidak boleh lebih besar dari total omset",
         "error",
       );
-    const feeValue = grossValue - netValue;
-    start(async () => {
+    
+    startTransition(async () => {
       const res = await createOrder({
         outlet_id: outletId,
         order_number: orderNumber,
         food_merchant_id: merchantId,
         transaction_date: date,
-        deduction_fee: feeValue,
+        deduction_fee: totals.fee,
         is_fake: isFake,
         company_expense: parseNumberInput(companyExpense),
         items: items.map((it) => ({
@@ -1071,8 +1067,6 @@ function CreateOrderForm({
   }
 
   const submitText = pending ? "Menyimpan..." : "Simpan Transaksi";
-  const netTooHighMessage =
-    "Pendapatan bersih tidak boleh lebih besar dari total omset.";
 
   return (
     <form onSubmit={onSubmit} className="flex h-full min-h-0 min-w-0 flex-col">
@@ -1256,32 +1250,46 @@ function CreateOrderForm({
                 "color-mix(in oklab, var(--bg) 55%, var(--card))",
             }}
           >
-            <div className="min-w-0 rounded-md border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/30">
-              <label className="mb-2 block text-sm font-bold text-emerald-800 dark:text-emerald-200">
-                Pendapatan Bersih (1 transaksi)
-              </label>
-              <CurrencyInput
-                value={netIncome}
-                onChange={setNetIncome}
-                required
-              />
-              <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
-                Potongan/komisi dihitung otomatis dari total omset dikurangi
-                pendapatan bersih.
-              </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {!isFake && (
+                <div className="min-w-0">
+                  <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Potongan Admin (Rp)
+                  </label>
+                  <CurrencyInput value={feeAmount} onChange={setFeeAmount} required />
+                </div>
+              )}
+              {isFake && (
+                <div className="min-w-0">
+                  <label className="mb-1 block text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                    Pendapatan Bersih (Net Profit)
+                  </label>
+                  <CurrencyInput value={netIncome} onChange={setNetIncome} required />
+                </div>
+              )}
             </div>
+
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
               <input type="checkbox" checked={isFake} onChange={(e) => setIsFake(e.target.checked)} className="rounded text-red-600 focus:ring-red-500" />
               Tandai sebagai Fake Order
             </label>
             {isFake && (
-              <div className="min-w-0 rounded-md border border-red-200 bg-red-50 p-3 dark:border-red-900/60 dark:bg-red-950/30">
-                <label className="mb-2 block text-sm font-bold text-red-800 dark:text-red-200">
-                  Pengeluaran Dana Perusahaan
-                </label>
-                <CurrencyInput value={companyExpense} onChange={setCompanyExpense} required />
+              <div className="min-w-0 rounded-md border border-red-200 bg-red-50 p-3 dark:border-red-900/60 dark:bg-red-950/30 space-y-3">
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-red-800 dark:text-red-200">
+                    Pengeluaran Dana Perusahaan
+                  </label>
+                  <CurrencyInput value={companyExpense} onChange={setCompanyExpense} required />
+                </div>
+                <div className="pt-2 border-t border-red-200 dark:border-red-900/40">
+                  <div className="text-sm font-bold text-red-800 dark:text-red-200 mb-1">Total Biaya Hangus</div>
+                  <div className="text-lg font-black text-red-700 dark:text-red-400">
+                    {formatIDR(Math.max(0, parseNumberInput(companyExpense) - parseNumberInput(netIncome)))}
+                  </div>
+                </div>
               </div>
             )}
+            
             <div className="grid grid-cols-1 gap-2 min-w-0">
               <SummaryMetric
                 label="Total Omset"
@@ -1293,15 +1301,12 @@ function CreateOrderForm({
                 sub={`${formatPercent(totals.feePercent)} dari total omset`}
                 danger={totals.isNetTooHigh}
               />
-              <SummaryMetric
-                label="Pendapatan Bersih"
-                value={formatIDR(totals.net)}
-                valueClassName="text-emerald-700 dark:text-emerald-400"
-              />
-              {totals.isNetTooHigh && (
-                <div className="text-xs text-red-700 dark:text-red-300">
-                  {netTooHighMessage}
-                </div>
+              {isFake && (
+                <SummaryMetric
+                  label="Pendapatan Bersih"
+                  value={formatIDR(totals.net)}
+                  valueClassName="text-emerald-700 dark:text-emerald-400"
+                />
               )}
             </div>
           </div>
@@ -1314,77 +1319,6 @@ function CreateOrderForm({
             {submitText}
           </button>
         </aside>
-      </div>
-
-      <div
-        className="-mx-4 mt-2 shrink-0 border-t px-4 pt-2.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:hidden"
-        style={{
-          backgroundColor: "var(--card)",
-          borderColor: "var(--border)",
-        }}
-      >
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
-          <div className="min-w-0">
-            <label className="mb-1 block text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-              Pendapatan Bersih
-            </label>
-            <CurrencyInput value={netIncome} onChange={setNetIncome} required />
-          </div>
-          <div
-            className="min-w-[6.5rem] rounded-md border px-2.5 py-2 text-right"
-            style={{
-              borderColor: "var(--border)",
-              backgroundColor: "var(--bg)",
-            }}
-          >
-            <div
-              className="text-[11px] font-medium"
-              style={{ color: "var(--muted)" }}
-            >
-              Total Omset
-            </div>
-            <div className="text-sm font-bold leading-tight">
-              {formatIDR(totals.gross)}
-            </div>
-          </div>
-        </div>
-        <div
-          className="mt-2 grid grid-cols-2 gap-2 rounded-md border px-2.5 py-2 text-xs"
-          style={{ borderColor: "var(--border)", backgroundColor: "var(--bg)" }}
-        >
-          <div className="min-w-0">
-            <div className="font-medium" style={{ color: "var(--muted)" }}>
-              Potongan
-            </div>
-            <div
-              className={`truncate font-bold ${
-                totals.isNetTooHigh ? "text-red-700 dark:text-red-300" : ""
-              }`}
-            >
-              {formatIDR(totals.fee)}
-            </div>
-          </div>
-          <div className="min-w-0 text-right">
-            <div className="font-medium" style={{ color: "var(--muted)" }}>
-              Bersih
-            </div>
-            <div className="truncate font-bold text-emerald-700 dark:text-emerald-400">
-              {formatIDR(totals.net)}
-            </div>
-          </div>
-        </div>
-        {totals.isNetTooHigh && (
-          <div className="mt-1.5 text-xs text-red-700 dark:text-red-300">
-            {netTooHighMessage}
-          </div>
-        )}
-        <button
-          type="submit"
-          className="btn-primary mt-2 h-11 w-full"
-          disabled={pending}
-        >
-          {submitText}
-        </button>
       </div>
     </form>
   );
@@ -1448,7 +1382,7 @@ function EditOrderForm({
   onDone: () => void;
 }) {
   const firstRow = group.rows[0];
-  const [pending, start] = useTransition();
+  const [pending, startTransition] = useTransition();
   const [outletId, setOutletId] = useState<string>(
     role === "kasir" ? (myOutletId ?? "") : (firstRow?.outlet_id ?? ""),
   );
@@ -1461,6 +1395,9 @@ function EditOrderForm({
   );
   const [netIncome, setNetIncome] = useState<string>(() =>
     formatNumberInput(group.net),
+  );
+  const [feeAmount, setFeeAmount] = useState<string>(() => 
+    formatNumberInput(group.fee || 0)
   );
   const [isFake, setIsFake] = useState(group.is_fake ?? false);
   const [companyExpense, setCompanyExpense] = useState<string>(() => 
@@ -1518,7 +1455,7 @@ function EditOrderForm({
       0,
     );
     const net = parseNumberInput(netIncome);
-    const fee = Math.max(gross - net, 0);
+    const fee = isFake ? Math.max(gross - net, 0) : parseNumberInput(feeAmount);
     return {
       gross,
       net,
@@ -1526,7 +1463,7 @@ function EditOrderForm({
       feePercent: feePercent(fee, gross),
       isNetTooHigh: net > gross,
     };
-  }, [items, netIncome]);
+  }, [items, netIncome, feeAmount, isFake]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -1539,14 +1476,9 @@ function EditOrderForm({
       if (parseNumberInput(it.initial_price) < 0)
         return toast("Harga tidak valid", "error");
     }
-    if (totals.isNetTooHigh)
-      return toast(
-        "Pendapatan bersih tidak boleh lebih besar dari total omset",
-        "error",
-      );
 
-    start(async () => {
-      const res = await updateOrder({
+    startTransition(async () => {
+      const { error } = await updateOrder({
         order_id: group.order_id,
         outlet_id: outletId,
         order_number: orderNumber,
@@ -1562,7 +1494,7 @@ function EditOrderForm({
           initial_price: parseNumberInput(it.initial_price),
         })),
       });
-      if ((res as any)?.error) toast((res as any).error, "error");
+      if (error) toast(error, "error");
       else {
         toast("Transaksi diperbarui", "success");
         onDone();
@@ -1733,52 +1665,61 @@ function EditOrderForm({
           backgroundColor: "color-mix(in oklab, var(--bg) 55%, var(--card))",
         }}
       >
-        <div className="min-w-0 rounded-md border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/30">
-          <label className="mb-2 block text-sm font-bold text-emerald-800 dark:text-emerald-200">
-            Pendapatan Bersih (1 transaksi)
-          </label>
-          <CurrencyInput value={netIncome} onChange={setNetIncome} required />
-          <p className="text-xs mt-1 text-emerald-700 dark:text-emerald-300">
-            Potongan/komisi dihitung otomatis dari total omset dikurangi
-            pendapatan bersih.
-          </p>
+        <div className="space-y-4">
+          {!isFake && (
+            <div className="min-w-0">
+              <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                Potongan Admin (Rp)
+              </label>
+              <CurrencyInput value={feeAmount} onChange={setFeeAmount} required />
+            </div>
+          )}
+          {isFake && (
+            <div className="min-w-0 rounded-md border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/30">
+              <label className="mb-2 block text-sm font-bold text-emerald-800 dark:text-emerald-200">
+                Pendapatan Bersih (Net Profit)
+              </label>
+              <CurrencyInput value={netIncome} onChange={setNetIncome} required />
+            </div>
+          )}
         </div>
+
         <div className="min-w-0 text-left sm:text-right space-y-1">
           <label className="flex sm:justify-end items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
             <input type="checkbox" checked={isFake} onChange={(e) => setIsFake(e.target.checked)} className="rounded text-red-600 focus:ring-red-500" />
             Tandai sebagai Fake Order
           </label>
+          
           {isFake && (
-            <div className="min-w-0 rounded-md border border-red-200 bg-red-50 p-3 dark:border-red-900/60 dark:bg-red-950/30 mb-2 text-left">
-              <label className="mb-2 block text-sm font-bold text-red-800 dark:text-red-200">
-                Pengeluaran Dana Perusahaan
-              </label>
-              <CurrencyInput value={companyExpense} onChange={setCompanyExpense} required />
+            <div className="min-w-0 rounded-md border border-red-200 bg-red-50 p-3 dark:border-red-900/60 dark:bg-red-950/30 mb-2 text-left space-y-3">
+              <div>
+                <label className="mb-2 block text-sm font-bold text-red-800 dark:text-red-200">
+                  Pengeluaran Dana Perusahaan
+                </label>
+                <CurrencyInput value={companyExpense} onChange={setCompanyExpense} required />
+              </div>
+              <div className="pt-2 border-t border-red-200 dark:border-red-900/40">
+                <div className="text-sm font-bold text-red-800 dark:text-red-200 mb-1">Total Biaya Hangus</div>
+                <div className="text-lg font-black text-red-700 dark:text-red-400">
+                  {formatIDR(Math.max(0, parseNumberInput(companyExpense) - parseNumberInput(netIncome)))}
+                </div>
+              </div>
             </div>
           )}
-          <div className="text-sm" style={{ color: "var(--muted)" }}>
-            Total Omset
-          </div>
-          <div className="text-base sm:text-lg font-semibold">
-            {formatIDR(totals.gross)}
-          </div>
-          <div className="text-sm" style={{ color: "var(--muted)" }}>
-            Potongan/Komisi
-          </div>
-          <div
-            className={`text-base sm:text-lg font-semibold ${totals.isNetTooHigh ? "text-red-700 dark:text-red-300" : ""}`}
-          >
-            {formatIDR(totals.fee)}
-          </div>
-          <div className="text-xs" style={{ color: "var(--muted)" }}>
-            {formatPercent(totals.feePercent)} dari total omset
-          </div>
-          <div className="text-sm" style={{ color: "var(--muted)" }}>
-            Pendapatan Bersih
-          </div>
-          <div className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
-            {formatIDR(totals.net)}
-          </div>
+
+          {!isFake && (
+            <>
+              <div className="text-xs" style={{ color: "var(--muted)" }}>
+                {formatPercent(totals.feePercent)} dari total omset
+              </div>
+              <div className="text-sm" style={{ color: "var(--muted)" }}>
+                Pendapatan Bersih
+              </div>
+              <div className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
+                {formatIDR(totals.net)}
+              </div>
+            </>
+          )}
           {totals.isNetTooHigh && (
             <div className="text-xs text-red-700 dark:text-red-300">
               Pendapatan bersih tidak boleh lebih besar dari total omset.

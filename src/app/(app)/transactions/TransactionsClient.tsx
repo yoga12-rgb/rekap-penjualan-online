@@ -1297,30 +1297,30 @@ function CreateOrderForm({
                 </div>
               </div>
             )}
-            <div className="grid grid-cols-1 gap-2 min-w-0">
-              <SummaryMetric
-                label="Total Omset"
-                value={formatIDR(totals.gross)}
-              />
-              {!isFake && (
+            {!isFake && (
+              <div className="grid grid-cols-1 gap-2 min-w-0">
+                <SummaryMetric
+                  label="Total Omset"
+                  value={formatIDR(totals.gross)}
+                />
                 <SummaryMetric
                   label="Potongan/Komisi"
                   value={formatIDR(totals.fee)}
                   sub={`${formatPercent(totals.feePercent)} dari total omset`}
                   danger={totals.isNetTooHigh}
                 />
-              )}
-              <SummaryMetric
-                label="Pendapatan Bersih"
-                value={formatIDR(totals.net)}
-                valueClassName="text-emerald-700 dark:text-emerald-400"
-              />
-              {totals.isNetTooHigh && (
-                <div className="text-xs text-red-700 dark:text-red-300">
-                  {netTooHighMessage}
-                </div>
-              )}
-            </div>
+                <SummaryMetric
+                  label="Pendapatan Bersih"
+                  value={formatIDR(totals.net)}
+                  valueClassName="text-emerald-700 dark:text-emerald-400"
+                />
+                {totals.isNetTooHigh && (
+                  <div className="text-xs text-red-700 dark:text-red-300">
+                    {netTooHighMessage}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <button
@@ -1347,49 +1347,53 @@ function CreateOrderForm({
             </label>
             <CurrencyInput value={netIncome} onChange={setNetIncome} required />
           </div>
+          {!isFake && (
+            <div
+              className="min-w-[6.5rem] rounded-md border px-2.5 py-2 text-right"
+              style={{
+                borderColor: "var(--border)",
+                backgroundColor: "var(--bg)",
+              }}
+            >
+              <div
+                className="text-[11px] font-medium"
+                style={{ color: "var(--muted)" }}
+              >
+                Total Omset
+              </div>
+              <div className="text-sm font-bold leading-tight">
+                {formatIDR(totals.gross)}
+              </div>
+            </div>
+          )}
+        </div>
+        {!isFake && (
           <div
-            className="min-w-[6.5rem] rounded-md border px-2.5 py-2 text-right"
-            style={{
-              borderColor: "var(--border)",
-              backgroundColor: "var(--bg)",
-            }}
+            className="mt-2 grid grid-cols-2 gap-2 rounded-md border px-2.5 py-2 text-xs"
+            style={{ borderColor: "var(--border)", backgroundColor: "var(--bg)" }}
           >
-            <div
-              className="text-[11px] font-medium"
-              style={{ color: "var(--muted)" }}
-            >
-              Total Omset
+            <div className="min-w-0">
+              <div className="font-medium" style={{ color: "var(--muted)" }}>
+                Potongan
+              </div>
+              <div
+                className={`truncate font-bold ${
+                  totals.isNetTooHigh ? "text-red-700 dark:text-red-300" : ""
+                }`}
+              >
+                {formatIDR(totals.fee)}
+              </div>
             </div>
-            <div className="text-sm font-bold leading-tight">
-              {formatIDR(totals.gross)}
-            </div>
-          </div>
-        </div>
-        <div
-          className="mt-2 grid grid-cols-2 gap-2 rounded-md border px-2.5 py-2 text-xs"
-          style={{ borderColor: "var(--border)", backgroundColor: "var(--bg)" }}
-        >
-          <div className="min-w-0">
-            <div className="font-medium" style={{ color: "var(--muted)" }}>
-              Potongan
-            </div>
-            <div
-              className={`truncate font-bold ${
-                totals.isNetTooHigh ? "text-red-700 dark:text-red-300" : ""
-              }`}
-            >
-              {formatIDR(totals.fee)}
+            <div className="min-w-0 text-right">
+              <div className="font-medium" style={{ color: "var(--muted)" }}>
+                Bersih
+              </div>
+              <div className="truncate font-bold text-emerald-700 dark:text-emerald-400">
+                {formatIDR(totals.net)}
+              </div>
             </div>
           </div>
-          <div className="min-w-0 text-right">
-            <div className="font-medium" style={{ color: "var(--muted)" }}>
-              Bersih
-            </div>
-            <div className="truncate font-bold text-emerald-700 dark:text-emerald-400">
-              {formatIDR(totals.net)}
-            </div>
-          </div>
-        </div>
+        )}
         {totals.isNetTooHigh && (
           <div className="mt-1.5 text-xs text-red-700 dark:text-red-300">
             {netTooHighMessage}
@@ -1785,15 +1789,15 @@ function EditOrderForm({
             </div>
           )}
 
-          <div className="text-sm" style={{ color: "var(--muted)" }}>
-            Total Omset
-          </div>
-          <div className="text-base sm:text-lg font-semibold">
-            {formatIDR(totals.gross)}
-          </div>
-          
           {!isFake && (
             <>
+              <div className="text-sm" style={{ color: "var(--muted)" }}>
+                Total Omset
+              </div>
+              <div className="text-base sm:text-lg font-semibold">
+                {formatIDR(totals.gross)}
+              </div>
+              
               <div className="text-sm" style={{ color: "var(--muted)" }}>
                 Potongan/Komisi
               </div>
@@ -1805,14 +1809,15 @@ function EditOrderForm({
               <div className="text-xs" style={{ color: "var(--muted)" }}>
                 {formatPercent(totals.feePercent)} dari total omset
               </div>
+              
+              <div className="text-sm" style={{ color: "var(--muted)" }}>
+                Pendapatan Bersih
+              </div>
+              <div className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
+                {formatIDR(totals.net)}
+              </div>
             </>
           )}
-          <div className="text-sm" style={{ color: "var(--muted)" }}>
-            Pendapatan Bersih
-          </div>
-          <div className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
-            {formatIDR(totals.net)}
-          </div>
           {totals.isNetTooHigh && (
             <div className="text-xs text-red-700 dark:text-red-300">
               Pendapatan bersih tidak boleh lebih besar dari total omset.

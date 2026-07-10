@@ -799,6 +799,25 @@ export function DashboardClient({
       )}
 
       <>
+        {dashboardData.fakeOrder && (dashboardData.fakeOrder.expense > 0 || dashboardData.fakeOrder.loss > 0) && (
+          <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-4 dark:border-red-900/60 dark:bg-red-950/30">
+            <h3 className="font-bold text-red-800 dark:text-red-200 text-base sm:text-lg mb-3">Anggaran Fake Order (Promosi)</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <div className="text-xs sm:text-sm text-red-700 dark:text-red-300">Total Pengeluaran Perusahaan</div>
+                <div className="text-lg sm:text-xl font-extrabold text-red-900 dark:text-red-100">{formatIDR(dashboardData.fakeOrder.expense)}</div>
+              </div>
+              <div>
+                <div className="text-xs sm:text-sm text-red-700 dark:text-red-300">Total Pendapatan Bersih (Kembali)</div>
+                <div className="text-lg sm:text-xl font-extrabold text-red-900 dark:text-red-100">{formatIDR(dashboardData.fakeOrder.net)}</div>
+              </div>
+              <div>
+                <div className="text-xs sm:text-sm font-bold text-red-800 dark:text-red-200">Total Uang Hangus (Biaya Riil)</div>
+                <div className="text-lg sm:text-xl font-black text-red-700 dark:text-red-400">{formatIDR(dashboardData.fakeOrder.loss)}</div>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
           <KPI
             title="Total Omset"

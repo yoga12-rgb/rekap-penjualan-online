@@ -137,6 +137,11 @@ export type DashboardData = {
   merchantIncreases: DeclineMetric[];
   insights: string[];
   dayOfWeek: DayOfWeekPoint[];
+  fakeOrder?: {
+    expense: number;
+    net: number;
+    loss: number;
+  };
 };
 
 export function buildDashboardData({

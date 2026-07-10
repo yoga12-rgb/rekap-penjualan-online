@@ -20,6 +20,7 @@ const OrderSchema = z.object({
   transaction_date: z.string().min(1),
   deduction_fee: z.coerce.number().nonnegative(),
   is_fake: z.boolean().default(false),
+  company_expense: z.coerce.number().nonnegative().default(0),
   items: z.array(ItemSchema).min(1),
 });
 
@@ -66,11 +67,12 @@ export async function createOrder(payload: unknown) {
     outlet_id = profile.outlet_id;
   }
 
-  const { items, food_merchant_id, transaction_date, deduction_fee, is_fake } =
+  const { items, food_merchant_id, transaction_date, deduction_fee, is_fake, company_expense } =
     parsed.data;
   const order_number = parsed.data.order_number?.trim() || null;
   const grosses = items.map((it) => ({ gross: it.qty * it.initial_price }));
   const fees = splitFeeProportional(grosses, deduction_fee);
+  const companyExpenses = splitFeeProportional(grosses, company_expense || 0);
 
   const order_id = generateUUID();
   const tx_iso = wibLocalToIso(transaction_date);
@@ -86,6 +88,7 @@ export async function createOrder(payload: unknown) {
     initial_price: it.initial_price,
     deduction_fee: fees[i],
     is_fake,
+    company_expense: companyExpenses[i],
     created_by: profile.id,
   }));
 
@@ -105,7 +108,7 @@ export async function updateOrder(payload: unknown) {
   if (!parsed.success)
     return { error: parsed.error.issues[0]?.message ?? "Data tidak valid" };
 
-  const { order_id, items, food_merchant_id, transaction_date, deduction_fee, is_fake } =
+  const { order_id, items, food_merchant_id, transaction_date, deduction_fee, is_fake, company_expense } =
     parsed.data;
   const order_number = parsed.data.order_number?.trim() || null;
 
@@ -125,6 +128,7 @@ export async function updateOrder(payload: unknown) {
 
   const grosses = items.map((it) => ({ gross: it.qty * it.initial_price }));
   const fees = splitFeeProportional(grosses, deduction_fee);
+  const companyExpenses = splitFeeProportional(grosses, company_expense || 0);
   const tx_iso = wibLocalToIso(transaction_date);
   const existingIds = new Set(existingRows.map((row) => row.id));
   const keptIds = new Set(items.map((item) => item.id).filter(Boolean));
@@ -141,6 +145,7 @@ export async function updateOrder(payload: unknown) {
       initial_price: item.initial_price,
       deduction_fee: fees[i],
       is_fake,
+      company_expense: companyExpenses[i],
     };
 
     if (item.id && existingIds.has(item.id)) {

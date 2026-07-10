@@ -23,6 +23,7 @@ export type TransactionRow = {
   initial_price: number;
   deduction_fee: number;
   net_profit: number;
+  company_expense: number;
   is_fake: boolean;
   outlet_id: string;
   food_merchant_id: string;
@@ -44,6 +45,7 @@ export type TransactionGroup = {
   gross: number;
   fee: number;
   net: number;
+  company_expense: number;
   is_fake: boolean;
 };
 
@@ -94,6 +96,7 @@ export function groupTransactionRows(
       gross: 0,
       fee: 0,
       net: 0,
+      company_expense: 0,
       is_fake: row.is_fake,
     };
 
@@ -102,6 +105,7 @@ export function groupTransactionRows(
     current.gross += Number(row.qty || 0) * Number(row.initial_price || 0);
     current.fee += Number(row.deduction_fee || 0);
     current.net += Number(row.net_profit || 0);
+    current.company_expense += Number(row.company_expense || 0);
     if (row.transaction_date > current.date) current.date = row.transaction_date;
     map.set(key, current);
   }

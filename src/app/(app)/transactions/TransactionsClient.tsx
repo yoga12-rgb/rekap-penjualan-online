@@ -588,6 +588,11 @@ export function TransactionsClient({
                   <span className="font-bold text-emerald-700 dark:text-emerald-300">
                     Net: {formatIDR(g.net)}
                   </span>
+                  {g.is_fake && (
+                    <span className="font-bold text-red-700 dark:text-red-300">
+                      Pengeluaran: {formatIDR(g.company_expense)} (Uang Hangus: {formatIDR(g.company_expense - g.net)})
+                    </span>
+                  )}
                 </div>
               </div>
               {/* Mobile: list ringkas */}
@@ -963,6 +968,7 @@ function CreateOrderForm({
   );
   const [netIncome, setNetIncome] = useState<string>("");
   const [isFake, setIsFake] = useState(false);
+  const [companyExpense, setCompanyExpense] = useState<string>("");
   const [items, setItems] = useState<Item[]>([
     { key: 1, product_variant_id: "", qty: 1, initial_price: "" },
   ]);
@@ -1049,6 +1055,7 @@ function CreateOrderForm({
         transaction_date: date,
         deduction_fee: feeValue,
         is_fake: isFake,
+        company_expense: parseNumberInput(companyExpense),
         items: items.map((it) => ({
           product_variant_id: it.product_variant_id,
           qty: it.qty,
@@ -1267,6 +1274,14 @@ function CreateOrderForm({
               <input type="checkbox" checked={isFake} onChange={(e) => setIsFake(e.target.checked)} className="rounded text-red-600 focus:ring-red-500" />
               Tandai sebagai Fake Order
             </label>
+            {isFake && (
+              <div className="min-w-0 rounded-md border border-red-200 bg-red-50 p-3 dark:border-red-900/60 dark:bg-red-950/30">
+                <label className="mb-2 block text-sm font-bold text-red-800 dark:text-red-200">
+                  Pengeluaran Dana Perusahaan
+                </label>
+                <CurrencyInput value={companyExpense} onChange={setCompanyExpense} required />
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-2 min-w-0">
               <SummaryMetric
                 label="Total Omset"
@@ -1448,6 +1463,9 @@ function EditOrderForm({
     formatNumberInput(group.net),
   );
   const [isFake, setIsFake] = useState(group.is_fake ?? false);
+  const [companyExpense, setCompanyExpense] = useState<string>(() => 
+    formatNumberInput(group.company_expense || 0)
+  );
   const [items, setItems] = useState<Item[]>(() =>
     group.rows.map((row, index) => ({
       key: index + 1,
@@ -1536,6 +1554,7 @@ function EditOrderForm({
         transaction_date: date,
         deduction_fee: totals.fee,
         is_fake: isFake,
+        company_expense: parseNumberInput(companyExpense),
         items: items.map((it) => ({
           id: it.id,
           product_variant_id: it.product_variant_id,
@@ -1729,6 +1748,14 @@ function EditOrderForm({
             <input type="checkbox" checked={isFake} onChange={(e) => setIsFake(e.target.checked)} className="rounded text-red-600 focus:ring-red-500" />
             Tandai sebagai Fake Order
           </label>
+          {isFake && (
+            <div className="min-w-0 rounded-md border border-red-200 bg-red-50 p-3 dark:border-red-900/60 dark:bg-red-950/30 mb-2 text-left">
+              <label className="mb-2 block text-sm font-bold text-red-800 dark:text-red-200">
+                Pengeluaran Dana Perusahaan
+              </label>
+              <CurrencyInput value={companyExpense} onChange={setCompanyExpense} required />
+            </div>
+          )}
           <div className="text-sm" style={{ color: "var(--muted)" }}>
             Total Omset
           </div>

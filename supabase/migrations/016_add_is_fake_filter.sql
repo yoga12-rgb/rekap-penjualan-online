@@ -201,12 +201,12 @@ select jsonb_build_object(
     (
       select jsonb_agg(
         jsonb_build_object(
-          'transaction_key', g.transaction_key,
-          'sort_date', g.sort_date,
-          'order_number', g.order_number,
-          'outlet_name', g.outlet_name,
-          'merchant_name', g.merchant_name,
-          'merchant_color', g.merchant_color,
+          'order_id', g.transaction_key,
+          'orderNumber', g.order_number,
+          'date', g.sort_date,
+          'outlet', g.outlet_name,
+          'merchant', g.merchant_name,
+          'merchantColor', g.merchant_color,
           'is_fake', g.is_fake,
           'company_expense', g.company_expense,
           'qty', g.qty,

@@ -650,8 +650,6 @@ grouped as (
     po.gross,
     po.fee,
     po.net,
-    po.company_expense,
-    po.company_expense,
     jsonb_agg(
       jsonb_build_object(
         'id', tx.id,
@@ -689,7 +687,8 @@ grouped as (
     po.gross,
     po.fee,
     po.net,
-    po.is_fake
+    po.is_fake,
+    po.company_expense
 ),
 page_meta as (
   select

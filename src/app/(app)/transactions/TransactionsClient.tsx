@@ -502,7 +502,7 @@ export function TransactionsClient({
           </span>
         </div>
       )}
-      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-5">
         <Stat
           title="Transaksi"
           value={`${totals.orderCount.toLocaleString("id-ID")} order`}
@@ -516,7 +516,15 @@ export function TransactionsClient({
           sub={formatPercent(feePercent(totals.fee, totals.gross))}
           tone="amber"
         />
-        <Stat title="Net Profit" value={formatIDR(totals.net)} tone="emerald" />
+        <Stat title="Pendapatan Bersih" value={formatIDR(totals.net)} tone="emerald" />
+        {role !== "kasir" && (
+          <Stat
+            title="Profit Bersih (vs HPP)"
+            value={formatIDR(totals.cleanProfit)}
+            sub={`HPP: ${formatIDR(totals.hpp)}`}
+            tone="indigo"
+          />
+        )}
       </div>
 
       <div className="space-y-3">

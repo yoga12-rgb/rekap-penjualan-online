@@ -24,6 +24,7 @@ export type TransactionRow = {
   deduction_fee: number;
   net_profit: number;
   company_expense: number;
+  total_hpp?: number;
   is_fake: boolean;
   outlet_id: string;
   food_merchant_id: string;
@@ -46,6 +47,7 @@ export type TransactionGroup = {
   fee: number;
   net: number;
   company_expense: number;
+  total_hpp: number;
   is_fake: boolean;
 };
 
@@ -55,6 +57,8 @@ export type TransactionSummary = {
   gross: number;
   fee: number;
   net: number;
+  hpp: number;
+  cleanProfit: number;
 };
 
 export type TransactionOrderPage = {
@@ -69,6 +73,8 @@ export const EMPTY_TRANSACTION_SUMMARY: TransactionSummary = {
   gross: 0,
   fee: 0,
   net: 0,
+  hpp: 0,
+  cleanProfit: 0,
 };
 
 export const EMPTY_TRANSACTION_ORDER_PAGE: TransactionOrderPage = {
@@ -97,6 +103,7 @@ export function groupTransactionRows(
       fee: 0,
       net: 0,
       company_expense: 0,
+      total_hpp: 0,
       is_fake: row.is_fake,
     };
 
@@ -106,6 +113,7 @@ export function groupTransactionRows(
     current.fee += Number(row.deduction_fee || 0);
     current.net += Number(row.net_profit || 0);
     current.company_expense += Number(row.company_expense || 0);
+    current.total_hpp += Number(row.total_hpp || 0);
     if (row.transaction_date > current.date) current.date = row.transaction_date;
     map.set(key, current);
   }
@@ -118,17 +126,18 @@ export function groupTransactionRows(
 export function summarizeTransactionRows(
   rows: TransactionRow[],
 ): TransactionSummary {
-  const orderIds = new Set<string>();
-  const totals = { ...EMPTY_TRANSACTION_SUMMARY };
+  const summary = { ...EMPTY_TRANSACTION_SUMMARY };
+  const keys = new Set<string>();
 
-  for (const row of rows) {
-    orderIds.add(row.order_id ?? row.id);
-    totals.qty += Number(row.qty || 0);
-    totals.gross += Number(row.qty || 0) * Number(row.initial_price || 0);
-    totals.fee += Number(row.deduction_fee || 0);
-    totals.net += Number(row.net_profit || 0);
+  for (const r of rows) {
+    keys.add(r.order_id || r.id);
+    summary.qty += r.qty;
+    summary.gross += r.qty * r.initial_price;
+    summary.fee += r.deduction_fee;
+    summary.net += r.net_profit;
+    summary.hpp += r.total_hpp || 0;
   }
-
-  totals.orderCount = orderIds.size;
-  return totals;
+  summary.orderCount = keys.size;
+  summary.cleanProfit = summary.net - summary.hpp;
+  return summary;
 }

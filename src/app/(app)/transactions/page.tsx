@@ -77,6 +77,8 @@ function normalizeSummary(data: unknown): TransactionSummary {
     gross: normalizeNumber(item.gross),
     fee: normalizeNumber(item.fee),
     net: normalizeNumber(item.net),
+    hpp: normalizeNumber(item.hpp),
+    cleanProfit: normalizeNumber(item.cleanProfit),
   };
 }
 

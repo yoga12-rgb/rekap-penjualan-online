@@ -1250,6 +1250,29 @@ function CreateOrderForm({
               ))}
             </div>
           </div>
+
+          <div className="lg:hidden mt-2 border-t pt-4" style={{ borderColor: "var(--border)" }}>
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+              <input type="checkbox" checked={isFake} onChange={(e) => setIsFake(e.target.checked)} className="rounded text-red-600 focus:ring-red-500" />
+              Tandai sebagai Fake Order
+            </label>
+            {isFake && (
+              <div className="min-w-0 rounded-md border border-red-200 bg-red-50 p-3 dark:border-red-900/60 dark:bg-red-950/30 space-y-3">
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-red-800 dark:text-red-200">
+                    Pengeluaran Dana Perusahaan
+                  </label>
+                  <CurrencyInput value={companyExpense} onChange={setCompanyExpense} required />
+                </div>
+                <div className="pt-2 border-t border-red-200 dark:border-red-900/40">
+                  <div className="text-sm font-bold text-red-800 dark:text-red-200 mb-1">Total Biaya Hangus</div>
+                  <div className="text-lg font-black text-red-700 dark:text-red-400">
+                    {formatIDR(Math.max(0, parseNumberInput(companyExpense) - parseNumberInput(netIncome)))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <aside className="hidden min-w-0 shrink-0 space-y-3 lg:sticky lg:top-0 lg:block lg:w-80">
@@ -1340,29 +1363,6 @@ function CreateOrderForm({
           borderColor: "var(--border)",
         }}
       >
-        <div className="mb-3">
-          <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-            <input type="checkbox" checked={isFake} onChange={(e) => setIsFake(e.target.checked)} className="rounded text-red-600 focus:ring-red-500" />
-            Tandai sebagai Fake Order
-          </label>
-          {isFake && (
-            <div className="min-w-0 rounded-md border border-red-200 bg-red-50 p-3 dark:border-red-900/60 dark:bg-red-950/30 space-y-3">
-              <div>
-                <label className="mb-2 block text-sm font-bold text-red-800 dark:text-red-200">
-                  Pengeluaran Dana Perusahaan
-                </label>
-                <CurrencyInput value={companyExpense} onChange={setCompanyExpense} required />
-              </div>
-              <div className="pt-2 border-t border-red-200 dark:border-red-900/40">
-                <div className="text-sm font-bold text-red-800 dark:text-red-200 mb-1">Total Biaya Hangus</div>
-                <div className="text-lg font-black text-red-700 dark:text-red-400">
-                  {formatIDR(Math.max(0, parseNumberInput(companyExpense) - parseNumberInput(netIncome)))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
           <div className="min-w-0">
             <label className="mb-1 block text-xs font-semibold text-emerald-700 dark:text-emerald-300">

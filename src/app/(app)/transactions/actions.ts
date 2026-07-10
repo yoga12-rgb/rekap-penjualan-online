@@ -74,6 +74,10 @@ export async function createOrder(payload: unknown) {
   const fees = splitFeeProportional(grosses, deduction_fee);
   const companyExpenses = splitFeeProportional(grosses, company_expense || 0);
 
+  const variantIds = items.map(it => it.product_variant_id);
+  const { data: variants } = await supabase.from('product_variants').select('id, hpp').in('id', variantIds);
+  const hppMap = new Map(variants?.map(v => [v.id, v.hpp]) || []);
+
   const order_id = generateUUID();
   const tx_iso = wibLocalToIso(transaction_date);
 
@@ -89,6 +93,7 @@ export async function createOrder(payload: unknown) {
     deduction_fee: fees[i],
     is_fake,
     company_expense: companyExpenses[i],
+    total_hpp: (hppMap.get(it.product_variant_id) || 0) * it.qty,
     created_by: profile.id,
   }));
 
@@ -133,6 +138,10 @@ export async function updateOrder(payload: unknown) {
   const existingIds = new Set(existingRows.map((row) => row.id));
   const keptIds = new Set(items.map((item) => item.id).filter(Boolean));
 
+  const variantIds = items.map(it => it.product_variant_id);
+  const { data: variants } = await supabase.from('product_variants').select('id, hpp').in('id', variantIds);
+  const hppMap = new Map(variants?.map(v => [v.id, v.hpp]) || []);
+
   for (const [i, item] of items.entries()) {
     const row = {
       order_id,
@@ -146,6 +155,7 @@ export async function updateOrder(payload: unknown) {
       deduction_fee: fees[i],
       is_fake,
       company_expense: companyExpenses[i],
+      total_hpp: (hppMap.get(item.product_variant_id) || 0) * item.qty,
     };
 
     if (item.id && existingIds.has(item.id)) {

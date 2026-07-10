@@ -5,7 +5,7 @@ import { toast } from "@/components/Toast";
 import { formatIDR } from "@/lib/utils";
 import { createProduct, updateProduct, deleteProduct, updateProductPrices } from "./actions";
 
-type Row = { id: string; name: string; base_price: number; created_at: string };
+type Row = { id: string; name: string; hpp: number; base_price: number; created_at: string };
 type Merchant = { id: string; name: string; color?: string | null };
 type PriceRow = { product_variant_id: string; food_merchant_id: string; price: number };
 
@@ -125,7 +125,8 @@ export function ProductsClient({
           <thead>
             <tr>
               <th className="min-w-44">Produk</th>
-              <th className="text-right min-w-36">Harga Default</th>
+              <th className="text-right min-w-36">HPP (Modal)</th>
+              <th className="text-right min-w-36">Harga Jual Default</th>
               {merchants.map((merchant) => (
                 <th key={merchant.id} className="text-right min-w-40">{merchant.name}</th>
               ))}
@@ -141,6 +142,7 @@ export function ProductsClient({
                     Dibuat {new Date(row.created_at).toLocaleDateString("id-ID")}
                   </div>
                 </td>
+                <td className="text-right font-medium text-orange-500">{formatIDR(row.hpp)}</td>
                 <td className="text-right font-medium">{formatIDR(row.base_price)}</td>
                 {merchants.map((merchant) => {
                   const value = getDraft(row.id, merchant.id);
@@ -188,13 +190,16 @@ export function ProductsClient({
       <Modal open={open} onClose={() => setOpen(false)} title={editing ? "Edit Produk" : "Tambah Produk"}>
         <form onSubmit={(e) => { e.preventDefault(); onSubmit(e.currentTarget); }} className="space-y-3">
           <div>
-            <label className="label">Nama Varian</label>
-            <input className="input" name="name" defaultValue={editing?.name ?? ""} required />
+            <label className="label">Nama Produk/Varian</label>
+            <input name="name" className="input" defaultValue={editing?.name} required autoFocus />
           </div>
           <div>
-            <label className="label">Harga Default</label>
-            <input className="input" type="number" min={0} step={1} name="base_price"
-                   defaultValue={editing?.base_price ?? 0} required />
+            <label className="label">HPP (Modal Dasar)</label>
+            <input name="hpp" type="number" min="0" className="input" defaultValue={editing?.hpp} required />
+          </div>
+          <div>
+            <label className="label">Harga Jual (Default)</label>
+            <input name="base_price" type="number" min="0" className="input" defaultValue={editing?.base_price} required />
             <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
               Dipakai jika harga khusus merchant belum diisi.
             </p>

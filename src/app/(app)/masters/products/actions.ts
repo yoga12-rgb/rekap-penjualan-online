@@ -6,7 +6,8 @@ import { z } from "zod";
 
 const Schema = z.object({
   name: z.string().min(1),
-  base_price: z.coerce.number().nonnegative()
+  base_price: z.coerce.number().nonnegative(),
+  hpp: z.coerce.number().nonnegative().default(0)
 });
 
 const PriceSchema = z.object({

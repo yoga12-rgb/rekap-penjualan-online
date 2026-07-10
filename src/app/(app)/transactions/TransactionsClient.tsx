@@ -657,6 +657,14 @@ export function TransactionsClient({
                         <b className="text-emerald-700 dark:text-emerald-400">
                           {formatIDR(r.net_profit)}
                         </b>
+                        {role !== "kasir" && !g.is_fake && r.total_hpp !== undefined && r.total_hpp > 0 && (
+                          <>
+                            {" · "}
+                            <span className="font-medium text-emerald-600 dark:text-emerald-500">
+                              Margin: {formatPercent(((r.net_profit - r.total_hpp) / r.total_hpp) * 100)}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -715,8 +723,15 @@ export function TransactionsClient({
                             )}
                           </div>
                         </td>
-                        <td className="text-right font-extrabold text-slate-950 dark:text-white">
-                          {formatIDR(r.net_profit)}
+                        <td className="text-right">
+                          <div className="font-extrabold text-slate-950 dark:text-white">
+                            {formatIDR(r.net_profit)}
+                          </div>
+                          {role !== "kasir" && !g.is_fake && r.total_hpp !== undefined && r.total_hpp > 0 && (
+                            <div className="text-xs font-medium text-emerald-600 dark:text-emerald-500 mt-0.5">
+                              {formatPercent(((r.net_profit - r.total_hpp) / r.total_hpp) * 100)} Margin
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}

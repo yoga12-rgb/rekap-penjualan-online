@@ -226,9 +226,10 @@ export default function MatrixClient() {
                   <React.Fragment key={group.merchant_id}>
                     {/* Merchant Header Row */}
                     <tr>
-                      <td colSpan={columns.length + 2} className="bg-slate-100 dark:bg-slate-800/50 p-2 font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-700" style={{ color: group.merchant_color || 'inherit' }}>
+                      <td colSpan={2} className="sticky left-0 z-10 bg-slate-100 dark:bg-slate-800 p-2 font-bold text-slate-900 dark:text-white border-b border-r border-slate-200 dark:border-slate-700" style={{ color: group.merchant_color || 'inherit' }}>
                         {group.merchant_name}
                       </td>
+                      <td colSpan={columns.length} className="bg-slate-100 dark:bg-slate-800 p-2 border-b border-slate-200 dark:border-slate-700"></td>
                     </tr>
                     
                     {/* Outlets Rows */}
@@ -239,7 +240,7 @@ export default function MatrixClient() {
                           <td className="sticky left-0 z-10 bg-white dark:bg-slate-900 p-3 font-medium border-b border-r border-slate-200 dark:border-slate-700 whitespace-nowrap">
                             {outlet.outlet_name}
                           </td>
-                          <td className="sticky left-[200px] z-10 bg-slate-50 dark:bg-slate-800/50 p-3 font-semibold text-right border-b border-r border-slate-200 dark:border-slate-700">
+                          <td className="sticky left-[200px] z-10 bg-slate-50 dark:bg-slate-800 p-3 font-semibold text-right border-b border-r border-slate-200 dark:border-slate-700">
                             {formatIDR(rowTotal)}
                           </td>
                           {columns.map(c => {

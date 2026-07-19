@@ -15,6 +15,7 @@ import {
   PanelLeftOpen,
   Megaphone,
   Activity,
+  Table,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,7 @@ const MAIN: Item[] = [
   { href: "/transactions", label: "Transaksi", icon: ReceiptText },
   { href: "/ad-costs", label: "Biaya Iklan", icon: Megaphone },
   { href: "/surveys", label: "Survey", icon: ClipboardList },
+  { href: "/reports/matrix", label: "Matriks Omset", icon: Table },
 ];
 
 const MASTERS: Item[] = [

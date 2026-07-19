@@ -225,11 +225,21 @@ export default function MatrixClient() {
                 {data.map((group) => (
                   <React.Fragment key={group.merchant_id}>
                     {/* Merchant Header Row */}
-                    <tr>
-                      <td colSpan={2} className="sticky left-0 z-10 bg-slate-100 dark:bg-slate-800 p-2 font-bold text-slate-900 dark:text-white border-b border-r border-slate-200 dark:border-slate-700" style={{ color: group.merchant_color || 'inherit' }}>
+                    <tr className="bg-slate-100 dark:bg-slate-800/80">
+                      <td className="sticky left-0 z-10 bg-slate-200 dark:bg-slate-800 p-2 font-bold text-slate-900 dark:text-white border-b border-r border-slate-300 dark:border-slate-700" style={{ color: group.merchant_color || 'inherit' }}>
                         {group.merchant_name}
                       </td>
-                      <td colSpan={columns.length} className="bg-slate-100 dark:bg-slate-800 p-2 border-b border-slate-200 dark:border-slate-700"></td>
+                      <td className="sticky left-[200px] z-10 bg-slate-200 dark:bg-slate-800 p-2 font-bold text-right border-b border-r border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white">
+                        {formatIDR(group.outlets?.reduce((sum, o) => sum + (metricType === "gross" ? o.total_gross : o.total_net), 0) || 0)}
+                      </td>
+                      {columns.map(c => {
+                        const colTotal = group.outlets?.reduce((sum, o) => sum + (o.time_data?.[c.key]?.[metricType] || 0), 0) || 0;
+                        return (
+                          <td key={`header-${c.key}`} className="p-2 font-semibold text-right border-b border-r border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+                            {colTotal === 0 ? '-' : formatIDR(colTotal)}
+                          </td>
+                        );
+                      })}
                     </tr>
                     
                     {/* Outlets Rows */}

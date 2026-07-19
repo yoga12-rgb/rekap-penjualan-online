@@ -22,6 +22,7 @@ create table if not exists public.product_variants (
   id uuid primary key default gen_random_uuid(),
   name text not null unique,
   base_price numeric(12,2) not null check (base_price >= 0),
+  hpp numeric(12,2) not null default 0 check (hpp >= 0),
   created_at timestamptz not null default now()
 );
 
@@ -55,6 +56,9 @@ create table if not exists public.transactions (
   qty integer not null check (qty > 0),
   initial_price numeric(12,2) not null check (initial_price >= 0), -- HARGA STATIS saat transaksi
   deduction_fee numeric(12,2) not null default 0 check (deduction_fee >= 0),
+  is_fake boolean not null default false,
+  company_expense numeric(12,2) not null default 0 check (company_expense >= 0),
+  total_hpp numeric(14,2) not null default 0 check (total_hpp >= 0),
   net_profit numeric(14,2) generated always as ((qty * initial_price) - deduction_fee) stored,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -377,6 +381,28 @@ stable
 set search_path = public
 as $$
 with
+
+fake_tx as (
+  select
+    t.net_profit::numeric as net_profit,
+    t.company_expense::numeric as company_expense,
+    t.total_hpp::numeric as total_hpp
+  from public.transactions t
+  where t.transaction_date >= (p_from::text || ' 00:00:00+07')::timestamptz
+    and t.transaction_date <= (p_to::text || ' 23:59:59.999+07')::timestamptz
+    and t.is_fake = true
+    and (p_outlet is null or t.outlet_id = p_outlet)
+    and (p_merchant is null or t.food_merchant_id = p_merchant)
+    and (p_variant is null or t.product_variant_id = p_variant)
+),
+fake_totals as (
+  select
+    coalesce(sum(company_expense), 0) as company_expense,
+    coalesce(sum(net_profit), 0) as net,
+    coalesce(sum(total_hpp), 0) as hpp,
+    coalesce(sum(company_expense), 0) + coalesce(sum(total_hpp), 0) - coalesce(sum(net_profit), 0) as loss
+  from fake_tx
+),
 current_tx as (
   select
     t.id,
@@ -389,6 +415,7 @@ current_tx as (
     t.initial_price::numeric as initial_price,
     t.deduction_fee::numeric as deduction_fee,
     t.net_profit::numeric as net_profit,
+    t.total_hpp::numeric as total_hpp,
     (t.qty::numeric * t.initial_price::numeric) as gross,
     coalesce(t.order_id::text, t.id::text) as transaction_key,
     ((t.transaction_date at time zone 'Asia/Jakarta')::date)::text as date_key,
@@ -403,6 +430,7 @@ current_tx as (
   left join public.product_variants v on v.id = t.product_variant_id
   where t.transaction_date >= (p_from::text || ' 00:00:00+07')::timestamptz
     and t.transaction_date <= (p_to::text || ' 23:59:59.999+07')::timestamptz
+    and t.is_fake = false
     and (p_outlet is null or t.outlet_id = p_outlet)
     and (p_merchant is null or t.food_merchant_id = p_merchant)
     and (p_variant is null or t.product_variant_id = p_variant)
@@ -415,16 +443,19 @@ previous_tx as (
     t.product_variant_id,
     t.qty::numeric as qty,
     t.net_profit::numeric as net_profit,
+    t.total_hpp::numeric as total_hpp,
     (t.qty::numeric * t.initial_price::numeric) as gross,
     t.deduction_fee::numeric as deduction_fee,
     coalesce(t.order_id::text, t.id::text) as transaction_key,
     coalesce(m.name, '-') as merchant_name,
+    m.color as merchant_color,
     coalesce(v.name, '-') as product_name
   from public.transactions t
   left join public.food_merchants m on m.id = t.food_merchant_id
   left join public.product_variants v on v.id = t.product_variant_id
   where t.transaction_date >= (p_previous_from::text || ' 00:00:00+07')::timestamptz
     and t.transaction_date <= (p_previous_to::text || ' 23:59:59.999+07')::timestamptz
+    and t.is_fake = false
     and (p_outlet is null or t.outlet_id = p_outlet)
     and (p_merchant is null or t.food_merchant_id = p_merchant)
     and (p_variant is null or t.product_variant_id = p_variant)
@@ -461,6 +492,7 @@ current_tx_totals as (
     coalesce(sum(gross), 0) as gross,
     coalesce(sum(deduction_fee), 0) as fee,
     coalesce(sum(net_profit), 0) as net,
+    coalesce(sum(total_hpp), 0) as hpp,
     coalesce(sum(qty), 0) as qty,
     count(distinct transaction_key)::numeric as transaction_count
   from current_tx
@@ -470,6 +502,7 @@ previous_tx_totals as (
     coalesce(sum(gross), 0) as gross,
     coalesce(sum(deduction_fee), 0) as fee,
     coalesce(sum(net_profit), 0) as net,
+    coalesce(sum(total_hpp), 0) as hpp,
     coalesce(sum(qty), 0) as qty,
     count(distinct transaction_key)::numeric as transaction_count
   from previous_tx
@@ -480,13 +513,14 @@ current_totals as (
     t.fee,
     case when t.gross > 0 then (t.fee / t.gross) * 100 else 0 end as fee_percent,
     t.net,
+    t.hpp,
     coalesce((select sum(amount) from current_ad), 0) as ad_cost,
-    t.net - coalesce((select sum(amount) from current_ad), 0) as clean_profit,
+    t.net - coalesce((select sum(amount) from current_ad), 0) - t.hpp as clean_profit,
     t.qty,
     t.transaction_count,
     case when t.transaction_count > 0 then t.gross / t.transaction_count else 0 end as avg_gross,
     case when t.transaction_count > 0 then t.qty / t.transaction_count else 0 end as avg_qty,
-    case when t.transaction_count > 0 then t.net / t.transaction_count else 0 end as avg_net
+    case when t.transaction_count > 0 then (t.net - t.hpp) / t.transaction_count else 0 end as avg_net
   from current_tx_totals t
 ),
 previous_totals as (
@@ -495,13 +529,14 @@ previous_totals as (
     t.fee,
     case when t.gross > 0 then (t.fee / t.gross) * 100 else 0 end as fee_percent,
     t.net,
+    t.hpp,
     coalesce((select sum(amount) from previous_ad), 0) as ad_cost,
-    t.net - coalesce((select sum(amount) from previous_ad), 0) as clean_profit,
+    t.net - coalesce((select sum(amount) from previous_ad), 0) - t.hpp as clean_profit,
     t.qty,
     t.transaction_count,
     case when t.transaction_count > 0 then t.gross / t.transaction_count else 0 end as avg_gross,
     case when t.transaction_count > 0 then t.qty / t.transaction_count else 0 end as avg_qty,
-    case when t.transaction_count > 0 then t.net / t.transaction_count else 0 end as avg_net
+    case when t.transaction_count > 0 then (t.net - t.hpp) / t.transaction_count else 0 end as avg_net
   from previous_tx_totals t
 ),
 comparison_rows as (
@@ -519,7 +554,7 @@ comparison_rows as (
   ) as item(label, current_value, previous_value, format)
 ),
 daily_tx as (
-  select date_key, sum(gross) as gross, sum(deduction_fee) as fee, sum(net_profit) as net
+  select date_key, sum(gross) as gross, sum(deduction_fee) as fee, sum(net_profit) as net, sum(total_hpp) as hpp
   from current_tx
   group by date_key
 ),
@@ -535,7 +570,7 @@ daily as (
     coalesce(t.fee, 0) as fee,
     coalesce(t.net, 0) as net,
     coalesce(a.ad_cost, 0) as ad_cost,
-    coalesce(t.net, 0) - coalesce(a.ad_cost, 0) as clean_profit
+    coalesce(t.net, 0) - coalesce(a.ad_cost, 0) - coalesce(t.hpp, 0) as clean_profit
   from daily_tx t
   full outer join daily_ad a on a.date_key = t.date_key
 ),
@@ -556,7 +591,8 @@ merchant_tx as (
     food_merchant_id,
     min(merchant_name) as name,
     min(merchant_color) as color,
-    sum(net_profit) as net
+    sum(net_profit) as net,
+    sum(total_hpp) as hpp
   from current_tx
   group by food_merchant_id
 ),
@@ -575,7 +611,7 @@ merchant_breakdown as (
     coalesce(t.name, a.name, '-') as name,
     coalesce(t.net, 0) as net,
     coalesce(a.ad_cost, 0) as ad_cost,
-    coalesce(t.net, 0) - coalesce(a.ad_cost, 0) as clean_profit,
+    coalesce(t.net, 0) - coalesce(a.ad_cost, 0) - coalesce(t.hpp, 0) as clean_profit,
     coalesce(t.color, a.color) as color
   from merchant_tx t
   full outer join merchant_ad a on a.food_merchant_id = t.food_merchant_id
@@ -587,6 +623,7 @@ outlet_tx as (
     sum(gross) as gross,
     sum(net_profit) as net,
     sum(qty) as qty,
+    sum(total_hpp) as hpp,
     count(distinct transaction_key)::numeric as transaction_count
   from current_tx
   group by outlet_id
@@ -606,7 +643,7 @@ outlet_breakdown as (
     coalesce(t.gross, 0) as gross,
     coalesce(t.net, 0) as net,
     coalesce(a.ad_cost, 0) as ad_cost,
-    coalesce(t.net, 0) - coalesce(a.ad_cost, 0) as clean_profit,
+    coalesce(t.net, 0) - coalesce(a.ad_cost, 0) - coalesce(t.hpp, 0) as clean_profit,
     coalesce(t.qty, 0) as qty,
     coalesce(t.transaction_count, 0) as transaction_count
   from outlet_tx t
@@ -658,12 +695,12 @@ product_declines as (
   limit 5
 ),
 merchant_current as (
-  select food_merchant_id as key, min(merchant_name) as name, sum(net_profit) as value
+  select food_merchant_id as key, min(merchant_name) as name, sum(net_profit) - sum(total_hpp) as value
   from current_tx
   group by food_merchant_id
 ),
 merchant_previous as (
-  select food_merchant_id as key, min(merchant_name) as name, sum(net_profit) as value
+  select food_merchant_id as key, min(merchant_name) as name, sum(net_profit) - sum(total_hpp) as value
   from previous_tx
   group by food_merchant_id
 ),
@@ -679,6 +716,19 @@ merchant_declines as (
   where coalesce(c.value, 0) - coalesce(p.value, 0) < 0
     and coalesce(p.value, 0) > 0
   order by coalesce(c.value, 0) - coalesce(p.value, 0)
+  limit 5
+),
+merchant_increases as (
+  select
+    coalesce(c.key, p.key)::text as key,
+    coalesce(c.name, p.name, '-') as name,
+    coalesce(c.value, 0) as current,
+    coalesce(p.value, 0) as previous,
+    coalesce(c.value, 0) - coalesce(p.value, 0) as delta
+  from merchant_current c
+  full outer join merchant_previous p on p.key = c.key
+  where coalesce(c.value, 0) - coalesce(p.value, 0) > 0
+  order by coalesce(c.value, 0) - coalesce(p.value, 0) desc
   limit 5
 )
 select jsonb_build_object(
@@ -808,9 +858,26 @@ select jsonb_build_object(
     )
     from merchant_declines
   ), '[]'::jsonb),
-  'insights', '[]'::jsonb
+  'merchantIncreases', coalesce((
+    select jsonb_agg(
+      jsonb_build_object(
+        'key', key,
+        'name', name,
+        'current', current,
+        'previous', previous,
+        'delta', delta,
+        'percentChange', case when previous > 0 then (delta / previous) * 100 else 0 end
+      )
+      order by delta desc
+    )
+    from merchant_increases
+  ), '[]'::jsonb),
+  'insights', '[]'::jsonb,
+  'fakeOrder', (select jsonb_build_object('loss', loss) from fake_totals)
 );
 $$;
+
+grant execute on function public.get_dashboard_summary(date, date, date, date, uuid, uuid, uuid) to authenticated;
 
 grant execute on function public.get_dashboard_summary(date, date, date, date, uuid, uuid, uuid) to authenticated;
 
@@ -822,7 +889,8 @@ create or replace function public.get_transactions_summary(
   p_outlet uuid default null,
   p_merchant uuid default null,
   p_variant uuid default null,
-  p_q text default null
+  p_q text default null,
+  p_is_fake text default 'all'
 )
 returns jsonb
 language sql
@@ -838,6 +906,7 @@ with filtered_tx as (
     t.initial_price::numeric as initial_price,
     t.deduction_fee::numeric as deduction_fee,
     t.net_profit::numeric as net_profit,
+    t.total_hpp::numeric as total_hpp,
     coalesce(t.order_id::text, t.id::text) as transaction_key
   from public.transactions t
   left join public.outlets o on o.id = t.outlet_id
@@ -855,13 +924,20 @@ with filtered_tx as (
       or m.name ilike '%' || trim(p_q) || '%'
       or v.name ilike '%' || trim(p_q) || '%'
     )
+    and (
+      p_is_fake = 'all'
+      or (p_is_fake = 'fake' and t.is_fake = true)
+      or (p_is_fake = 'normal' and t.is_fake = false)
+    )
 )
 select jsonb_build_object(
   'orderCount', count(distinct transaction_key),
   'qty', coalesce(sum(qty), 0),
   'gross', coalesce(sum(qty * initial_price), 0),
   'fee', coalesce(sum(deduction_fee), 0),
-  'net', coalesce(sum(net_profit), 0)
+  'net', coalesce(sum(net_profit), 0),
+  'hpp', coalesce(sum(total_hpp), 0),
+  'cleanProfit', coalesce(sum(net_profit), 0) - coalesce(sum(total_hpp), 0)
 )
 from filtered_tx;
 $$;
@@ -874,7 +950,8 @@ create or replace function public.get_transaction_order_page(
   p_variant uuid default null,
   p_q text default null,
   p_offset integer default 0,
-  p_limit integer default 12
+  p_limit integer default 12,
+  p_is_fake text default 'all'
 )
 returns jsonb
 language sql
@@ -891,9 +968,12 @@ with filtered_tx as (
     t.initial_price::numeric as initial_price,
     t.deduction_fee::numeric as deduction_fee,
     t.net_profit::numeric as net_profit,
+    t.total_hpp::numeric as total_hpp,
     t.outlet_id,
     t.food_merchant_id,
     t.product_variant_id,
+    t.is_fake,
+    t.company_expense,
     coalesce(t.order_id::text, t.id::text) as transaction_key,
     coalesce(o.name, '') as outlet_name,
     coalesce(m.name, '') as merchant_name,
@@ -915,6 +995,11 @@ with filtered_tx as (
       or m.name ilike '%' || trim(p_q) || '%'
       or v.name ilike '%' || trim(p_q) || '%'
     )
+    and (
+      p_is_fake = 'all'
+      or (p_is_fake = 'fake' and t.is_fake = true)
+      or (p_is_fake = 'normal' and t.is_fake = false)
+    )
 ),
 order_totals as (
   select
@@ -924,10 +1009,12 @@ order_totals as (
     max(outlet_name) as outlet_name,
     max(merchant_name) as merchant_name,
     max(merchant_color) as merchant_color,
+    bool_or(is_fake) as is_fake,
     sum(qty) as qty,
     sum(qty * initial_price) as gross,
     sum(deduction_fee) as fee,
-    sum(net_profit) as net
+    sum(net_profit) as net,
+    sum(company_expense) as company_expense
   from filtered_tx
   group by transaction_key
 ),
@@ -949,6 +1036,8 @@ grouped as (
     po.outlet_name,
     po.merchant_name,
     po.merchant_color,
+    po.is_fake,
+    po.company_expense,
     po.qty,
     po.gross,
     po.fee,
@@ -963,6 +1052,9 @@ grouped as (
         'initial_price', tx.initial_price,
         'deduction_fee', tx.deduction_fee,
         'net_profit', tx.net_profit,
+        'total_hpp', tx.total_hpp,
+        'is_fake', tx.is_fake,
+        'company_expense', tx.company_expense,
         'outlet_id', tx.outlet_id,
         'food_merchant_id', tx.food_merchant_id,
         'product_variant_id', tx.product_variant_id,
@@ -984,45 +1076,42 @@ grouped as (
     po.outlet_name,
     po.merchant_name,
     po.merchant_color,
+    po.is_fake,
+    po.company_expense,
     po.qty,
     po.gross,
     po.fee,
     po.net
-),
-page_meta as (
-  select
-    coalesce(count(*), 0)::integer as page_count,
-    greatest(coalesce(p_offset, 0), 0)::integer as safe_offset
-  from paged_orders
 )
 select jsonb_build_object(
-  'groups', coalesce((
-    select jsonb_agg(
-      jsonb_build_object(
-        'order_id', transaction_key,
-        'orderNumber', order_number,
-        'date', sort_date,
-        'outlet', outlet_name,
-        'merchant', merchant_name,
-        'merchantColor', merchant_color,
-        'rows', rows,
-        'qty', qty,
-        'gross', gross,
-        'fee', fee,
-        'net', net
+  'groups', coalesce(
+    (
+      select jsonb_agg(
+        jsonb_build_object(
+          'order_id', g.transaction_key,
+          'orderNumber', g.order_number,
+          'date', g.sort_date,
+          'outlet', g.outlet_name,
+          'merchant', g.merchant_name,
+          'merchantColor', g.merchant_color,
+          'is_fake', g.is_fake,
+          'company_expense', g.company_expense,
+          'qty', g.qty,
+          'gross', g.gross,
+          'fee', g.fee,
+          'net', g.net,
+          'rows', g.rows
+        )
+        order by g.sort_date desc, g.transaction_key desc
       )
-      order by sort_date desc, transaction_key desc
-    )
-    from grouped
-  ), '[]'::jsonb),
-  'nextOffset', (select safe_offset + page_count from page_meta),
-  'hasMore', (
-    select oc.total > pm.safe_offset + pm.page_count
-    from order_count oc
-    cross join page_meta pm
-  )
+      from grouped g
+    ),
+    '[]'::jsonb
+  ),
+  'nextOffset', coalesce(p_offset, 0) + least(greatest(coalesce(p_limit, 12), 0), 48),
+  'hasMore', (coalesce(p_offset, 0) + least(greatest(coalesce(p_limit, 12), 0), 48)) < coalesce((select total from order_count), 0)
 );
 $$;
 
-grant execute on function public.get_transactions_summary(date, date, uuid, uuid, uuid, text) to authenticated;
-grant execute on function public.get_transaction_order_page(date, date, uuid, uuid, uuid, text, integer, integer) to authenticated;
+grant execute on function public.get_transactions_summary(date, date, uuid, uuid, uuid, text, text) to authenticated;
+grant execute on function public.get_transaction_order_page(date, date, uuid, uuid, uuid, text, integer, integer, text) to authenticated;

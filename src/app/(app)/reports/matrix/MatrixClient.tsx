@@ -196,7 +196,7 @@ export default function MatrixClient() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden relative z-0">
         {loading ? (
           <div className="p-12 text-center text-slate-500 animate-pulse">Memuat Matriks...</div>
         ) : error ? (

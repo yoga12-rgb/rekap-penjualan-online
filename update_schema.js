@@ -60,7 +60,19 @@ schema = schema.replace(
   pageSql.trim()
 );
 
-// 6. Update grants
+// 6. Update get_revenue_matrix
+const matrixSql = fs.readFileSync('supabase/migrations/021_add_daily_matrix.sql', 'utf8');
+// If get_revenue_matrix already exists, replace it, otherwise append to end
+if (schema.includes('create or replace function public.get_revenue_matrix')) {
+  schema = schema.replace(
+    /create or replace function public\.get_revenue_matrix\([\s\S]*?\$\$;/,
+    matrixSql.split('grant')[0].trim()
+  );
+} else {
+  schema += '\n\n' + matrixSql.split('grant')[0].trim() + '\n';
+}
+
+// 7. Update grants
 schema = schema.replace(
   /grant execute on function public\.get_transactions_summary\(date, date, uuid, uuid, uuid, text\) to authenticated;/,
   `grant execute on function public.get_transactions_summary(date, date, uuid, uuid, uuid, text, text) to authenticated;`
@@ -70,6 +82,10 @@ schema = schema.replace(
   /grant execute on function public\.get_transaction_order_page\(date, date, uuid, uuid, uuid, text, integer, integer\) to authenticated;/,
   `grant execute on function public.get_transaction_order_page(date, date, uuid, uuid, uuid, text, integer, integer, text) to authenticated;`
 );
+
+if (!schema.includes('grant execute on function public.get_revenue_matrix')) {
+  schema += '\ngrant execute on function public.get_revenue_matrix(date, date, text, uuid, uuid) to authenticated;\n';
+}
 
 fs.writeFileSync(schemaPath, schema, 'utf8');
 console.log('Schema updated successfully.');

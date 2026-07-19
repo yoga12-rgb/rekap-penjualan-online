@@ -28,7 +28,8 @@ Aplikasi ini dibuat untuk merekap dan menganalisis penjualan **Abon Gulung Rajak
 ### Fitur Utama
 
 - 📊 **Dashboard Analitik** — 8 tab visualisasi data (tren harian, produk terlaris, profit merchant, performa outlet, jam ramai, performa hari, insight otomatis, detail transaksi)
-- 📝 **Manajemen Transaksi** — Input multi-varian dengan perhitungan komisi otomatis
+- 📈 **Matriks Omset Harian** — Laporan Pivot/Crosstab dinamis per merchant dan outlet (mingguan, bulanan, tahunan)
+- 📝 **Manajemen Transaksi** — Input multi-varian dengan perhitungan komisi otomatis, pencatatan HPP, margin profit, dan flag pesanan fiktif
 - 📣 **Biaya Iklan Harian** — Catat biaya iklan per outlet + merchant, terpisah dari potongan admin transaksi
 - 🗳️ **Survey Customer** — Kumpulkan sumber informasi konsumen (misal: dari Instagram, Teman, dll) beserta visualisasi laporannya
 - 🟢 **User Online** — Super Admin dapat melihat status online, IP tersamarkan, lokasi perkiraan, dan last seen user
@@ -292,6 +293,7 @@ Buka `http://localhost:3000` dan login dengan email yang didaftarkan.
 | id         | UUID (PK)     | Auto-generate      |
 | name       | TEXT UNIQUE   | Nama varian produk |
 | base_price | NUMERIC(12,2) | Harga dasar (≥0)   |
+| hpp        | NUMERIC(12,2) | Harga Pokok Penjualan (HPP) (≥0) |
 | created_at | TIMESTAMPTZ   | Default now()      |
 
 #### `product_variant_prices`
@@ -331,6 +333,9 @@ Buka `http://localhost:3000` dan login dengan email yang didaftarkan.
 | initial_price           | NUMERIC(12,2)     | Harga statis saat transaksi (≥0)                                |
 | deduction_fee           | NUMERIC(12,2)     | Potongan/komisi (≥0)                                            |
 | **net_profit**          | **NUMERIC(14,2)** | **GENERATED ALWAYS AS** `(qty * initial_price) - deduction_fee` |
+| total_hpp               | NUMERIC(12,2)     | Total HPP (qty * hpp varian) (≥0)                               |
+| company_expense         | NUMERIC(12,2)     | Beban perusahaan tambahan (≥0)                                  |
+| is_fake                 | BOOLEAN           | Penanda pesanan fiktif (tidak dihitung sebagai revenue)         |
 | created_at / updated_at | TIMESTAMPTZ       | Auto                                                            |
 
 #### `daily_ad_costs`
@@ -466,7 +471,8 @@ Kebijakan per tabel:
 - RPC ini dipakai oleh halaman Dashboard untuk mengurangi transfer data transaksi mentah dari Supabase ke server Next.js.
 - Jika RPC belum tersedia atau gagal, aplikasi masih punya fallback ke fetch transaksi bertahap.
 - `get_transactions_summary(p_from, p_to, p_outlet, p_merchant, p_variant, p_q)` menghitung total card halaman Transaksi tanpa mengirim semua baris transaksi ke Next.js.
-- `get_transaction_order_page(p_from, p_to, p_outlet, p_merchant, p_variant, p_q, p_offset, p_limit)` mengembalikan batch order transaksi beserta item-itemnya untuk infinite scroll.
+- `get_transaction_order_page(p_from, p_to, p_outlet, p_merchant, p_variant, p_q, p_offset, p_limit, p_is_fake)` mengembalikan batch order transaksi beserta item-itemnya untuk infinite scroll.
+- `get_revenue_matrix(p_from, p_to, p_group_by, p_outlet, p_merchant)` menghasilkan data pivot (Crosstab) yang mengelompokkan omset dan net profit per merchant, per outlet, dan per rentang waktu (harian, bulanan, tahunan).
 - Function dibuat sebagai SQL `stable` dengan `search_path = public`; akses data tetap mengikuti RLS user yang sedang login.
 
 ---
@@ -495,6 +501,7 @@ Kebijakan per tabel:
 | Master Produk            |       ✅        |          ❌          |
 | Master User/Akun         |       ✅        |          ❌          |
 | Master Survey (Q&A)      |       ✅        |          ❌          |
+| Laporan Matriks Omset    |       ✅        |          ❌          |
 
 ### Alur Autentikasi
 
@@ -672,6 +679,17 @@ Digunakan untuk mendata umpan balik dari pelanggan mengenai dari mana mereka men
 - **Akses Kasir**: Kasir dapat menginput respon survey baru berdasarkan outlet tempat mereka ditugaskan.
 - **Akses Super Admin**: Dapat menginput respon survey untuk seluruh outlet, serta melihat laporan grafik persentase sumber pelanggan secara keseluruhan maupun terfilter per outlet dan rentang tanggal.
 - **Laporan/Report**: Menampilkan total respon dan visualisasi distribusi jawaban per pertanyaan untuk memetakan media promosi yang paling efektif.
+
+---
+
+### 6.6 Laporan Matriks Omset Harian
+
+Laporan *Crosstab* bergaya pivot table yang menyajikan performa pendapatan tiap Outlet dan Merchant secara matriks (Baris: Merchant/Outlet, Kolom: Tanggal).
+
+- **Akses**: Fitur ini dikhususkan hanya untuk **Super Admin**.
+- **Filter Periode**: Tersedia 3 preset navigasi cepat (Mingguan, Bulanan, Tahunan) dengan tombol geser rentang.
+- **Metric Toggle**: Matriks bisa ditukar modenya untuk menampilkan angka **Omset** (Kotor) atau **Net Profit** (Bersih).
+- **Performa Database**: Dihitung sangat cepat murni dari database PostgreSQL menggunakan fungsi RPC JSON Aggregation (`get_revenue_matrix`).
 
 ---
 

@@ -15,13 +15,13 @@ export default async function MatrixPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] p-4 lg:p-8 space-y-6">
-      <div className="flex flex-col gap-2">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col gap-1.5">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
           Matriks Omset Harian
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Laporan matriks pendapatan (crosstab) berdasarkan filter waktu mingguan, bulanan, dan tahunan.
+          Laporan matriks pendapatan (crosstab) berdasarkan filter waktu mingguan dan bulanan.
         </p>
       </div>
       

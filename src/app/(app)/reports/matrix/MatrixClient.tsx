@@ -206,17 +206,17 @@ export default function MatrixClient() {
           <div className="p-12 text-center text-slate-500">Tidak ada data transaksi pada periode ini.</div>
         ) : (
           <div className="overflow-auto max-h-[calc(100vh-280px)]">
-            <table className="w-full text-sm text-left border-collapse">
+            <table className="w-full text-xs sm:text-sm text-left border-collapse">
               <thead>
                 <tr>
-                  <th className="sticky top-0 left-0 z-30 bg-slate-800 text-white p-3 font-semibold min-w-[200px] border-b border-r border-slate-700">
+                  <th className="sticky top-0 left-0 z-30 bg-slate-800 text-white p-2 sm:p-3 font-semibold min-w-[110px] max-w-[110px] sm:min-w-[200px] sm:max-w-none border-b border-r border-slate-700 truncate">
                     MERCHANT / OUTLET
                   </th>
-                  <th className="sticky top-0 left-[200px] z-30 bg-slate-700 text-white p-3 font-semibold min-w-[140px] border-b border-r border-slate-600 text-right">
+                  <th className="sticky top-0 left-[110px] sm:left-[200px] z-30 bg-slate-700 text-white p-2 sm:p-3 font-semibold min-w-[100px] sm:min-w-[140px] border-b border-r border-slate-600 text-right">
                     TOTAL
                   </th>
                   {columns.map(c => (
-                    <th key={c.key} className="sticky top-0 z-20 bg-slate-700 text-white p-3 font-medium min-w-[110px] text-center border-b border-r border-slate-600">
+                    <th key={c.key} className="sticky top-0 z-20 bg-slate-700 text-white p-2 sm:p-3 font-medium min-w-[80px] sm:min-w-[110px] text-center border-b border-r border-slate-600">
                       {c.label}
                     </th>
                   ))}
@@ -227,12 +227,12 @@ export default function MatrixClient() {
                   <React.Fragment key={group.merchant_id}>
                     {/* Merchant Header Row */}
                     <tr className="bg-slate-100 dark:bg-slate-800/80">
-                      <td className="sticky left-0 z-10 bg-slate-200 dark:bg-slate-800 p-2 font-bold text-slate-900 dark:text-white border-b border-r border-slate-300 dark:border-slate-700" style={{ color: group.merchant_color || 'inherit' }}>
+                      <td className="sticky left-0 z-10 bg-slate-200 dark:bg-slate-800 p-2 font-bold text-slate-900 dark:text-white border-b border-r border-slate-300 dark:border-slate-700 min-w-[110px] max-w-[110px] sm:min-w-[200px] sm:max-w-none truncate" style={{ color: group.merchant_color || 'inherit' }}>
                         {group.merchant_name}
                       </td>
                       <td 
                         onClick={() => handleCellClick(group.merchant_id, 'ALL', 'ALL')}
-                        className="sticky left-[200px] z-10 bg-slate-200 dark:bg-slate-800 p-2 font-bold text-right border-b border-r border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white cursor-pointer hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
+                        className="sticky left-[110px] sm:left-[200px] z-10 bg-slate-200 dark:bg-slate-800 p-2 font-bold text-right border-b border-r border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white cursor-pointer hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
                       >
                         {formatIDR(group.outlets?.reduce((sum, o) => sum + (metricType === "gross" ? o.total_gross : o.total_net), 0) || 0)}
                       </td>
@@ -255,12 +255,12 @@ export default function MatrixClient() {
                       const rowTotal = metricType === "gross" ? outlet.total_gross : outlet.total_net;
                       return (
                         <tr key={outlet.outlet_id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                          <td className="sticky left-0 z-10 bg-white dark:bg-slate-900 p-3 font-medium border-b border-r border-slate-200 dark:border-slate-700 whitespace-nowrap">
+                          <td className="sticky left-0 z-10 bg-white dark:bg-slate-900 p-2 sm:p-3 font-medium border-b border-r border-slate-200 dark:border-slate-700 min-w-[110px] max-w-[110px] sm:min-w-[200px] sm:max-w-none truncate">
                             {outlet.outlet_name}
                           </td>
                           <td 
                             onClick={() => handleCellClick(group.merchant_id, outlet.outlet_id, 'ALL')}
-                            className="sticky left-[200px] z-10 bg-slate-50 dark:bg-slate-800 p-3 font-semibold text-right border-b border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                            className="sticky left-[110px] sm:left-[200px] z-10 bg-slate-50 dark:bg-slate-800 p-2 sm:p-3 font-semibold text-right border-b border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                           >
                             {formatIDR(rowTotal)}
                           </td>
@@ -270,7 +270,7 @@ export default function MatrixClient() {
                               <td 
                                 key={c.key} 
                                 onClick={() => handleCellClick(group.merchant_id, outlet.outlet_id, c.key)}
-                                className={`p-3 text-right border-b border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700/50 transition-colors ${val === 0 ? 'text-slate-300 dark:text-slate-700 bg-slate-50/50 dark:bg-slate-900/50' : 'text-slate-700 dark:text-slate-300'}`}
+                                className={`p-2 sm:p-3 text-right border-b border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700/50 transition-colors ${val === 0 ? 'text-slate-300 dark:text-slate-700 bg-slate-50/50 dark:bg-slate-900/50' : 'text-slate-700 dark:text-slate-300'}`}
                               >
                                 {val === 0 ? '-' : formatIDR(val)}
                               </td>
@@ -284,12 +284,12 @@ export default function MatrixClient() {
               </tbody>
               <tfoot>
                 <tr>
-                  <td className="sticky bottom-0 left-0 z-30 bg-emerald-600 text-white p-3 font-bold border-t-2 border-emerald-700 border-r text-right">
+                  <td className="sticky bottom-0 left-0 z-30 bg-emerald-600 text-white p-2 sm:p-3 font-bold border-t-2 border-emerald-700 border-r text-right min-w-[110px] max-w-[110px] sm:min-w-[200px] sm:max-w-none">
                     TOTAL OMSET
                   </td>
                   <td 
                     onClick={() => handleCellClick('ALL', 'ALL', 'ALL')}
-                    className="sticky bottom-0 left-[200px] z-30 bg-emerald-600 text-emerald-50 p-3 font-bold text-right border-t-2 border-emerald-700 border-r cursor-pointer hover:bg-emerald-500 transition-colors"
+                    className="sticky bottom-0 left-[110px] sm:left-[200px] z-30 bg-emerald-600 text-emerald-50 p-2 sm:p-3 font-bold text-right border-t-2 border-emerald-700 border-r cursor-pointer hover:bg-emerald-500 transition-colors"
                   >
                     {formatIDR(grandTotal)}
                   </td>
@@ -297,7 +297,7 @@ export default function MatrixClient() {
                     <td 
                       key={c.key} 
                       onClick={() => handleCellClick('ALL', 'ALL', c.key)}
-                      className="sticky bottom-0 z-20 bg-emerald-600 text-white p-3 font-semibold text-right border-t-2 border-emerald-700 border-r min-w-[110px] cursor-pointer hover:bg-emerald-500 transition-colors"
+                      className="sticky bottom-0 z-20 bg-emerald-600 text-white p-2 sm:p-3 font-semibold text-right border-t-2 border-emerald-700 border-r min-w-[80px] sm:min-w-[110px] cursor-pointer hover:bg-emerald-500 transition-colors"
                     >
                       {colTotals[c.key] === 0 ? '-' : formatIDR(colTotals[c.key])}
                     </td>

@@ -9,6 +9,7 @@ import {
 } from "date-fns";
 import { ChevronLeft, ChevronRight, Calendar, DollarSign, Wallet } from "lucide-react";
 import { formatWIBDateKey } from "@/lib/date";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
 type TimeData = {
   gross: number;
@@ -34,13 +35,34 @@ type PeriodType = "weekly" | "monthly";
 type MetricType = "gross" | "net";
 
 export default function MatrixClient() {
-  const [periodType, setPeriodType] = useState<PeriodType>("monthly");
-  const [metricType, setMetricType] = useState<MetricType>("gross");
-  const [currentDate, setCurrentDate] = useState<Date>(new Date());
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
+  const [periodType, setPeriodType] = useState<PeriodType>(
+    (searchParams.get("period") as PeriodType) || "monthly"
+  );
+  const [metricType, setMetricType] = useState<MetricType>(
+    (searchParams.get("metric") as MetricType) || "gross"
+  );
+  
+  const initialDateStr = searchParams.get("date");
+  const [currentDate, setCurrentDate] = useState<Date>(
+    initialDateStr ? new Date(initialDateStr) : new Date()
+  );
   
   const [data, setData] = useState<MerchantGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Sync state to URL
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("period", periodType);
+    params.set("metric", metricType);
+    params.set("date", currentDate.toISOString());
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [periodType, metricType, currentDate, pathname, router, searchParams]);
 
   // Generate date ranges and headers based on current settings
   const { from, to, groupBy, columns } = useMemo(() => {

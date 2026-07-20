@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { requireProfile } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import MatrixClient from "./MatrixClient";
 
 export const metadata: Metadata = {
@@ -25,7 +26,9 @@ export default async function MatrixPage() {
         </p>
       </div>
       
-      <MatrixClient />
+      <Suspense fallback={<div className="p-12 text-center text-slate-500 animate-pulse">Memuat Matriks...</div>}>
+        <MatrixClient />
+      </Suspense>
     </div>
   );
 }

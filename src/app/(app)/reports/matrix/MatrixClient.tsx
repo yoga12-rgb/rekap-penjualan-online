@@ -205,18 +205,18 @@ export default function MatrixClient() {
         ) : data.length === 0 ? (
           <div className="p-12 text-center text-slate-500">Tidak ada data transaksi pada periode ini.</div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-auto max-h-[calc(100vh-280px)]">
             <table className="w-full text-sm text-left border-collapse">
               <thead>
                 <tr>
-                  <th className="sticky left-0 z-20 bg-slate-800 text-white p-3 font-semibold min-w-[200px] border-b border-r border-slate-700">
+                  <th className="sticky top-0 left-0 z-30 bg-slate-800 text-white p-3 font-semibold min-w-[200px] border-b border-r border-slate-700">
                     MERCHANT / OUTLET
                   </th>
-                  <th className="sticky left-[200px] z-20 bg-slate-700 text-white p-3 font-semibold min-w-[140px] border-b border-r border-slate-600 text-right">
+                  <th className="sticky top-0 left-[200px] z-30 bg-slate-700 text-white p-3 font-semibold min-w-[140px] border-b border-r border-slate-600 text-right">
                     TOTAL
                   </th>
                   {columns.map(c => (
-                    <th key={c.key} className="bg-slate-700 text-white p-3 font-medium min-w-[110px] text-center border-b border-r border-slate-600">
+                    <th key={c.key} className="sticky top-0 z-20 bg-slate-700 text-white p-3 font-medium min-w-[110px] text-center border-b border-r border-slate-600">
                       {c.label}
                     </th>
                   ))}
@@ -284,12 +284,12 @@ export default function MatrixClient() {
               </tbody>
               <tfoot>
                 <tr>
-                  <td className="sticky left-0 z-20 bg-emerald-600 text-white p-3 font-bold border-t-2 border-emerald-700 border-r text-right">
+                  <td className="sticky bottom-0 left-0 z-30 bg-emerald-600 text-white p-3 font-bold border-t-2 border-emerald-700 border-r text-right">
                     TOTAL OMSET
                   </td>
                   <td 
                     onClick={() => handleCellClick('ALL', 'ALL', 'ALL')}
-                    className="sticky left-[200px] z-20 bg-emerald-600 text-emerald-50 p-3 font-bold text-right border-t-2 border-emerald-700 border-r cursor-pointer hover:bg-emerald-500 transition-colors"
+                    className="sticky bottom-0 left-[200px] z-30 bg-emerald-600 text-emerald-50 p-3 font-bold text-right border-t-2 border-emerald-700 border-r cursor-pointer hover:bg-emerald-500 transition-colors"
                   >
                     {formatIDR(grandTotal)}
                   </td>
@@ -297,7 +297,7 @@ export default function MatrixClient() {
                     <td 
                       key={c.key} 
                       onClick={() => handleCellClick('ALL', 'ALL', c.key)}
-                      className="bg-emerald-600 text-white p-3 font-semibold text-right border-t-2 border-emerald-700 border-r min-w-[110px] cursor-pointer hover:bg-emerald-500 transition-colors"
+                      className="sticky bottom-0 z-20 bg-emerald-600 text-white p-3 font-semibold text-right border-t-2 border-emerald-700 border-r min-w-[110px] cursor-pointer hover:bg-emerald-500 transition-colors"
                     >
                       {colTotals[c.key] === 0 ? '-' : formatIDR(colTotals[c.key])}
                     </td>

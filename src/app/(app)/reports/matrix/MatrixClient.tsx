@@ -30,7 +30,7 @@ type MerchantGroup = {
   outlets: OutletData[];
 };
 
-type PeriodType = "weekly" | "monthly" | "yearly";
+type PeriodType = "weekly" | "monthly";
 type MetricType = "gross" | "net";
 
 export default function MatrixClient() {
@@ -44,30 +44,24 @@ export default function MatrixClient() {
 
   // Generate date ranges and headers based on current settings
   const { from, to, groupBy, columns } = useMemo(() => {
-    let start, end, formatStr = "yyyy-MM-dd", cols: { key: string; label: string }[] = [];
+    let start, end, cols: { key: string; label: string }[] = [];
     
     if (periodType === "weekly") {
       start = startOfWeek(currentDate, { weekStartsOn: 1 }); // Senin
       end = endOfWeek(currentDate, { weekStartsOn: 1 });
       const days = eachDayOfInterval({ start, end });
       cols = days.map(d => ({ key: format(d, "yyyy-MM-dd"), label: format(d, "dd/MM") }));
-    } else if (periodType === "monthly") {
+    } else {
       start = startOfMonth(currentDate);
       end = endOfMonth(currentDate);
       const days = eachDayOfInterval({ start, end });
       cols = days.map(d => ({ key: format(d, "yyyy-MM-dd"), label: format(d, "d") }));
-    } else {
-      start = startOfYear(currentDate);
-      end = endOfYear(currentDate);
-      formatStr = "yyyy-MM";
-      const months = eachMonthOfInterval({ start, end });
-      cols = months.map(m => ({ key: format(m, "yyyy-MM"), label: format(m, "MMM") }));
     }
 
     return {
       from: formatWIBDateKey(start),
       to: formatWIBDateKey(end),
-      groupBy: periodType === "yearly" ? "month" : "day",
+      groupBy: "day",
       columns: cols
     };
   }, [currentDate, periodType]);
@@ -94,24 +88,19 @@ export default function MatrixClient() {
 
   const handlePrev = () => {
     if (periodType === "weekly") setCurrentDate(d => subWeeks(d, 1));
-    else if (periodType === "monthly") setCurrentDate(d => subMonths(d, 1));
-    else setCurrentDate(d => subYears(d, 1));
+    else setCurrentDate(d => subMonths(d, 1));
   };
 
   const handleNext = () => {
     if (periodType === "weekly") setCurrentDate(d => addWeeks(d, 1));
-    else if (periodType === "monthly") setCurrentDate(d => addMonths(d, 1));
-    else setCurrentDate(d => addYears(d, 1));
+    else setCurrentDate(d => addMonths(d, 1));
   };
 
   const periodLabel = useMemo(() => {
     if (periodType === "weekly") {
       return `${format(startOfWeek(currentDate, { weekStartsOn: 1 }), "dd MMM")} - ${format(endOfWeek(currentDate, { weekStartsOn: 1 }), "dd MMM yyyy")}`;
     }
-    if (periodType === "monthly") {
-      return format(currentDate, "MMMM yyyy");
-    }
-    return format(currentDate, "yyyy");
+    return format(currentDate, "MMMM yyyy");
   }, [currentDate, periodType]);
 
   // Calculate Column Totals
@@ -137,6 +126,24 @@ export default function MatrixClient() {
     }, 0);
   }, [data, metricType]);
 
+  const handleCellClick = (merchantId: string | 'ALL', outletId: string | 'ALL', timeKey: string | 'ALL') => {
+    let filterFrom = from;
+    let filterTo = to;
+
+    if (timeKey !== 'ALL') {
+      filterFrom = timeKey;
+      filterTo = timeKey;
+    }
+
+    const params = new URLSearchParams();
+    if (merchantId !== 'ALL') params.set("merchant", merchantId);
+    if (outletId !== 'ALL') params.set("outlet", outletId);
+    params.set("from", filterFrom);
+    params.set("to", filterTo);
+
+    window.open(`/transactions?${params.toString()}`, '_blank');
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -155,11 +162,6 @@ export default function MatrixClient() {
           >
             Bulanan
           </button>
-          <button
-            onClick={() => setPeriodType("yearly")}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${periodType === "yearly" ? "bg-white dark:bg-slate-700 shadow text-slate-900 dark:text-white" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"}`}
-          >
-            Tahunan
           </button>
         </div>
 
@@ -229,13 +231,20 @@ export default function MatrixClient() {
                       <td className="sticky left-0 z-10 bg-slate-200 dark:bg-slate-800 p-2 font-bold text-slate-900 dark:text-white border-b border-r border-slate-300 dark:border-slate-700" style={{ color: group.merchant_color || 'inherit' }}>
                         {group.merchant_name}
                       </td>
-                      <td className="sticky left-[200px] z-10 bg-slate-200 dark:bg-slate-800 p-2 font-bold text-right border-b border-r border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white">
+                      <td 
+                        onClick={() => handleCellClick(group.merchant_id, 'ALL', 'ALL')}
+                        className="sticky left-[200px] z-10 bg-slate-200 dark:bg-slate-800 p-2 font-bold text-right border-b border-r border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white cursor-pointer hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
+                      >
                         {formatIDR(group.outlets?.reduce((sum, o) => sum + (metricType === "gross" ? o.total_gross : o.total_net), 0) || 0)}
                       </td>
                       {columns.map(c => {
                         const colTotal = group.outlets?.reduce((sum, o) => sum + (o.time_data?.[c.key]?.[metricType] || 0), 0) || 0;
                         return (
-                          <td key={`header-${c.key}`} className="p-2 font-semibold text-right border-b border-r border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+                          <td 
+                            key={`header-${c.key}`} 
+                            onClick={() => handleCellClick(group.merchant_id, 'ALL', c.key)}
+                            className="p-2 font-semibold text-right border-b border-r border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700/50 transition-colors"
+                          >
                             {colTotal === 0 ? '-' : formatIDR(colTotal)}
                           </td>
                         );
@@ -250,7 +259,10 @@ export default function MatrixClient() {
                           <td className="sticky left-0 z-10 bg-white dark:bg-slate-900 p-3 font-medium border-b border-r border-slate-200 dark:border-slate-700 whitespace-nowrap">
                             {outlet.outlet_name}
                           </td>
-                          <td className="sticky left-[200px] z-10 bg-slate-50 dark:bg-slate-800 p-3 font-semibold text-right border-b border-r border-slate-200 dark:border-slate-700">
+                          <td 
+                            onClick={() => handleCellClick(group.merchant_id, outlet.outlet_id, 'ALL')}
+                            className="sticky left-[200px] z-10 bg-slate-50 dark:bg-slate-800 p-3 font-semibold text-right border-b border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                          >
                             {formatIDR(rowTotal)}
                           </td>
                           {columns.map(c => {
@@ -258,7 +270,8 @@ export default function MatrixClient() {
                             return (
                               <td 
                                 key={c.key} 
-                                className={`p-3 text-right border-b border-r border-slate-200 dark:border-slate-700 ${val === 0 ? 'text-slate-300 dark:text-slate-700 bg-slate-50/50 dark:bg-slate-900/50' : 'text-slate-700 dark:text-slate-300'}`}
+                                onClick={() => handleCellClick(group.merchant_id, outlet.outlet_id, c.key)}
+                                className={`p-3 text-right border-b border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700/50 transition-colors ${val === 0 ? 'text-slate-300 dark:text-slate-700 bg-slate-50/50 dark:bg-slate-900/50' : 'text-slate-700 dark:text-slate-300'}`}
                               >
                                 {val === 0 ? '-' : formatIDR(val)}
                               </td>
@@ -275,11 +288,18 @@ export default function MatrixClient() {
                   <td className="sticky left-0 z-20 bg-emerald-600 text-white p-3 font-bold border-t-2 border-emerald-700 border-r text-right">
                     TOTAL OMSET
                   </td>
-                  <td className="sticky left-[200px] z-20 bg-emerald-600 text-emerald-50 p-3 font-bold text-right border-t-2 border-emerald-700 border-r">
+                  <td 
+                    onClick={() => handleCellClick('ALL', 'ALL', 'ALL')}
+                    className="sticky left-[200px] z-20 bg-emerald-600 text-emerald-50 p-3 font-bold text-right border-t-2 border-emerald-700 border-r cursor-pointer hover:bg-emerald-500 transition-colors"
+                  >
                     {formatIDR(grandTotal)}
                   </td>
                   {columns.map(c => (
-                    <td key={c.key} className="bg-emerald-600 text-white p-3 font-semibold text-right border-t-2 border-emerald-700 border-r min-w-[110px]">
+                    <td 
+                      key={c.key} 
+                      onClick={() => handleCellClick('ALL', 'ALL', c.key)}
+                      className="bg-emerald-600 text-white p-3 font-semibold text-right border-t-2 border-emerald-700 border-r min-w-[110px] cursor-pointer hover:bg-emerald-500 transition-colors"
+                    >
                       {colTotals[c.key] === 0 ? '-' : formatIDR(colTotals[c.key])}
                     </td>
                   ))}

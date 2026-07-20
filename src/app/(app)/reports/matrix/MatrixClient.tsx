@@ -162,7 +162,6 @@ export default function MatrixClient() {
           >
             Bulanan
           </button>
-          </button>
         </div>
 
         {/* Date Navigator */}

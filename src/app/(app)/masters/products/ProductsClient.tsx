@@ -120,9 +120,9 @@ export function ProductsClient({
         Mengubah master harga tidak mengubah transaksi lama karena transaksi menyimpan harga snapshot.
       </div>
 
-      <div className="card overflow-auto">
+      <div className="card overflow-auto max-h-[calc(100vh-240px)]">
         <table className="table min-w-[900px]">
-          <thead>
+          <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 shadow-sm">
             <tr>
               <th className="min-w-44">Produk</th>
               <th className="text-right min-w-36">HPP (Modal)</th>

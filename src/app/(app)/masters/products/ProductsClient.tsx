@@ -136,43 +136,43 @@ export function ProductsClient({
           <tbody>
             {rows.map((row) => (
               <tr key={row.id}>
-                <td>
-                  <div className="font-medium">{row.name}</div>
-                  <div className="text-xs" style={{ color: "var(--muted)" }}>
+                <td className="py-1.5">
+                  <div className="font-medium leading-tight">{row.name}</div>
+                  <div className="text-[11px]" style={{ color: "var(--muted)" }}>
                     Dibuat {new Date(row.created_at).toLocaleDateString("id-ID")}
                   </div>
                 </td>
-                <td className="text-right font-medium text-orange-500">{formatIDR(row.hpp)}</td>
-                <td className="text-right font-medium">{formatIDR(row.base_price)}</td>
+                <td className="text-right font-medium text-orange-500 py-1.5 align-middle">{formatIDR(row.hpp)}</td>
+                <td className="text-right font-medium py-1.5 align-middle">{formatIDR(row.base_price)}</td>
                 {merchants.map((merchant) => {
                   const value = getDraft(row.id, merchant.id);
                   return (
-                    <td key={merchant.id} className="text-right align-top">
+                    <td key={merchant.id} className="text-right align-top py-1.5">
                       <input
-                        className="input text-right tabular-nums"
+                        className="input text-right tabular-nums h-7 py-0.5 px-2 text-sm"
                         inputMode="numeric"
                         value={value}
                         placeholder={String(Number(row.base_price))}
                         onChange={(e) => setDraft(row.id, merchant.id, e.target.value)}
                       />
                       {!value && (
-                        <div className="mt-1 text-[11px]" style={{ color: "var(--muted)" }}>
+                        <div className="mt-0.5 text-[10px] leading-none" style={{ color: "var(--muted)" }}>
                           fallback {formatIDR(row.base_price)}
                         </div>
                       )}
                     </td>
                   );
                 })}
-                <td className="text-right whitespace-nowrap">
+                <td className="text-right whitespace-nowrap py-1.5 align-middle">
                   <button
-                    className="btn-primary mr-1"
+                    className="btn-primary mr-1 h-7 px-2 py-0.5 text-xs"
                     onClick={() => onSavePrices(row)}
                     disabled={pending && savingProductId === row.id}
                   >
                     {pending && savingProductId === row.id ? "Menyimpan..." : "Simpan Harga"}
                   </button>
-                  <button className="btn-ghost" onClick={() => openEdit(row)}>Edit</button>
-                  <button className="btn-ghost text-red-600" onClick={() => onDelete(row)}>Hapus</button>
+                  <button className="btn-ghost h-7 px-2 py-0.5 text-xs" onClick={() => openEdit(row)}>Edit</button>
+                  <button className="btn-ghost text-red-600 h-7 px-2 py-0.5 text-xs" onClick={() => onDelete(row)}>Hapus</button>
                 </td>
               </tr>
             ))}

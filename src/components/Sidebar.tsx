@@ -57,12 +57,7 @@ export function Sidebar({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const collapsedFromQuery = searchParams.get(SIDEBAR_PARAM) === "collapsed";
-  const [collapsed, setCollapsed] = useState(collapsedFromQuery);
-
-  useEffect(() => {
-    setCollapsed(collapsedFromQuery);
-  }, [collapsedFromQuery]);
+  const collapsed = searchParams.get(SIDEBAR_PARAM) === "collapsed";
 
   // Expose fungsi openSidebar via custom DOM event (dipakai MobileNavbar)
   useEffect(() => {
@@ -117,7 +112,6 @@ export function Sidebar({
       params.delete(SIDEBAR_PARAM);
     }
 
-    setCollapsed(next);
     router.replace(`${pathname}${queryString(params)}`, { scroll: false });
   }
 

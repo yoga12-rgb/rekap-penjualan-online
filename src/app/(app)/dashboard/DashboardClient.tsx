@@ -41,6 +41,7 @@ import {
   endOfYearWIBKey,
 } from "@/lib/date";
 import { AlertCircle, Loader2, RefreshCw, X } from "lucide-react";
+import { DateRangePicker } from "@/components/ui/DateRangePicker";
 import {
   clearScopedFilterParams,
   copyPersistentUrlParams,
@@ -587,22 +588,12 @@ export function DashboardClient({
           </div>
         </div>
         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          <Field label="Dari">
-            <input
-              type="date"
-              className="input"
-              value={draftFilter.from}
-              onChange={(e) => setDraftParam("from", e.target.value)}
-            />
-          </Field>
-          <Field label="Sampai">
-            <input
-              type="date"
-              className="input"
-              value={draftFilter.to}
-              onChange={(e) => setDraftParam("to", e.target.value)}
-            />
-          </Field>
+          <DateRangePicker
+            from={draftFilter.from}
+            to={draftFilter.to}
+            onFromChange={(val) => setDraftParam("from", val)}
+            onToChange={(val) => setDraftParam("to", val)}
+          />
           {role === "super_admin" && (
             <Field label="Outlet">
               <Combobox
@@ -708,22 +699,14 @@ export function DashboardClient({
 
           {draftFilter.compMode === "custom" && (
             <>
-              <Field label="Bandingkan Dari">
-                <input
-                  type="date"
-                  className="input w-full"
-                  value={draftFilter.compFrom}
-                  onChange={(e) => setDraftParam("compFrom", e.target.value)}
-                />
-              </Field>
-              <Field label="Bandingkan Sampai">
-                <input
-                  type="date"
-                  className="input w-full"
-                  value={draftFilter.compTo}
-                  onChange={(e) => setDraftParam("compTo", e.target.value)}
-                />
-              </Field>
+              <DateRangePicker
+                fromLabel="Bandingkan Dari"
+                toLabel="Bandingkan Sampai"
+                from={draftFilter.compFrom}
+                to={draftFilter.compTo}
+                onFromChange={(val) => setDraftParam("compFrom", val)}
+                onToChange={(val) => setDraftParam("compTo", val)}
+              />
             </>
           )}
         </div>

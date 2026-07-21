@@ -24,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { deleteAdCost, updateAdCost, upsertAdCost } from "./actions";
+import { DateRangePicker } from "@/components/ui/DateRangePicker";
 import {
   clearScopedFilterParams,
   copyPersistentUrlParams,
@@ -309,24 +310,12 @@ export function AdCostsClient({
           </div>
         </div>
         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <label className="label">Dari</label>
-            <input
-              type="date"
-              className="input"
-              value={draftFilter.from}
-              onChange={(e) => setDraftParam("from", e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="label">Sampai</label>
-            <input
-              type="date"
-              className="input"
-              value={draftFilter.to}
-              onChange={(e) => setDraftParam("to", e.target.value)}
-            />
-          </div>
+          <DateRangePicker
+            from={draftFilter.from}
+            to={draftFilter.to}
+            onFromChange={(val) => setDraftParam("from", val)}
+            onToChange={(val) => setDraftParam("to", val)}
+          />
           {role === "super_admin" && (
             <div>
               <label className="label">Outlet</label>

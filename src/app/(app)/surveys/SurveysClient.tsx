@@ -19,6 +19,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { toast } from "@/components/Toast";
+import { DateRangePicker } from "@/components/ui/DateRangePicker";
 import { cn } from "@/lib/utils";
 import {
   clearScopedFilterParams,
@@ -691,24 +692,12 @@ const SurveyReport = memo(function SurveyReport({
           )}
         </div>
         <div className="grid gap-3 md:grid-cols-4">
-          <div>
-            <label className="label">Dari</label>
-            <input
-              className="input"
-              type="date"
-              value={draftFilter.from}
-              onChange={(e) => setDraftParam("from", e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="label">Sampai</label>
-            <input
-              className="input"
-              type="date"
-              value={draftFilter.to}
-              onChange={(e) => setDraftParam("to", e.target.value)}
-            />
-          </div>
+          <DateRangePicker
+            from={draftFilter.from}
+            to={draftFilter.to}
+            onFromChange={(val) => setDraftParam("from", val)}
+            onToChange={(val) => setDraftParam("to", val)}
+          />
           {role === "super_admin" && (
             <div>
               <label className="label">Outlet</label>

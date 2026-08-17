@@ -10,11 +10,8 @@ import {
   wibEndOfDay,
   wibStartOfDay,
 } from "@/lib/date";
-import { formatIDR, uuidParam } from "@/lib/utils";
-import {
-  groupTransactionRows,
-  type TransactionRow,
-} from "@/app/(app)/transactions/transactionData";
+import { uuidParam } from "@/lib/utils";
+import type { TransactionRow } from "@/app/(app)/transactions/transactionData";
 
 export const dynamic = "force-dynamic";
 
@@ -37,20 +34,6 @@ function matchingIds<T extends { id: string; name: string }>(
   return (items ?? [])
     .filter((item) => item.name.toLowerCase().includes(needle))
     .map((item) => item.id);
-}
-
-function formatUnitPrices(rows: TransactionRow[]) {
-  const prices = rows.map((row) => Number(row.initial_price || 0));
-  const unique = Array.from(new Set(prices));
-  return unique.map((price) => formatIDR(price)).join("; ");
-}
-
-function formatProductSummary(rows: TransactionRow[]) {
-  return rows
-    .map((row) =>
-      `${row.product_variants?.name ?? "-"} ${row.qty} × ${formatIDR(row.initial_price)}`,
-    )
-    .join("\n");
 }
 
 export async function GET(request: Request) {
@@ -144,7 +127,9 @@ export async function GET(request: Request) {
     if (pageRows.length < PAGE_SIZE) break;
   }
 
-  const groups = groupTransactionRows(rows);
+  const sortedRows = rows.sort((a, b) =>
+    b.transaction_date.localeCompare(a.transaction_date),
+  );
 
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Rekap Penjualan Rajaklana";
@@ -178,22 +163,24 @@ export async function GET(request: Request) {
   headerRow.alignment = { vertical: "middle", horizontal: "center" };
   headerRow.height = 22;
 
-  for (const group of groups) {
+  for (const tx of sortedRows) {
+    const subtotal = Number(tx.qty || 0) * Number(tx.initial_price || 0);
     const row = sheet.addRow([
-      isoToWIBDisplay(group.date),
-      group.orderNumber ?? group.order_id,
-      group.outlet,
-      group.merchant,
-      formatProductSummary(group.rows),
-      group.qty,
-      formatUnitPrices(group.rows),
-      group.gross,
-      group.fee,
-      group.net,
-      group.is_fake ? "Fake Order" : "Normal",
+      isoToWIBDisplay(tx.transaction_date),
+      tx.order_number ?? tx.order_id,
+      tx.outlets?.name ?? "",
+      tx.food_merchants?.name ?? "",
+      tx.product_variants?.name ?? "-",
+      tx.qty,
+      tx.initial_price,
+      subtotal,
+      tx.deduction_fee,
+      tx.net_profit,
+      tx.is_fake ? "Fake Order" : "Normal",
     ]);
     row.alignment = { vertical: "top", wrapText: true };
     row.getCell(6).numFmt = "#,##0";
+    row.getCell(7).numFmt = "#,##0";
     row.getCell(8).numFmt = "#,##0";
     row.getCell(9).numFmt = "#,##0";
     row.getCell(10).numFmt = "#,##0";

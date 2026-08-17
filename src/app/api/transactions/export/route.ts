@@ -148,6 +148,7 @@ export async function GET(request: Request) {
     "QTY",
     "Harga Satuan",
     "Subtotal",
+    "Subtotal Transaksi",
     "Potongan Transaksi",
     "Pendapatan Bersih",
     "Status",
@@ -180,22 +181,28 @@ export async function GET(request: Request) {
       (sum, tx) => sum + Number(tx.net_profit || 0),
       0,
     );
+    const subtotalTotal = group.reduce(
+      (sum, tx) =>
+        sum + Number(tx.qty || 0) * Number(tx.initial_price || 0),
+      0,
+    );
     const startRow = sheet.rowCount + 1;
 
     group.forEach((tx, index) => {
       const subtotal = Number(tx.qty || 0) * Number(tx.initial_price || 0);
       const row = sheet.addRow([
-        isoToWIBDisplay(tx.transaction_date),
-        tx.order_number ?? tx.order_id,
-        tx.outlets?.name ?? "",
-        tx.food_merchants?.name ?? "",
+        index === 0 ? isoToWIBDisplay(tx.transaction_date) : null,
+        index === 0 ? (tx.order_number ?? tx.order_id) : null,
+        index === 0 ? (tx.outlets?.name ?? "") : null,
+        index === 0 ? (tx.food_merchants?.name ?? "") : null,
         tx.product_variants?.name ?? "-",
         tx.qty,
         tx.initial_price,
         subtotal,
+        index === 0 ? subtotalTotal : null,
         index === 0 ? feeTotal : null,
         index === 0 ? netTotal : null,
-        tx.is_fake ? "Fake Order" : "Normal",
+        index === 0 ? (tx.is_fake ? "Fake Order" : "Normal") : null,
       ]);
       row.alignment = { vertical: "top", wrapText: true };
       row.getCell(6).numFmt = "#,##0";
@@ -203,20 +210,19 @@ export async function GET(request: Request) {
       row.getCell(8).numFmt = "#,##0";
       row.getCell(9).numFmt = "#,##0";
       row.getCell(10).numFmt = "#,##0";
+      row.getCell(11).numFmt = "#,##0";
     });
 
     const endRow = sheet.rowCount;
-    if (endRow > startRow) {
-      sheet.mergeCells(startRow, 9, endRow, 9);
-      sheet.mergeCells(startRow, 10, endRow, 10);
-      sheet.getCell(startRow, 9).alignment = {
+    const mergeColumns = [1, 2, 3, 4, 9, 10, 11, 12];
+    for (const column of mergeColumns) {
+      sheet.getCell(startRow, column).alignment = {
         vertical: "middle",
         wrapText: true,
       };
-      sheet.getCell(startRow, 10).alignment = {
-        vertical: "middle",
-        wrapText: true,
-      };
+      if (endRow > startRow) {
+        sheet.mergeCells(startRow, column, endRow, column);
+      }
     }
   }
 
@@ -228,6 +234,7 @@ export async function GET(request: Request) {
     { width: 52 },
     { width: 10 },
     { width: 22 },
+    { width: 18 },
     { width: 18 },
     { width: 20 },
     { width: 22 },

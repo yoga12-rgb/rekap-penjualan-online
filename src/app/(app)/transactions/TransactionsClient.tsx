@@ -21,6 +21,7 @@ import {
   X,
   AlertCircle,
   Loader2,
+  FileSpreadsheet,
 } from "lucide-react";
 import { createOrder, updateOrder, deleteOrder } from "./actions";
 import { MerchantBadge } from "@/components/MerchantBadge";
@@ -125,6 +126,7 @@ export function TransactionsClient({
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [showFloatingFilter, setShowFloatingFilter] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   // Filter hidup di query string agar URL bisa dibagikan dan tidak perlu cookie.
@@ -178,6 +180,56 @@ export function TransactionsClient({
     startFilterTransition(() =>
       router.push(`/transactions${queryString(next)}`),
     );
+  }
+  async function exportExcel() {
+    setIsExporting(true);
+    try {
+      const params = new URLSearchParams({
+        from: filter.from,
+        to: filter.to,
+        is_fake: filter.is_fake,
+      });
+      if (filter.outlet) params.set("outlet", filter.outlet);
+      if (filter.merchant) params.set("merchant", filter.merchant);
+      if (filter.variant) params.set("variant", filter.variant);
+      if (filter.q) params.set("q", filter.q);
+
+      const response = await fetch(
+        `/api/transactions/export?${params.toString()}`,
+        { cache: "no-store" },
+      );
+      if (!response.ok) {
+        let message = "Gagal export";
+        try {
+          const payload = await response.json();
+          if (payload?.error) message = payload.error;
+        } catch {
+          // abaikan jika body bukan JSON
+        }
+        throw new Error(message);
+      }
+      const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition");
+      const match = disposition?.match(/filename="?([^";]+)"?/);
+      const filename =
+        match?.[1] ?? `transaksi_${filter.from}_to_${filter.to}.xlsx`;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast("Export berhasil", "success");
+    } catch (error) {
+      toast(
+        error instanceof Error ? error.message : "Gagal export",
+        "error",
+      );
+    } finally {
+      setIsExporting(false);
+    }
   }
   function getPresetRange(preset: TransactionDatePreset) {
     if (preset === "today") return { from: todayWIBKey(), to: todayWIBKey() };
@@ -339,13 +391,27 @@ export function TransactionsClient({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold">Transaksi</h1>
-        <button
-          ref={addTransactionButtonRef}
-          className="btn-primary"
-          onClick={() => setOpenCreate(true)}
-        >
-          <Plus size={16} /> Tambah Transaksi
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            className="btn-outline"
+            onClick={exportExcel}
+            disabled={isExporting}
+          >
+            {isExporting ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <FileSpreadsheet size={16} />
+            )}
+            {isExporting ? "Mengekspor..." : "Export Excel"}
+          </button>
+          <button
+            ref={addTransactionButtonRef}
+            className="btn-primary"
+            onClick={() => setOpenCreate(true)}
+          >
+            <Plus size={16} /> Tambah Transaksi
+          </button>
+        </div>
       </div>
 
       {/* FILTER BAR */}

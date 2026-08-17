@@ -163,27 +163,61 @@ export async function GET(request: Request) {
   headerRow.alignment = { vertical: "middle", horizontal: "center" };
   headerRow.height = 22;
 
+  const orderGroups = new Map<string, TransactionRow[]>();
   for (const tx of sortedRows) {
-    const subtotal = Number(tx.qty || 0) * Number(tx.initial_price || 0);
-    const row = sheet.addRow([
-      isoToWIBDisplay(tx.transaction_date),
-      tx.order_number ?? tx.order_id,
-      tx.outlets?.name ?? "",
-      tx.food_merchants?.name ?? "",
-      tx.product_variants?.name ?? "-",
-      tx.qty,
-      tx.initial_price,
-      subtotal,
-      tx.deduction_fee,
-      tx.net_profit,
-      tx.is_fake ? "Fake Order" : "Normal",
-    ]);
-    row.alignment = { vertical: "top", wrapText: true };
-    row.getCell(6).numFmt = "#,##0";
-    row.getCell(7).numFmt = "#,##0";
-    row.getCell(8).numFmt = "#,##0";
-    row.getCell(9).numFmt = "#,##0";
-    row.getCell(10).numFmt = "#,##0";
+    const key = tx.order_id ?? tx.id;
+    const list = orderGroups.get(key);
+    if (list) list.push(tx);
+    else orderGroups.set(key, [tx]);
+  }
+
+  for (const group of orderGroups.values()) {
+    const feeTotal = group.reduce(
+      (sum, tx) => sum + Number(tx.deduction_fee || 0),
+      0,
+    );
+    const netTotal = group.reduce(
+      (sum, tx) => sum + Number(tx.net_profit || 0),
+      0,
+    );
+    const startRow = sheet.rowCount + 1;
+
+    group.forEach((tx, index) => {
+      const subtotal = Number(tx.qty || 0) * Number(tx.initial_price || 0);
+      const row = sheet.addRow([
+        isoToWIBDisplay(tx.transaction_date),
+        tx.order_number ?? tx.order_id,
+        tx.outlets?.name ?? "",
+        tx.food_merchants?.name ?? "",
+        tx.product_variants?.name ?? "-",
+        tx.qty,
+        tx.initial_price,
+        subtotal,
+        index === 0 ? feeTotal : null,
+        index === 0 ? netTotal : null,
+        tx.is_fake ? "Fake Order" : "Normal",
+      ]);
+      row.alignment = { vertical: "top", wrapText: true };
+      row.getCell(6).numFmt = "#,##0";
+      row.getCell(7).numFmt = "#,##0";
+      row.getCell(8).numFmt = "#,##0";
+      row.getCell(9).numFmt = "#,##0";
+      row.getCell(10).numFmt = "#,##0";
+    });
+
+    const endRow = sheet.rowCount;
+    if (endRow > startRow) {
+      sheet.mergeCells(startRow, 9, endRow, 9);
+      sheet.mergeCells(startRow, 10, endRow, 10);
+      sheet.getCell(startRow, 9).alignment = {
+        vertical: "middle",
+        wrapText: true,
+      };
+      sheet.getCell(startRow, 10).alignment = {
+        vertical: "middle",
+        wrapText: true,
+      };
+    }
   }
 
   sheet.columns = [

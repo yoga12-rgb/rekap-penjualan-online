@@ -1,10 +1,25 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ThemeScript } from "@/components/ThemeScript";
+import { PwaRegister } from "@/components/PwaRegister";
 
 export const metadata: Metadata = {
   title: "Rekap Penjualan Rajaklana",
-  description: "Sistem Rekapitulasi & Analisis Penjualan Abon Gulung Rajaklana"
+  description: "Sistem Rekapitulasi & Analisis Penjualan Abon Gulung Rajaklana",
+  manifest: "/manifest.json",
+  applicationName: "Rekap Penjualan Rajaklana",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Rajaklana"
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" }
+    ],
+    apple: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }]
+  }
 };
 
 export const viewport: Viewport = {
@@ -20,7 +35,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <ThemeScript />
       </head>
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen antialiased">
+        {children}
+        <PwaRegister />
+      </body>
     </html>
   );
 }

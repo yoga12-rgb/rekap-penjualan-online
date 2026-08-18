@@ -2,6 +2,7 @@
 import { useState, useTransition } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { toast } from "@/components/Toast";
 import { MerchantBadge } from "@/components/MerchantBadge";
 import { ColorPicker } from "@/components/ui/ColorPicker";
@@ -70,7 +71,13 @@ export function MerchantsClient({ rows }: { rows: Row[] }) {
                 </td>
               </tr>
             ))}
-            {!rows.length && <tr><td colSpan={5} className="text-center py-6" style={{ color: "var(--muted)" }}>Belum ada data.</td></tr>}
+            {!rows.length && (
+              <tr>
+                <td colSpan={5}>
+                  <EmptyState title="Belum ada data" description="Belum ada food merchant." />
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

@@ -306,8 +306,9 @@ Status berikut adalah hasil pengerjaan oleh AI agent pada **18 Agustus 2026**.
 - [x] Semua `window.confirm()` diganti `ConfirmDialog` (merchants, outlets, products, users, ad-costs).
 - [x] `ToastHost` ditingkatkan (stacking, dismiss, posisi aman mobile, dukungan pesan panjang).
 
-**Milestone 3 (sebagian)**
+**Milestone 3**
 - [x] MobileNavbar: ditambahkan pintasan "Matriks" (`/reports/matrix`).
+- [x] Matrix Omset kini URL-first (`router.push` + guard anti-duplikat) + tombol **Reset**; URL dapat di-share seperti halaman lain.
 
 **Milestone 4**
 - [x] MatrixClient refactor: skeleton loading, `ErrorState` + retry, `EmptyState`.
@@ -316,15 +317,12 @@ Status berikut adalah hasil pengerjaan oleh AI agent pada **18 Agustus 2026**.
 **Milestone 5 (sebagian)**
 - [x] `OfflineIndicator` dibuat dan dipasang di root layout.
 - [x] Validasi inline date range: `DateRangePicker` menandai `from > to` (border merah + pesan + `aria-invalid` / `role="alert"`).
+- [x] Export Dashboard diubah dari CSV → **.xlsx** konsisten (endpoint `POST /api/dashboard/export` + `downloadXlsx`).
 
 ### ⏳ Belum Selesai (Tersisa)
 
-- [ ] M3: Menyamakan pola filter Matrix ke URL-first penuh (saat ini masih auto-sync; sudah didokumentasikan di `agent.md`).
-- [ ] M3: Konsistenkan indikator filter aktif di semua halaman.
-- [ ] M5: Seragamkan format ekspor (CSV di Dashboard vs Excel di Transaksi).
-- [ ] M5: Audit kontras warna dark mode (WCAG AA).
-- [ ] M5: Mode tampilan matrix mobile (kartu/non-tabel).
-- [ ] M4 lanjutan: terapkan skeleton/empty/error konsisten ke seluruh halaman master & surveys (baru diterapkan di Matrix & Transaksi).
+- [ ] M5: Audit kontras warna dark mode (WCAG AA) — butuh verifikasi visual di browser.
+- [ ] M5: Mode tampilan matrix mobile (kartu/non-tabel) — butuh desain/verifikasi visual.
 - [ ] L1: Standarkan feedback sukses semua server action (sebagian sudah memakai toast, sebagian belum konsisten).
 
 ---

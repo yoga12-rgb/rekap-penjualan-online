@@ -2,6 +2,7 @@
 import { useState, useTransition } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { toast } from "@/components/Toast";
 import { createUser, updateUser, deleteUser } from "./actions";
 
@@ -66,7 +67,13 @@ export function UsersClient({ rows, outlets }: { rows: Row[]; outlets: Outlet[] 
                 </td>
               </tr>
             ))}
-            {!rows.length && <tr><td colSpan={5} className="text-center py-6 text-slate-500">Belum ada akun.</td></tr>}
+            {!rows.length && (
+              <tr>
+                <td colSpan={5}>
+                  <EmptyState title="Belum ada akun" description="Belum ada akun kasir atau admin." />
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

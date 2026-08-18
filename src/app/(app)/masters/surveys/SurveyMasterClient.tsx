@@ -2,6 +2,7 @@
 import { memo, useCallback, useMemo, useState, useTransition } from "react";
 import { ClipboardList, MessageSquare, Pencil, Plus } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { toast } from "@/components/Toast";
 import { cn } from "@/lib/utils";
 import {
@@ -359,12 +360,15 @@ const MasterTable = memo(function MasterTable({
           })}
           {!rows.length && (
             <tr>
-              <td
-                colSpan={isQuestionTable ? 5 : 4}
-                className="py-8 text-center"
-                style={{ color: "var(--muted)" }}
-              >
-                Belum ada data.
+              <td colSpan={isQuestionTable ? 5 : 4}>
+                <EmptyState
+                  title="Belum ada data"
+                  description={
+                    isQuestionTable
+                      ? "Belum ada pertanyaan survey."
+                      : "Belum ada template jawaban global."
+                  }
+                />
               </td>
             </tr>
           )}
@@ -635,15 +639,10 @@ const QuestionAnswersForm = memo(function QuestionAnswersForm({
           );
         })}
         {!answers.length && (
-          <div
-            className="rounded-md border p-4 text-center text-sm"
-            style={{
-              borderColor: "var(--border)",
-              color: "var(--muted)",
-            }}
-          >
-            Belum ada template jawaban. Buat jawaban global terlebih dahulu.
-          </div>
+          <EmptyState
+            title="Belum ada template jawaban"
+            description="Buat jawaban global terlebih dahulu."
+          />
         )}
       </div>
 

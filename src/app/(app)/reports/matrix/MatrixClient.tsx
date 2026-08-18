@@ -65,13 +65,23 @@ export default function MatrixClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Sync state ke URL via router.push (URL-first, dapat di-share).
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("period", periodType);
     params.set("metric", metricType);
     params.set("date", currentDate.toISOString());
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    const nextQuery = params.toString();
+    if (nextQuery !== searchParams.toString()) {
+      router.push(`${pathname}?${nextQuery}`, { scroll: false });
+    }
   }, [periodType, metricType, currentDate, pathname, router, searchParams]);
+
+  function handleReset() {
+    setPeriodType("weekly");
+    setMetricType("gross");
+    setCurrentDate(new Date());
+  }
 
   const { from, to, groupBy, columns } = useMemo(() => {
     let start: Date;
@@ -213,23 +223,33 @@ export default function MatrixClient() {
         </div>
 
         {/* Date Navigator */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
-            onClick={handlePrev}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+            type="button"
+            className="btn-ghost h-9 px-2.5 text-xs sm:text-sm"
+            onClick={handleReset}
+            title="Reset filter ke default"
           >
-            <ChevronLeft className="w-5 h-5" />
+            Reset
           </button>
-          <div className="flex items-center gap-2 min-w-[140px] justify-center text-slate-700 dark:text-slate-200 font-medium">
-            <Calendar className="w-4 h-4 text-slate-400" />
-            {periodLabel}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handlePrev}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-2 min-w-[140px] justify-center text-slate-700 dark:text-slate-200 font-medium">
+              <Calendar className="w-4 h-4 text-slate-400" />
+              {periodLabel}
+            </div>
+            <button
+              onClick={handleNext}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            onClick={handleNext}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
         </div>
 
         {/* Metric Toggle */}

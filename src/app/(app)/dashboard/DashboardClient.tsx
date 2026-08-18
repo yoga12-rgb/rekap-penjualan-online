@@ -270,7 +270,7 @@ export function DashboardClient({
     setIsExporting(true);
     try {
       if (activeTab === "trend") {
-        downloadCsv(
+        await downloadXlsx(
           [
             "Tanggal",
             "Omset",
@@ -293,7 +293,7 @@ export function DashboardClient({
       }
 
       if (activeTab === "products") {
-        downloadCsv(
+        await downloadXlsx(
           ["Produk", "Qty", "Omset", "NetProfit"],
           leaderboard.map((r) => [r.name, r.qty, r.gross, r.net]),
           `produk_terlaris_${filter.from}_to_${filter.to}.csv`,
@@ -302,7 +302,7 @@ export function DashboardClient({
       }
 
       if (activeTab === "merchants") {
-        downloadCsv(
+        await downloadXlsx(
           ["Merchant", "NetProfit", "BiayaIklan", "ProfitBersih"],
           merchantBreakdown.map((r) => [
             r.name,
@@ -316,7 +316,7 @@ export function DashboardClient({
       }
 
       if (activeTab === "outlets") {
-        downloadCsv(
+        await downloadXlsx(
           [
             "Outlet",
             "Transaksi",
@@ -341,7 +341,7 @@ export function DashboardClient({
       }
 
       if (activeTab === "hours") {
-        downloadCsv(
+        await downloadXlsx(
           ["Jam", "Transaksi", "Qty", "Omset", "NetProfit"],
           hourly.map((r) => [
             r.label,
@@ -356,7 +356,7 @@ export function DashboardClient({
       }
 
       if (activeTab === "hari") {
-        downloadCsv(
+        await downloadXlsx(
           [
             "Hari",
             "Transaksi",
@@ -381,7 +381,7 @@ export function DashboardClient({
       }
 
       if (activeTab === "insights") {
-        downloadCsv(
+        await downloadXlsx(
           [
             "Kategori",
             "Nama",
@@ -438,7 +438,7 @@ export function DashboardClient({
         offset = page.nextOffset;
         hasMore = page.hasMore;
       }
-      downloadCsv(
+      await downloadXlsx(
         [
           "Tanggal",
           "NomorPesanan",
@@ -1746,21 +1746,22 @@ function formatMetricValue(value: number, format: "currency" | "number") {
   });
 }
 
-function downloadCsv(
+async function downloadXlsx(
   headers: string[],
   data: Array<Array<string | number>>,
   filename: string,
 ) {
-  const escapeCell = (value: string | number) =>
-    `"${String(value).replace(/"/g, '""')}"`;
-  const csv = [headers, ...data]
-    .map((row) => row.map(escapeCell).join(","))
-    .join("\r\n");
-  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+  const response = await fetch("/api/dashboard/export", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ headers, rows: data, filename }),
+  });
+  if (!response.ok) throw new Error("Gagal export dashboard");
+  const blob = await response.blob();
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = filename;
+  link.download = filename.replace(/\.(csv|xlsx)$/i, "") + ".xlsx";
   document.body.appendChild(link);
   link.click();
   link.remove();

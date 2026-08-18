@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { toast } from "@/components/Toast";
 import { formatIDR } from "@/lib/utils";
 import { createProduct, updateProduct, deleteProduct, updateProductPrices } from "./actions";
@@ -181,8 +182,8 @@ export function ProductsClient({
             ))}
             {!rows.length && (
               <tr>
-                <td colSpan={3 + merchants.length} className="text-center py-6" style={{ color: "var(--muted)" }}>
-                  Belum ada data.
+                <td colSpan={3 + merchants.length}>
+                  <EmptyState title="Belum ada data" description="Belum ada produk atau varian." />
                 </td>
               </tr>
             )}

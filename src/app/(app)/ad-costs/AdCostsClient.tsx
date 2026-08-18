@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { toast } from "@/components/Toast";
 import { formatIDR } from "@/lib/utils";
 import {
@@ -477,12 +478,8 @@ export function AdCostsClient({
             ))}
             {!rows.length && (
               <tr>
-                <td
-                  colSpan={6}
-                  className="text-center py-6"
-                  style={{ color: "var(--muted)" }}
-                >
-                  Belum ada biaya iklan.
+                <td colSpan={6}>
+                  <EmptyState title="Belum ada biaya iklan" description="Tidak ada biaya iklan pada filter saat ini." />
                 </td>
               </tr>
             )}

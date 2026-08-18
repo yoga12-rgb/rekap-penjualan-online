@@ -2,6 +2,7 @@
 import { useState, useTransition } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { toast } from "@/components/Toast";
 import { createOutlet, updateOutlet, deleteOutlet } from "./actions";
 
@@ -54,7 +55,13 @@ export function OutletsClient({ rows }: { rows: Row[] }) {
                 </td>
               </tr>
             ))}
-            {!rows.length && <tr><td colSpan={3} className="text-center py-6 text-slate-500">Belum ada data.</td></tr>}
+            {!rows.length && (
+              <tr>
+                <td colSpan={3}>
+                  <EmptyState title="Belum ada data" description="Belum ada outlet." />
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

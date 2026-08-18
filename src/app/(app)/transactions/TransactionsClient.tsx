@@ -11,6 +11,8 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
 import { DateRangePicker } from "@/components/ui/DateRangePicker";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { formatIDR } from "@/lib/utils";
 import { toast } from "@/components/Toast";
 import {
@@ -584,9 +586,11 @@ export function TransactionsClient({
 
       <div className="space-y-3">
         {loadError && (
-          <div className="card p-3 text-sm text-amber-700 dark:text-amber-300">
-            {loadError}
-          </div>
+          <ErrorState
+            title="Gagal memuat transaksi"
+            message={loadError}
+            onRetry={() => router.refresh()}
+          />
         )}
         {groups.map((g) => {
           const theme = getMerchantTheme(g.merchant, g.merchantColor);
@@ -796,13 +800,11 @@ export function TransactionsClient({
             </div>
           );
         })}
-        {!groups.length && !hasMore && (
-          <div
-            className="card p-6 text-center"
-            style={{ color: "var(--muted)" }}
-          >
-            Belum ada transaksi.
-          </div>
+        {!groups.length && !hasMore && !loadError && (
+          <EmptyState
+            title="Belum ada transaksi"
+            description="Tidak ada transaksi pada rentang dan filter saat ini."
+          />
         )}
         {hasMore && (
           <div
@@ -1009,10 +1011,12 @@ function getVariantHint(variant: Variant, merchantId: string) {
 }
 
 function CurrencyInput({
+  id,
   value,
   onChange,
   required = false,
 }: {
+  id?: string;
   value: string;
   onChange: (value: string) => void;
   required?: boolean;
@@ -1033,6 +1037,7 @@ function CurrencyInput({
         Rp
       </span>
       <input
+        id={id}
         className="min-w-0 flex-1 bg-transparent px-3 py-2 text-base tabular-nums outline-none sm:text-sm"
         inputMode="numeric"
         value={value}
@@ -1323,14 +1328,16 @@ function CreateOrderForm({
                       required
                     />
                   </div>
-                  <div className="col-span-1 min-w-0 sm:col-span-8 md:col-span-4">
+      <div className="col-span-1 min-w-0 sm:col-span-8 md:col-span-4">
                     <label
                       className="text-xs"
                       style={{ color: "var(--muted)" }}
+                      htmlFor={`price-${it.key}`}
                     >
                       Harga
                     </label>
                     <CurrencyInput
+                      id={`price-${it.key}`}
                       value={it.initial_price}
                       onChange={(value) => setItem(i, { initial_price: value })}
                       required
@@ -1385,11 +1392,15 @@ function CreateOrderForm({
                 "color-mix(in oklab, var(--bg) 55%, var(--card))",
             }}
           >
-            <div className="min-w-0 rounded-md border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/30">
-              <label className="mb-2 block text-sm font-bold text-emerald-800 dark:text-emerald-200">
+              <div className="min-w-0 rounded-md border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/30">
+              <label
+                className="mb-2 block text-sm font-bold text-emerald-800 dark:text-emerald-200"
+                htmlFor="net-income"
+              >
                 Pendapatan Bersih (1 transaksi)
               </label>
               <CurrencyInput
+                id="net-income"
                 value={netIncome}
                 onChange={setNetIncome}
                 required

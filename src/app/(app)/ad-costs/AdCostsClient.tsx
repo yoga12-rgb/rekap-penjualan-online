@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/Toast";
 import { formatIDR } from "@/lib/utils";
 import {
@@ -121,6 +122,7 @@ export function AdCostsClient({
   const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
+  const [deleting, setDeleting] = useState<Row | null>(null);
   const [pending, start] = useTransition();
   const [filterPending, startFilterTransition] = useTransition();
   const [draftFilter, setDraftFilter] = useState<AdCostsFilter>({
@@ -245,15 +247,11 @@ export function AdCostsClient({
     });
   }
 
-  async function onDelete(row: Row) {
-    if (
-      !confirm(
-        `Hapus biaya iklan ${row.outlets?.name ?? ""} - ${row.food_merchants?.name ?? ""}?`,
-      )
-    )
-      return;
+  function onConfirmDelete() {
+    if (!deleting) return;
     start(async () => {
-      const res = await deleteAdCost(row.id);
+      const res = await deleteAdCost(deleting.id);
+      setDeleting(null);
       if ((res as any)?.error) toast((res as any).error, "error");
       else toast("Biaya iklan dihapus", "success");
     });
@@ -469,7 +467,7 @@ export function AdCostsClient({
                   </button>
                   <button
                     className="btn-ghost text-red-600"
-                    onClick={() => onDelete(row)}
+                    onClick={() => setDeleting(row)}
                     title="Hapus"
                   >
                     <Trash2 size={14} />
@@ -507,6 +505,24 @@ export function AdCostsClient({
           onSubmit={onSubmit}
         />
       </Modal>
+
+      <ConfirmDialog
+        open={!!deleting}
+        onClose={() => setDeleting(null)}
+        onConfirm={onConfirmDelete}
+        title="Hapus Biaya Iklan"
+        message={
+          <>
+            Biaya iklan{" "}
+            <b>
+              "{deleting?.outlets?.name ?? ""} -{" "}
+              {deleting?.food_merchants?.name ?? ""}"
+            </b>{" "}
+            akan dihapus permanen.
+          </>
+        }
+        busy={pending}
+      />
     </div>
   );
 }

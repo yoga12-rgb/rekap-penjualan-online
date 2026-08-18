@@ -1,6 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { Modal } from "@/components/ui/Modal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/Toast";
 import { MerchantBadge } from "@/components/MerchantBadge";
 import { ColorPicker } from "@/components/ui/ColorPicker";
@@ -12,6 +13,7 @@ type Row = { id: string; name: string; color: string | null; created_at: string 
 export function MerchantsClient({ rows }: { rows: Row[] }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
+  const [deleting, setDeleting] = useState<Row | null>(null);
   const [pending, start] = useTransition();
 
   function openCreate() { setEditing(null); setOpen(true); }
@@ -25,10 +27,11 @@ export function MerchantsClient({ rows }: { rows: Row[] }) {
       else { toast("Tersimpan", "success"); setOpen(false); }
     });
   }
-  async function onDelete(r: Row) {
-    if (!confirm(`Hapus "${r.name}"?`)) return;
+  function onConfirmDelete() {
+    if (!deleting) return;
     start(async () => {
-      const res = await deleteMerchant(r.id);
+      const res = await deleteMerchant(deleting.id);
+      setDeleting(null);
       if ((res as any)?.error) toast((res as any).error, "error");
       else toast("Dihapus", "success");
     });
@@ -63,7 +66,7 @@ export function MerchantsClient({ rows }: { rows: Row[] }) {
                 <td>{new Date(r.created_at).toLocaleDateString("id-ID")}</td>
                 <td className="text-right">
                   <button className="btn-ghost" onClick={() => openEdit(r)}>Edit</button>
-                  <button className="btn-ghost text-red-600" onClick={() => onDelete(r)}>Hapus</button>
+                  <button className="btn-ghost text-red-600" onClick={() => setDeleting(r)}>Hapus</button>
                 </td>
               </tr>
             ))}
@@ -75,6 +78,19 @@ export function MerchantsClient({ rows }: { rows: Row[] }) {
       <Modal open={open} onClose={() => setOpen(false)} title={editing ? "Edit Merchant" : "Tambah Merchant"}>
         <MerchantForm key={editing?.id ?? "new"} editing={editing} pending={pending} onSubmit={onSubmit} />
       </Modal>
+
+      <ConfirmDialog
+        open={!!deleting}
+        onClose={() => setDeleting(null)}
+        onConfirm={onConfirmDelete}
+        title="Hapus Merchant"
+        message={
+          <>
+            Merchant <b>"{deleting?.name}"</b> akan dihapus permanen.
+          </>
+        }
+        busy={pending}
+      />
     </div>
   );
 }

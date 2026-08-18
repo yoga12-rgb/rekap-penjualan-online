@@ -285,6 +285,50 @@ Setiap milestone punya **tujuan**, **daftar pekerjaan**, **file utama**, dan **D
 
 ---
 
+## 6. Status Pengerjaan (Update)
+
+Status berikut adalah hasil pengerjaan oleh AI agent pada **18 Agustus 2026**.
+
+### ✅ Selesai
+
+**Milestone 0**
+- [x] Ekstrak `useScrollLock` (counter global) — `src/lib/useScrollLock.ts`.
+- [x] Heading h1 diseragamkan (`text-xl font-bold`); halaman Matrix ikut disesuaikan.
+- [x] Konvensi komponen & pola interaksi didokumentasikan di `agent.md`.
+
+**Milestone 1**
+- [x] Modal: focus trap, restore fokus, `aria-labelledby`, scroll lock via `useScrollLock`.
+- [x] Combobox: atribut ARIA combobox/listbox/option/`aria-activedescendant`, label input pencarian.
+- [x] Label form terasosiasi: `DateRangePicker`, `CurrencyInput`, `net-income`, harga item.
+
+**Milestone 2**
+- [x] Komponen `ConfirmDialog`, `EmptyState`, `ErrorState` dibuat di `src/components/ui/`.
+- [x] Semua `window.confirm()` diganti `ConfirmDialog` (merchants, outlets, products, users, ad-costs).
+- [x] `ToastHost` ditingkatkan (stacking, dismiss, posisi aman mobile, dukungan pesan panjang).
+
+**Milestone 3 (sebagian)**
+- [x] MobileNavbar: ditambahkan pintasan "Matriks" (`/reports/matrix`).
+
+**Milestone 4**
+- [x] MatrixClient refactor: skeleton loading, `ErrorState` + retry, `EmptyState`.
+- [x] TransactionsClient: `ErrorState` (dengan retry) dan `EmptyState` untuk data kosong.
+
+**Milestone 5 (sebagian)**
+- [x] `OfflineIndicator` dibuat dan dipasang di root layout.
+
+### ⏳ Belum Selesai (Tersisa)
+
+- [ ] M3: Menyamakan pola filter Matrix ke URL-first penuh (saat ini masih auto-sync; sudah didokumentasikan di `agent.md`).
+- [ ] M3: Konsistenkan indikator filter aktif di semua halaman.
+- [ ] M5: Seragamkan format ekspor (CSV di Dashboard vs Excel di Transaksi).
+- [ ] M5: Audit kontras warna dark mode (WCAG AA).
+- [ ] M5: Mode tampilan matrix mobile (kartu/non-tabel).
+- [ ] M5: Validasi inline form (mis. tanggal `from > to`) di `DateRangePicker` — belum diterapkan, hanya banner alert setelah submit di sebagian halaman.
+- [ ] M4 lanjutan: terapkan skeleton/empty/error konsisten ke seluruh halaman master & surveys (baru diterapkan di Matrix & Transaksi).
+- [ ] L1: Standarkan feedback sukses semua server action (sebagian sudah memakai toast, sebagian belum konsisten).
+
+---
+
 ## 5. Kontributor Dokumen
 
 Dokumen ini dibuat melalui audit kode statis oleh AI agent. Sebelum eksekusi, sebaiknya dilakukan verifikasi manual di browser untuk temuan visual/spasial (kontras, posisi toast, kenyamanan scroll matrix) karena audit berbasis kode tidak sepenuhnya menggantikan pengujian visual nyata.

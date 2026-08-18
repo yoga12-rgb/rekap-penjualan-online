@@ -1,4 +1,5 @@
-import React from "react";
+"use client";
+import { useId } from "react";
 
 export interface DateRangePickerProps {
   from: string;
@@ -17,11 +18,16 @@ export function DateRangePicker({
   fromLabel = "Dari",
   toLabel = "Sampai",
 }: DateRangePickerProps) {
+  const fromId = useId();
+  const toId = useId();
   return (
     <>
       <div>
-        <label className="label">{fromLabel}</label>
+        <label className="label" htmlFor={fromId}>
+          {fromLabel}
+        </label>
         <input
+          id={fromId}
           type="date"
           className="input"
           value={from}
@@ -29,8 +35,11 @@ export function DateRangePicker({
         />
       </div>
       <div>
-        <label className="label">{toLabel}</label>
+        <label className="label" htmlFor={toId}>
+          {toLabel}
+        </label>
         <input
+          id={toId}
           type="date"
           className="input"
           value={to}

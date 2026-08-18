@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronsUpDown, Check, X, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -30,6 +30,8 @@ export function Combobox({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const comboboxId = useId();
+  const listboxId = useId();
   const [dropdownPosition, setDropdownPosition] = useState<{
     top?: number;
     bottom?: number;
@@ -40,6 +42,7 @@ export function Combobox({
   }>({ left: 0, width: 0, openUpward: false, listMaxHeight: 224 });
 
   const selected = options.find((o) => o.value === value);
+  const highlightedOptionId = `${comboboxId}-option-${highlight}`;
 
   const filtered = useMemo(() => {
     if (!query.trim()) return options;
@@ -181,6 +184,9 @@ export function Combobox({
   const dropdown = open && (
     <div
       ref={dropdownRef}
+      id={listboxId}
+      role="listbox"
+      aria-label="Pilihan"
       className="pointer-events-auto fixed z-[9999] rounded-md border shadow-lg overflow-hidden"
       style={{
         ...(dropdownPosition.openUpward
@@ -197,9 +203,11 @@ export function Combobox({
         className="flex items-center gap-2 px-2 py-1.5 border-b"
         style={{ borderColor: "var(--border)" }}
       >
-        <Search size={14} className="text-slate-400 shrink-0" />
+        <Search size={14} className="text-slate-400 shrink-0" aria-hidden />
         <input
           ref={inputRef}
+          role="searchbox"
+          aria-label="Cari opsi"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -229,6 +237,9 @@ export function Combobox({
             return (
               <button
                 type="button"
+                role="option"
+                aria-selected={isSel}
+                id={`${comboboxId}-option-${idx}`}
                 key={o.value}
                 data-idx={idx}
                 onMouseEnter={() => setHighlight(idx)}
@@ -244,6 +255,7 @@ export function Combobox({
                     "shrink-0",
                     isSel ? "opacity-100 text-red-600" : "opacity-0",
                   )}
+                  aria-hidden
                 />
                 <span className="flex-1 truncate">{o.label}</span>
                 {o.hint && (
@@ -264,6 +276,13 @@ export function Combobox({
       <button
         type="button"
         disabled={disabled}
+        role="combobox"
+        aria-expanded={open}
+        aria-controls={listboxId}
+        aria-haspopup="listbox"
+        aria-activedescendant={
+          open && filtered.length > 0 ? highlightedOptionId : undefined
+        }
         onClick={() => !disabled && setOpen((v) => !v)}
         className={cn(
           "input flex items-center justify-between gap-2 text-left",

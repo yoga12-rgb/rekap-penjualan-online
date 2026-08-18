@@ -1,15 +1,25 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { formatIDR } from "@/lib/utils";
-import { 
-  startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear,
-  format, eachDayOfInterval, eachMonthOfInterval, addMonths, subMonths, addWeeks, subWeeks, addYears, subYears,
-  parseISO
+import {
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  format,
+  eachDayOfInterval,
+  addMonths,
+  subMonths,
+  addWeeks,
+  subWeeks,
 } from "date-fns";
 import { ChevronLeft, ChevronRight, Calendar, DollarSign, Wallet } from "lucide-react";
 import { formatWIBDateKey } from "@/lib/date";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ErrorState } from "@/components/ui/ErrorState";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 type TimeData = {
   gross: number;
@@ -40,22 +50,21 @@ export default function MatrixClient() {
   const pathname = usePathname();
 
   const [periodType, setPeriodType] = useState<PeriodType>(
-    (searchParams.get("period") as PeriodType) || "weekly"
+    (searchParams.get("period") as PeriodType) || "weekly",
   );
   const [metricType, setMetricType] = useState<MetricType>(
-    (searchParams.get("metric") as MetricType) || "gross"
+    (searchParams.get("metric") as MetricType) || "gross",
   );
-  
+
   const initialDateStr = searchParams.get("date");
   const [currentDate, setCurrentDate] = useState<Date>(
-    initialDateStr ? new Date(initialDateStr) : new Date()
+    initialDateStr ? new Date(initialDateStr) : new Date(),
   );
-  
+
   const [data, setData] = useState<MerchantGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Sync state to URL
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("period", periodType);
@@ -64,58 +73,66 @@ export default function MatrixClient() {
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }, [periodType, metricType, currentDate, pathname, router, searchParams]);
 
-  // Generate date ranges and headers based on current settings
   const { from, to, groupBy, columns } = useMemo(() => {
-    let start, end, cols: { key: string; label: string }[] = [];
-    
+    let start: Date;
+    let end: Date;
+    let cols: { key: string; label: string }[] = [];
+
     if (periodType === "weekly") {
       start = startOfWeek(currentDate, { weekStartsOn: 1 }); // Senin
       end = endOfWeek(currentDate, { weekStartsOn: 1 });
       const days = eachDayOfInterval({ start, end });
-      cols = days.map(d => ({ key: format(d, "yyyy-MM-dd"), label: format(d, "dd/MM") }));
+      cols = days.map((d) => ({
+        key: format(d, "yyyy-MM-dd"),
+        label: format(d, "dd/MM"),
+      }));
     } else {
       start = startOfMonth(currentDate);
       end = endOfMonth(currentDate);
       const days = eachDayOfInterval({ start, end });
-      cols = days.map(d => ({ key: format(d, "yyyy-MM-dd"), label: format(d, "d") }));
+      cols = days.map((d) => ({
+        key: format(d, "yyyy-MM-dd"),
+        label: format(d, "d"),
+      }));
     }
 
     return {
       from: formatWIBDateKey(start),
       to: formatWIBDateKey(end),
       groupBy: "day",
-      columns: cols
+      columns: cols,
     };
   }, [currentDate, periodType]);
 
-  useEffect(() => {
-    let ignore = false;
-    async function fetchData() {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch(`/api/reports/matrix?from=${from}&to=${to}&group_by=${groupBy}`);
-        if (!res.ok) throw new Error("Failed to fetch matrix data");
-        const json = await res.json();
-        if (!ignore) setData(json || []);
-      } catch (err: any) {
-        if (!ignore) setError(err.message);
-      } finally {
-        if (!ignore) setLoading(false);
-      }
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/reports/matrix?from=${from}&to=${to}&group_by=${groupBy}`,
+      );
+      if (!res.ok) throw new Error("Failed to fetch matrix data");
+      const json = await res.json();
+      setData(json || []);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
     }
-    fetchData();
-    return () => { ignore = true; };
   }, [from, to, groupBy]);
 
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
   const handlePrev = () => {
-    if (periodType === "weekly") setCurrentDate(d => subWeeks(d, 1));
-    else setCurrentDate(d => subMonths(d, 1));
+    if (periodType === "weekly") setCurrentDate((d) => subWeeks(d, 1));
+    else setCurrentDate((d) => subMonths(d, 1));
   };
 
   const handleNext = () => {
-    if (periodType === "weekly") setCurrentDate(d => addWeeks(d, 1));
-    else setCurrentDate(d => addMonths(d, 1));
+    if (periodType === "weekly") setCurrentDate((d) => addWeeks(d, 1));
+    else setCurrentDate((d) => addMonths(d, 1));
   };
 
   const periodLabel = useMemo(() => {
@@ -125,14 +142,13 @@ export default function MatrixClient() {
     return format(currentDate, "MMMM yyyy");
   }, [currentDate, periodType]);
 
-  // Calculate Column Totals
   const colTotals = useMemo(() => {
     const totals: Record<string, number> = {};
-    columns.forEach(c => totals[c.key] = 0);
-    
-    data.forEach(group => {
-      group.outlets?.forEach(outlet => {
-        columns.forEach(c => {
+    columns.forEach((c) => (totals[c.key] = 0));
+
+    data.forEach((group) => {
+      group.outlets?.forEach((outlet) => {
+        columns.forEach((c) => {
           const val = outlet.time_data?.[c.key]?.[metricType] || 0;
           totals[c.key] += val;
         });
@@ -141,25 +157,36 @@ export default function MatrixClient() {
     return totals;
   }, [data, columns, metricType]);
 
-  // Calculate Grand Total
   const grandTotal = useMemo(() => {
     return data.reduce((acc, group) => {
-      return acc + (group.outlets?.reduce((sum, outlet) => sum + (metricType === "gross" ? outlet.total_gross : outlet.total_net), 0) || 0);
+      return (
+        acc +
+        (group.outlets?.reduce(
+          (sum, outlet) =>
+            sum +
+            (metricType === "gross" ? outlet.total_gross : outlet.total_net),
+          0,
+        ) || 0)
+      );
     }, 0);
   }, [data, metricType]);
 
-  const handleCellClick = (merchantId: string | 'ALL', outletId: string | 'ALL', timeKey: string | 'ALL') => {
+  const handleCellClick = (
+    merchantId: string | "ALL",
+    outletId: string | "ALL",
+    timeKey: string | "ALL",
+  ) => {
     let filterFrom = from;
     let filterTo = to;
 
-    if (timeKey !== 'ALL') {
+    if (timeKey !== "ALL") {
       filterFrom = timeKey;
       filterTo = timeKey;
     }
 
     const params = new URLSearchParams();
-    if (merchantId !== 'ALL') params.set("merchant", merchantId);
-    if (outletId !== 'ALL') params.set("outlet", outletId);
+    if (merchantId !== "ALL") params.set("merchant", merchantId);
+    if (outletId !== "ALL") params.set("outlet", outletId);
     params.set("from", filterFrom);
     params.set("to", filterTo);
 
@@ -169,7 +196,6 @@ export default function MatrixClient() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        
         {/* Period Type Selection */}
         <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
           <button
@@ -188,14 +214,20 @@ export default function MatrixClient() {
 
         {/* Date Navigator */}
         <div className="flex items-center gap-3">
-          <button onClick={handlePrev} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+          <button
+            onClick={handlePrev}
+            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+          >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2 min-w-[140px] justify-center text-slate-700 dark:text-slate-200 font-medium">
             <Calendar className="w-4 h-4 text-slate-400" />
             {periodLabel}
           </div>
-          <button onClick={handleNext} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+          <button
+            onClick={handleNext}
+            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+          >
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
@@ -221,11 +253,19 @@ export default function MatrixClient() {
 
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden relative z-0">
         {loading ? (
-          <div className="p-12 text-center text-slate-500 animate-pulse">Memuat Matriks...</div>
+          <div className="p-6 space-y-3">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-40 w-full" />
+            <Skeleton className="h-40 w-full" />
+          </div>
         ) : error ? (
-          <div className="p-8 text-center text-red-500 bg-red-50 dark:bg-red-900/10">Error: {error}</div>
+          <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-none">
+            <ErrorState message={error} onRetry={() => void loadData()} />
+          </div>
         ) : data.length === 0 ? (
-          <div className="p-12 text-center text-slate-500">Tidak ada data transaksi pada periode ini.</div>
+          <div className="p-4">
+            <EmptyState title="Tidak ada data transaksi" description="Tidak ada data transaksi pada periode ini." />
+          </div>
         ) : (
           <div className="overflow-auto max-h-[calc(100vh-280px)]">
             <table className="w-full text-xs sm:text-sm text-left border-collapse">
@@ -237,8 +277,11 @@ export default function MatrixClient() {
                   <th className="sticky top-0 left-[110px] sm:left-[200px] z-30 bg-slate-700 text-white p-2 sm:p-3 font-semibold min-w-[100px] sm:min-w-[140px] border-b border-r border-slate-600 text-right">
                     TOTAL
                   </th>
-                  {columns.map(c => (
-                    <th key={c.key} className="sticky top-0 z-20 bg-slate-700 text-white p-2 sm:p-3 font-medium min-w-[80px] sm:min-w-[110px] text-center border-b border-r border-slate-600">
+                  {columns.map((c) => (
+                    <th
+                      key={c.key}
+                      className="sticky top-0 z-20 bg-slate-700 text-white p-2 sm:p-3 font-medium min-w-[80px] sm:min-w-[110px] text-center border-b border-r border-slate-600"
+                    >
                       {c.label}
                     </th>
                   ))}
@@ -249,52 +292,92 @@ export default function MatrixClient() {
                   <React.Fragment key={group.merchant_id}>
                     {/* Merchant Header Row */}
                     <tr className="bg-slate-100 dark:bg-slate-800/80">
-                      <td className="sticky left-0 z-10 bg-slate-200 dark:bg-slate-800 p-2 font-bold text-slate-900 dark:text-white border-b border-r border-slate-300 dark:border-slate-700 min-w-[110px] max-w-[110px] sm:min-w-[200px] sm:max-w-none truncate" style={{ color: group.merchant_color || 'inherit' }}>
+                      <td
+                        className="sticky left-0 z-10 bg-slate-200 dark:bg-slate-800 p-2 font-bold text-slate-900 dark:text-white border-b border-r border-slate-300 dark:border-slate-700 min-w-[110px] max-w-[110px] sm:min-w-[200px] sm:max-w-none truncate"
+                        style={{ color: group.merchant_color || "inherit" }}
+                      >
                         {group.merchant_name}
                       </td>
-                      <td 
-                        onClick={() => handleCellClick(group.merchant_id, 'ALL', 'ALL')}
+                      <td
+                        onClick={() => handleCellClick(group.merchant_id, "ALL", "ALL")}
                         className="sticky left-[110px] sm:left-[200px] z-10 bg-slate-200 dark:bg-slate-800 p-2 font-bold text-right border-b border-r border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white cursor-pointer hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
                       >
-                        {formatIDR(group.outlets?.reduce((sum, o) => sum + (metricType === "gross" ? o.total_gross : o.total_net), 0) || 0)}
+                        {formatIDR(
+                          group.outlets?.reduce(
+                            (sum, o) =>
+                              sum +
+                              (metricType === "gross"
+                                ? o.total_gross
+                                : o.total_net),
+                            0,
+                          ) || 0,
+                        )}
                       </td>
-                      {columns.map(c => {
-                        const colTotal = group.outlets?.reduce((sum, o) => sum + (o.time_data?.[c.key]?.[metricType] || 0), 0) || 0;
+                      {columns.map((c) => {
+                        const colTotal =
+                          group.outlets?.reduce(
+                            (sum, o) =>
+                              sum + (o.time_data?.[c.key]?.[metricType] || 0),
+                            0,
+                          ) || 0;
                         return (
-                          <td 
-                            key={`header-${c.key}`} 
-                            onClick={() => handleCellClick(group.merchant_id, 'ALL', c.key)}
+                          <td
+                            key={`header-${c.key}`}
+                            onClick={() => handleCellClick(group.merchant_id, "ALL", c.key)}
                             className="p-2 font-semibold text-right border-b border-r border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700/50 transition-colors"
                           >
-                            {colTotal === 0 ? '-' : formatIDR(colTotal)}
+                            {colTotal === 0 ? "-" : formatIDR(colTotal)}
                           </td>
                         );
                       })}
                     </tr>
-                    
+
                     {/* Outlets Rows */}
                     {group.outlets?.map((outlet) => {
-                      const rowTotal = metricType === "gross" ? outlet.total_gross : outlet.total_net;
+                      const rowTotal =
+                        metricType === "gross"
+                          ? outlet.total_gross
+                          : outlet.total_net;
                       return (
-                        <tr key={outlet.outlet_id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                        <tr
+                          key={outlet.outlet_id}
+                          className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
+                        >
                           <td className="sticky left-0 z-10 bg-white dark:bg-slate-900 p-2 sm:p-3 font-medium border-b border-r border-slate-200 dark:border-slate-700 min-w-[110px] max-w-[110px] sm:min-w-[200px] sm:max-w-none truncate">
                             {outlet.outlet_name}
                           </td>
-                          <td 
-                            onClick={() => handleCellClick(group.merchant_id, outlet.outlet_id, 'ALL')}
+                          <td
+                            onClick={() =>
+                              handleCellClick(
+                                group.merchant_id,
+                                outlet.outlet_id,
+                                "ALL",
+                              )
+                            }
                             className="sticky left-[110px] sm:left-[200px] z-10 bg-slate-50 dark:bg-slate-800 p-2 sm:p-3 font-semibold text-right border-b border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                           >
                             {formatIDR(rowTotal)}
                           </td>
-                          {columns.map(c => {
-                            const val = outlet.time_data?.[c.key]?.[metricType] || 0;
+                          {columns.map((c) => {
+                            const val =
+                              outlet.time_data?.[c.key]?.[metricType] || 0;
                             return (
-                              <td 
-                                key={c.key} 
-                                onClick={() => handleCellClick(group.merchant_id, outlet.outlet_id, c.key)}
-                                className={`p-2 sm:p-3 text-right border-b border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700/50 transition-colors ${val === 0 ? 'text-slate-300 dark:text-slate-700 bg-slate-50/50 dark:bg-slate-900/50' : 'text-slate-700 dark:text-slate-300'}`}
+                              <td
+                                key={c.key}
+                                onClick={() =>
+                                  handleCellClick(
+                                    group.merchant_id,
+                                    outlet.outlet_id,
+                                    c.key,
+                                  )
+                                }
+                                className={`p-2 sm:p-3 text-right border-b border-r border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700/50 transition-colors ${
+                                  val === 0
+                                    ? "text-slate-300 dark:text-slate-700 bg-slate-50/50 dark:bg-slate-900/50"
+                                    : "text-slate-700 dark:text-slate-300"
+                                }`}
                               >
-                                {val === 0 ? '-' : formatIDR(val)}
+                                {val === 0 ? "-" : formatIDR(val)}
                               </td>
                             );
                           })}
@@ -309,19 +392,21 @@ export default function MatrixClient() {
                   <td className="sticky bottom-0 left-0 z-30 bg-emerald-600 text-white p-2 sm:p-3 font-bold border-t-2 border-emerald-700 border-r text-right min-w-[110px] max-w-[110px] sm:min-w-[200px] sm:max-w-none">
                     TOTAL OMSET
                   </td>
-                  <td 
-                    onClick={() => handleCellClick('ALL', 'ALL', 'ALL')}
+                  <td
+                    onClick={() => handleCellClick("ALL", "ALL", "ALL")}
                     className="sticky bottom-0 left-[110px] sm:left-[200px] z-30 bg-emerald-600 text-emerald-50 p-2 sm:p-3 font-bold text-right border-t-2 border-emerald-700 border-r cursor-pointer hover:bg-emerald-500 transition-colors"
                   >
                     {formatIDR(grandTotal)}
                   </td>
-                  {columns.map(c => (
-                    <td 
-                      key={c.key} 
-                      onClick={() => handleCellClick('ALL', 'ALL', c.key)}
+                  {columns.map((c) => (
+                    <td
+                      key={c.key}
+                      onClick={() => handleCellClick("ALL", "ALL", c.key)}
                       className="sticky bottom-0 z-20 bg-emerald-600 text-white p-2 sm:p-3 font-semibold text-right border-t-2 border-emerald-700 border-r min-w-[80px] sm:min-w-[110px] cursor-pointer hover:bg-emerald-500 transition-colors"
                     >
-                      {colTotals[c.key] === 0 ? '-' : formatIDR(colTotals[c.key])}
+                      {colTotals[c.key] === 0
+                        ? "-"
+                        : formatIDR(colTotals[c.key])}
                     </td>
                   ))}
                 </tr>

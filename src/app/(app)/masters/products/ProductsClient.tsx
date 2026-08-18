@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { Modal } from "@/components/ui/Modal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/Toast";
 import { formatIDR } from "@/lib/utils";
 import { createProduct, updateProduct, deleteProduct, updateProductPrices } from "./actions";
@@ -28,6 +29,7 @@ export function ProductsClient({
 }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
+  const [deleting, setDeleting] = useState<Row | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [savingProductId, setSavingProductId] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -99,10 +101,11 @@ export function ProductsClient({
     });
   }
 
-  async function onDelete(r: Row) {
-    if (!confirm(`Hapus produk "${r.name}"? Harga per merchant ikut terhapus.`)) return;
+  function onConfirmDelete() {
+    if (!deleting) return;
     start(async () => {
-      const res = await deleteProduct(r.id);
+      const res = await deleteProduct(deleting.id);
+      setDeleting(null);
       if ((res as any)?.error) toast((res as any).error, "error");
       else toast("Dihapus", "success");
     });
@@ -172,7 +175,7 @@ export function ProductsClient({
                     {pending && savingProductId === row.id ? "Menyimpan..." : "Simpan Harga"}
                   </button>
                   <button className="btn-ghost h-7 px-2 py-0.5 text-xs" onClick={() => openEdit(row)}>Edit</button>
-                  <button className="btn-ghost text-red-600 h-7 px-2 py-0.5 text-xs" onClick={() => onDelete(row)}>Hapus</button>
+                  <button className="btn-ghost text-red-600 h-7 px-2 py-0.5 text-xs" onClick={() => setDeleting(row)}>Hapus</button>
                 </td>
               </tr>
             ))}
@@ -209,6 +212,19 @@ export function ProductsClient({
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={!!deleting}
+        onClose={() => setDeleting(null)}
+        onConfirm={onConfirmDelete}
+        title="Hapus Produk"
+        message={
+          <>
+            Produk <b>"{deleting?.name}"</b> akan dihapus beserta harga per merchant-nya.
+          </>
+        }
+        busy={pending}
+      />
     </div>
   );
 }

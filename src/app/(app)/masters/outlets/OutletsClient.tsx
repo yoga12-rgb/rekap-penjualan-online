@@ -1,6 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { Modal } from "@/components/ui/Modal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/Toast";
 import { createOutlet, updateOutlet, deleteOutlet } from "./actions";
 
@@ -9,6 +10,7 @@ type Row = { id: string; name: string; created_at: string };
 export function OutletsClient({ rows }: { rows: Row[] }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
+  const [deleting, setDeleting] = useState<Row | null>(null);
   const [pending, start] = useTransition();
 
   function openCreate() { setEditing(null); setOpen(true); }
@@ -22,10 +24,11 @@ export function OutletsClient({ rows }: { rows: Row[] }) {
       else { toast("Tersimpan", "success"); setOpen(false); }
     });
   }
-  async function onDelete(r: Row) {
-    if (!confirm(`Hapus outlet "${r.name}"?`)) return;
+  function onConfirmDelete() {
+    if (!deleting) return;
     start(async () => {
-      const res = await deleteOutlet(r.id);
+      const res = await deleteOutlet(deleting.id);
+      setDeleting(null);
       if ((res as any)?.error) toast((res as any).error, "error");
       else toast("Dihapus", "success");
     });
@@ -47,7 +50,7 @@ export function OutletsClient({ rows }: { rows: Row[] }) {
                 <td>{new Date(r.created_at).toLocaleDateString("id-ID")}</td>
                 <td className="text-right whitespace-nowrap">
                   <button className="btn-ghost" onClick={() => openEdit(r)}>Edit</button>
-                  <button className="btn-ghost text-red-600" onClick={() => onDelete(r)}>Hapus</button>
+                  <button className="btn-ghost text-red-600" onClick={() => setDeleting(r)}>Hapus</button>
                 </td>
               </tr>
             ))}
@@ -66,6 +69,19 @@ export function OutletsClient({ rows }: { rows: Row[] }) {
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={!!deleting}
+        onClose={() => setDeleting(null)}
+        onConfirm={onConfirmDelete}
+        title="Hapus Outlet"
+        message={
+          <>
+            Outlet <b>"{deleting?.name}"</b> akan dihapus permanen.
+          </>
+        }
+        busy={pending}
+      />
     </div>
   );
 }

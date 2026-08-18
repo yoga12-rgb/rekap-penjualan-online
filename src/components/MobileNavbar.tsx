@@ -6,6 +6,7 @@ import {
   ReceiptText,
   ClipboardList,
   Megaphone,
+  Table,
   Menu,
   type LucideIcon,
 } from "lucide-react";
@@ -31,6 +32,7 @@ export function MobileNavbar() {
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/transactions", label: "Transaksi", icon: ReceiptText },
     { href: "/ad-costs", label: "Iklan", icon: Megaphone },
+    { href: "/reports/matrix", label: "Matriks", icon: Table },
     { href: "/surveys", label: "Survey", icon: ClipboardList },
     {
       label: "Lainnya",

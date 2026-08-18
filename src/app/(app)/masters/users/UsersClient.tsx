@@ -1,6 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { Modal } from "@/components/ui/Modal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/Toast";
 import { createUser, updateUser, deleteUser } from "./actions";
 
@@ -16,6 +17,7 @@ type Row = {
 export function UsersClient({ rows, outlets }: { rows: Row[]; outlets: Outlet[] }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
+  const [deleting, setDeleting] = useState<Row | null>(null);
   const [pending, start] = useTransition();
   function openCreate() { setEditing(null); setOpen(true); }
   function openEdit(r: Row) { setEditing(r); setOpen(true); }
@@ -28,10 +30,11 @@ export function UsersClient({ rows, outlets }: { rows: Row[]; outlets: Outlet[] 
       else { toast("Tersimpan", "success"); setOpen(false); }
     });
   }
-  async function onDelete(r: Row) {
-    if (!confirm(`Hapus akun "${r.full_name ?? r.email}"?`)) return;
+  function onConfirmDelete() {
+    if (!deleting) return;
     start(async () => {
-      const res = await deleteUser(r.id);
+      const res = await deleteUser(deleting.id);
+      setDeleting(null);
       if ((res as any)?.error) toast((res as any).error, "error");
       else toast("Dihapus", "success");
     });
@@ -59,7 +62,7 @@ export function UsersClient({ rows, outlets }: { rows: Row[]; outlets: Outlet[] 
                 <td>{r.role === "kasir" ? outletName(r.outlet_id) : "-"}</td>
                 <td className="text-right whitespace-nowrap">
                   <button className="btn-ghost" onClick={() => openEdit(r)}>Edit</button>
-                  <button className="btn-ghost text-red-600" onClick={() => onDelete(r)}>Hapus</button>
+                  <button className="btn-ghost text-red-600" onClick={() => setDeleting(r)}>Hapus</button>
                 </td>
               </tr>
             ))}
@@ -111,6 +114,19 @@ export function UsersClient({ rows, outlets }: { rows: Row[]; outlets: Outlet[] 
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={!!deleting}
+        onClose={() => setDeleting(null)}
+        onConfirm={onConfirmDelete}
+        title="Hapus Akun"
+        message={
+          <>
+            Akun <b>"{deleting?.full_name ?? deleting?.email}"</b> akan dihapus permanen.
+          </>
+        }
+        busy={pending}
+      />
     </div>
   );
 }

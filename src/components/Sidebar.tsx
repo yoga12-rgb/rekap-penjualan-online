@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { useScrollLock } from "@/lib/useScrollLock";
 import {
   LayoutDashboard,
   ReceiptText,
@@ -26,9 +27,6 @@ import {
 } from "@/lib/urlParams";
 
 type Item = { href: string; label: string; icon: LucideIcon };
-type BodyWithSidebarLock = HTMLElement & {
-  dataset: HTMLElement["dataset"] & { sidebarScrollLocks?: string };
-};
 
 const MAIN: Item[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -53,8 +51,8 @@ export function Sidebar({
   isAdmin: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const previousBodyOverflow = useRef<string | null>(null);
   const router = useRouter();
+  useScrollLock(open);
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const collapsed = searchParams.get(SIDEBAR_PARAM) === "collapsed";
@@ -73,35 +71,6 @@ export function Sidebar({
     setOpen(false);
   }, [pathname]);
 
-  // Cegah scroll body saat drawer terbuka tanpa menimpa scroll lock lain.
-  useEffect(() => {
-    const body = document.body as BodyWithSidebarLock;
-    const currentLocks = Number(body.dataset.sidebarScrollLocks ?? "0");
-
-    if (open) {
-      if (currentLocks === 0) {
-        previousBodyOverflow.current = body.style.overflow;
-        body.style.overflow = "hidden";
-      }
-      body.dataset.sidebarScrollLocks = String(currentLocks + 1);
-    }
-
-    return () => {
-      const nextLocks = Math.max(
-        Number(body.dataset.sidebarScrollLocks ?? "0") - (open ? 1 : 0),
-        0,
-      );
-      if (nextLocks === 0) {
-        delete body.dataset.sidebarScrollLocks;
-        if (previousBodyOverflow.current != null) {
-          body.style.overflow = previousBodyOverflow.current;
-          previousBodyOverflow.current = null;
-        }
-      } else {
-        body.dataset.sidebarScrollLocks = String(nextLocks);
-      }
-    };
-  }, [open]);
 
   function toggleCollapsed() {
     const next = !collapsed;

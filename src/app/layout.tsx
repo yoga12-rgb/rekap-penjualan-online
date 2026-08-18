@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ThemeScript } from "@/components/ThemeScript";
 import { PwaRegister } from "@/components/PwaRegister";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 
 export const metadata: Metadata = {
   title: "Rekap Penjualan Rajaklana",
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen antialiased">
         {children}
         <PwaRegister />
+        <OfflineIndicator />
       </body>
     </html>
   );

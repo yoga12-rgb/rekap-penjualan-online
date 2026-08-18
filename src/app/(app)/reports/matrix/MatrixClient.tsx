@@ -40,7 +40,7 @@ export default function MatrixClient() {
   const pathname = usePathname();
 
   const [periodType, setPeriodType] = useState<PeriodType>(
-    (searchParams.get("period") as PeriodType) || "monthly"
+    (searchParams.get("period") as PeriodType) || "weekly"
   );
   const [metricType, setMetricType] = useState<MetricType>(
     (searchParams.get("metric") as MetricType) || "gross"
@@ -163,7 +163,7 @@ export default function MatrixClient() {
     params.set("from", filterFrom);
     params.set("to", filterTo);
 
-    window.open(`/transactions?${params.toString()}`, '_blank');
+    router.push(`/transactions?${params.toString()}`);
   };
 
   return (

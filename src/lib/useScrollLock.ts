@@ -6,12 +6,17 @@ import { useEffect } from "react";
  * Shared scroll-lock utility with a global counter, so multiple components
  * (Modal, Sidebar drawer, etc.) can lock <body> simultaneously without
  * clobbering each other's overflow style.
+ *
+ * Menggunakan camelCase karena `dataset` melempar TypeError untuk nama
+ * property dengan strip ("foo-bar"). Key `scrollLockCount` otomatis
+ * dipetakan ke atribut data `data-scroll-lock-count` di DOM.
  */
-const STORAGE_KEY = "scroll-lock-count";
+const STORAGE_KEY = "scrollLockCount";
 
 function readCount(): number {
   if (typeof window === "undefined") return 0;
-  return Number(window.document.body.dataset[STORAGE_KEY] ?? "0");
+  const raw = window.document.body.dataset[STORAGE_KEY];
+  return Number(raw ?? "0");
 }
 
 function writeCount(count: number) {

@@ -315,6 +315,7 @@ Status berikut adalah hasil pengerjaan oleh AI agent pada **18 Agustus 2026**.
 
 **Milestone 5 (sebagian)**
 - [x] `OfflineIndicator` dibuat dan dipasang di root layout.
+- [x] Validasi inline date range: `DateRangePicker` menandai `from > to` (border merah + pesan + `aria-invalid` / `role="alert"`).
 
 ### ⏳ Belum Selesai (Tersisa)
 
@@ -323,7 +324,6 @@ Status berikut adalah hasil pengerjaan oleh AI agent pada **18 Agustus 2026**.
 - [ ] M5: Seragamkan format ekspor (CSV di Dashboard vs Excel di Transaksi).
 - [ ] M5: Audit kontras warna dark mode (WCAG AA).
 - [ ] M5: Mode tampilan matrix mobile (kartu/non-tabel).
-- [ ] M5: Validasi inline form (mis. tanggal `from > to`) di `DateRangePicker` — belum diterapkan, hanya banner alert setelah submit di sebagian halaman.
 - [ ] M4 lanjutan: terapkan skeleton/empty/error konsisten ke seluruh halaman master & surveys (baru diterapkan di Matrix & Transaksi).
 - [ ] L1: Standarkan feedback sukses semua server action (sebagian sudah memakai toast, sebagian belum konsisten).
 

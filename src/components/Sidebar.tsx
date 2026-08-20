@@ -26,14 +26,14 @@ import {
   queryString,
 } from "@/lib/urlParams";
 
-type Item = { href: string; label: string; icon: LucideIcon };
+type Item = { href: string; label: string; icon: LucideIcon; adminOnly?: boolean };
 
 const MAIN: Item[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/transactions", label: "Transaksi", icon: ReceiptText },
   { href: "/ad-costs", label: "Biaya Iklan", icon: Megaphone },
   { href: "/surveys", label: "Survey", icon: ClipboardList },
-  { href: "/reports/matrix", label: "Matriks Omset", icon: Table },
+  { href: "/reports/matrix", label: "Matriks Omset", icon: Table, adminOnly: true },
 ];
 
 const MASTERS: Item[] = [
@@ -142,7 +142,7 @@ export function Sidebar({
           </button>
         </div>
         <nav className="p-2 text-sm flex-1 overflow-y-auto">
-          {MAIN.map((it) => (
+          {MAIN.filter((it) => !it.adminOnly || isAdmin).map((it) => (
             <NavItem key={it.href} collapsed={collapsed} {...it} />
           ))}
           {isAdmin && (

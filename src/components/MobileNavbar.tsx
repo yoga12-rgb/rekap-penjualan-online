@@ -18,9 +18,10 @@ type TabItem = {
   label: string;
   icon: LucideIcon;
   action?: () => void;
+  adminOnly?: boolean;
 };
 
-export function MobileNavbar() {
+export function MobileNavbar({ isAdmin }: { isAdmin?: boolean }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -32,7 +33,7 @@ export function MobileNavbar() {
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/transactions", label: "Transaksi", icon: ReceiptText },
     { href: "/ad-costs", label: "Iklan", icon: Megaphone },
-    { href: "/reports/matrix", label: "Matriks", icon: Table },
+    { href: "/reports/matrix", label: "Matriks", icon: Table, adminOnly: true },
     { href: "/surveys", label: "Survey", icon: ClipboardList },
     {
       label: "Lainnya",
@@ -40,6 +41,8 @@ export function MobileNavbar() {
       action: openSidebarDrawer,
     },
   ];
+
+  const visibleTabs = TABS.filter((tab) => !tab.adminOnly || isAdmin);
 
   return (
     <nav
@@ -51,7 +54,7 @@ export function MobileNavbar() {
       }}
     >
       <div className="flex justify-around items-center h-16 px-1 pb-safe">
-        {TABS.map((tab) => {
+        {visibleTabs.map((tab) => {
           const isActive = tab.href
             ? pathname === tab.href ||
               (tab.href !== "/" && pathname.startsWith(tab.href + "/"))

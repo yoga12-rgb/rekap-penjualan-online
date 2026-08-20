@@ -50,7 +50,7 @@ export default async function AppLayout({
         </header>
         <div className="p-4 sm:p-6 pb-24 md:pb-6">{children}</div>
       </main>
-      <MobileNavbar />
+      <MobileNavbar isAdmin={isAdmin} />
       <ToastHost />
     </div>
   );

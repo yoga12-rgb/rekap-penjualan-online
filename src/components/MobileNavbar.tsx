@@ -97,25 +97,25 @@ export function MobileNavbar({ isAdmin }: { isAdmin?: boolean }) {
         )}
         aria-current={isActive ? "page" : undefined}
         className={cn(
-          "relative flex flex-col items-center justify-center gap-0.5 flex-1 min-w-0 h-full py-1 px-1 rounded-full transition-all duration-200 active:scale-90",
+          "relative flex flex-col items-center justify-center gap-1 flex-1 min-w-0 h-full py-1.5 px-1 rounded-full transition-all duration-200 active:scale-90",
           isActive
             ? "text-red-700 dark:text-red-300 font-semibold"
             : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
         )}
       >
         <tab.icon
-          size={20}
+          size={23}
           className={cn(
             "transition-transform duration-200",
             isActive && "scale-110",
           )}
-          strokeWidth={isActive ? 2.5 : 1.75}
+          strokeWidth={isActive ? 2.5 : 1.85}
         />
-        <span className="text-[10px] font-medium leading-tight truncate max-w-full">
+        <span className="text-[11px] font-medium leading-none truncate max-w-full">
           {tab.label}
         </span>
         {isActive && (
-          <span className="absolute top-1 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full bg-red-600 dark:bg-red-400 shadow-sm shadow-red-500/50" />
+          <span className="absolute top-1 left-1/2 -translate-x-1/2 w-5 h-0.5 rounded-full bg-red-600 dark:bg-red-400 shadow-sm shadow-red-500/50" />
         )}
       </Link>
     );
@@ -134,19 +134,19 @@ export function MobileNavbar({ isAdmin }: { isAdmin?: boolean }) {
 
       <nav
         aria-label="Navigasi Mobile Bawah"
-        className="md:hidden fixed bottom-3.5 left-3 right-3 sm:left-1/2 sm:-translate-x-1/2 sm:w-[440px] z-50 pointer-events-none"
+        className="md:hidden fixed bottom-3.5 left-3 right-3 sm:left-1/2 sm:-translate-x-1/2 sm:w-[460px] z-50 pointer-events-none"
       >
         {/* Quick Hub Popup (Floating Capsule Above) */}
         <div
           className={cn(
-            "absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-full max-w-[340px] sm:max-w-[400px] z-50 pointer-events-auto transition-all duration-250 ease-out origin-bottom",
+            "absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-full max-w-[350px] sm:max-w-[420px] z-50 pointer-events-auto transition-all duration-250 ease-out origin-bottom",
             isOpen
               ? "opacity-100 scale-100 translate-y-0"
               : "opacity-0 scale-95 translate-y-4 pointer-events-none",
           )}
         >
           <div
-            className="rounded-3xl border p-3.5 shadow-2xl backdrop-blur-2xl"
+            className="rounded-3xl border p-4 shadow-2xl backdrop-blur-2xl"
             style={{
               borderColor: "var(--border)",
               backgroundColor:
@@ -156,11 +156,11 @@ export function MobileNavbar({ isAdmin }: { isAdmin?: boolean }) {
             }}
           >
             <div
-              className="flex items-center justify-between px-1.5 pb-2 mb-2 border-b"
+              className="flex items-center justify-between px-1 pb-2.5 mb-2.5 border-b"
               style={{ borderColor: "var(--border)" }}
             >
               <span
-                className="text-[11px] font-semibold uppercase tracking-wider"
+                className="text-xs font-semibold uppercase tracking-wider"
                 style={{ color: "var(--muted)" }}
               >
                 {isAdmin ? "Pintasan Master Data" : "Pintasan Menu"}
@@ -171,13 +171,13 @@ export function MobileNavbar({ isAdmin }: { isAdmin?: boolean }) {
                 className="p-1 rounded-full text-slate-400 hover:text-slate-200 transition-colors"
                 aria-label="Tutup menu"
               >
-                <X size={15} />
+                <X size={16} />
               </button>
             </div>
 
             <div
               className={cn(
-                "grid gap-1.5",
+                "grid gap-2",
                 isAdmin ? "grid-cols-4" : "grid-cols-2",
               )}
             >
@@ -196,7 +196,7 @@ export function MobileNavbar({ isAdmin }: { isAdmin?: boolean }) {
                     )}
                     onClick={() => setIsOpen(false)}
                     className={cn(
-                      "group flex flex-col items-center justify-center p-1.5 rounded-2xl transition-all duration-150 active:scale-90",
+                      "group flex flex-col items-center justify-center p-2 rounded-2xl transition-all duration-150 active:scale-90",
                       isActive
                         ? "bg-red-500/15 text-red-600 dark:text-red-400 font-semibold"
                         : "hover:bg-[var(--hover)] text-slate-700 dark:text-slate-200",
@@ -204,18 +204,18 @@ export function MobileNavbar({ isAdmin }: { isAdmin?: boolean }) {
                   >
                     <div
                       className={cn(
-                        "h-10 w-10 rounded-xl flex items-center justify-center mb-1 transition-transform group-hover:scale-105",
+                        "h-11 w-11 rounded-2xl flex items-center justify-center mb-1 transition-transform group-hover:scale-105",
                         isActive
                           ? "bg-red-600 text-white shadow-md shadow-red-500/30"
                           : "bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300",
                       )}
                     >
                       <item.icon
-                        size={19}
-                        strokeWidth={isActive ? 2.5 : 1.75}
+                        size={21}
+                        strokeWidth={isActive ? 2.5 : 1.85}
                       />
                     </div>
-                    <span className="text-[10px] leading-tight text-center truncate max-w-full font-medium">
+                    <span className="text-[11px] leading-tight text-center truncate max-w-full font-medium">
                       {item.label}
                     </span>
                   </Link>
@@ -227,29 +227,29 @@ export function MobileNavbar({ isAdmin }: { isAdmin?: boolean }) {
 
         {/* Main Floating Capsule Navbar */}
         <div
-          className="pointer-events-auto flex items-center justify-between h-15 px-2 py-1 rounded-full border shadow-2xl backdrop-blur-xl transition-all"
+          className="pointer-events-auto flex items-center justify-between h-[68px] px-3 py-1.5 rounded-full border shadow-2xl backdrop-blur-xl transition-all"
           style={{
             borderColor: "var(--border)",
             backgroundColor:
               "color-mix(in oklab, var(--card) 95%, var(--fg) 5%)",
             boxShadow:
-              "0 10px 30px -4px rgba(0,0,0,0.28), 0 2px 8px -1px rgba(0,0,0,0.12)",
+              "0 10px 32px -4px rgba(0,0,0,0.3), 0 2px 8px -1px rgba(0,0,0,0.14)",
           }}
         >
           {/* Left Tabs */}
-          <div className="flex items-center justify-around flex-1">
+          <div className="flex items-center justify-around flex-1 h-full">
             {leftTabs.map(renderTab)}
           </div>
 
           {/* Central Expandable Toggle Button (+) */}
-          <div className="flex items-center justify-center px-1.5">
+          <div className="flex items-center justify-center px-2">
             <button
               type="button"
               onClick={() => setIsOpen((prev) => !prev)}
               aria-label={isOpen ? "Tutup menu lainnya" : "Buka menu lainnya"}
               aria-expanded={isOpen}
               className={cn(
-                "relative flex items-center justify-center h-11 w-11 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/35 transition-all duration-200 active:scale-90",
+                "relative flex items-center justify-center h-12 w-12 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/35 transition-all duration-200 active:scale-90",
                 isOpen && "bg-red-700 ring-2 ring-red-400/50",
                 isSubMenuRouteActive &&
                   !isOpen &&
@@ -257,7 +257,7 @@ export function MobileNavbar({ isAdmin }: { isAdmin?: boolean }) {
               )}
             >
               <Plus
-                size={22}
+                size={25}
                 strokeWidth={2.5}
                 className={cn(
                   "transition-transform duration-300 ease-in-out",
@@ -268,7 +268,7 @@ export function MobileNavbar({ isAdmin }: { isAdmin?: boolean }) {
           </div>
 
           {/* Right Tabs */}
-          <div className="flex items-center justify-around flex-1">
+          <div className="flex items-center justify-around flex-1 h-full">
             {rightTabs.map(renderTab)}
           </div>
         </div>

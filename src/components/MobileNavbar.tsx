@@ -8,14 +8,25 @@ import {
   ClipboardList,
   Megaphone,
   Table,
-  Menu,
+  Package,
+  Store,
+  UtensilsCrossed,
+  Users,
+  Activity,
   Plus,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { hrefWithCurrentOrPersistentParams } from "@/lib/urlParams";
 
 type MainTab = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+};
+
+type QuickItem = {
   href: string;
   label: string;
   icon: LucideIcon;
@@ -40,10 +51,6 @@ export function MobileNavbar({ isAdmin }: { isAdmin?: boolean }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  function openSidebarDrawer() {
-    window.dispatchEvent(new CustomEvent("sidebar:open"));
-  }
-
   const leftTabs: MainTab[] = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/transactions", label: "Transaksi", icon: ReceiptText },
@@ -55,6 +62,22 @@ export function MobileNavbar({ isAdmin }: { isAdmin?: boolean }) {
         { href: "/surveys", label: "Survey", icon: ClipboardList },
       ]
     : [{ href: "/surveys", label: "Survey", icon: ClipboardList }];
+
+  // Quick Action items inside popup
+  const quickItems: QuickItem[] = isAdmin
+    ? [
+        { href: "/ad-costs", label: "Iklan", icon: Megaphone },
+        { href: "/masters/products", label: "Produk", icon: Package },
+        { href: "/masters/outlets", label: "Outlet", icon: Store },
+        { href: "/masters/merchants", label: "Merchant", icon: UtensilsCrossed },
+        { href: "/masters/users", label: "Kasir", icon: Users },
+        { href: "/masters/user-presence", label: "Online", icon: Activity },
+        { href: "/masters/surveys", label: "Survey", icon: ClipboardList },
+      ]
+    : [
+        { href: "/ad-costs", label: "Biaya Iklan", icon: Megaphone },
+        { href: "/surveys", label: "Survey Pelanggan", icon: ClipboardList },
+      ];
 
   const isSubMenuRouteActive =
     pathname.startsWith("/ad-costs") || pathname.startsWith("/masters");
@@ -103,7 +126,7 @@ export function MobileNavbar({ isAdmin }: { isAdmin?: boolean }) {
       {/* Backdrop overlay when sub-menu is open */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[2px] md:hidden transition-opacity"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] md:hidden transition-opacity"
           onClick={() => setIsOpen(false)}
           aria-hidden="true"
         />
@@ -113,67 +136,92 @@ export function MobileNavbar({ isAdmin }: { isAdmin?: boolean }) {
         aria-label="Navigasi Mobile Bawah"
         className="md:hidden fixed bottom-3.5 left-3 right-3 sm:left-1/2 sm:-translate-x-1/2 sm:w-[440px] z-50 pointer-events-none"
       >
-        {/* Expandable Sub-Menu (Floating Capsule Above) */}
+        {/* Quick Hub Popup (Floating Capsule Above) */}
         <div
           className={cn(
-            "absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-50 pointer-events-auto transition-all duration-200 ease-out origin-bottom",
+            "absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-full max-w-[340px] sm:max-w-[400px] z-50 pointer-events-auto transition-all duration-250 ease-out origin-bottom",
             isOpen
               ? "opacity-100 scale-100 translate-y-0"
-              : "opacity-0 scale-90 translate-y-3 pointer-events-none",
+              : "opacity-0 scale-95 translate-y-4 pointer-events-none",
           )}
         >
           <div
-            className="flex items-center gap-1 px-3 py-1.5 rounded-full border shadow-2xl backdrop-blur-xl"
+            className="rounded-3xl border p-3.5 shadow-2xl backdrop-blur-2xl"
             style={{
               borderColor: "var(--border)",
               backgroundColor:
-                "color-mix(in oklab, var(--card) 95%, var(--fg) 5%)",
-              boxShadow: "0 14px 36px -4px rgba(0,0,0,0.35)",
+                "color-mix(in oklab, var(--card) 96%, var(--fg) 4%)",
+              boxShadow:
+                "0 20px 40px -8px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.05)",
             }}
           >
-            {/* 1. Biaya Iklan */}
-            <Link
-              href={hrefWithCurrentOrPersistentParams(
-                "/ad-costs",
-                pathname,
-                searchParams,
-              )}
-              onClick={() => setIsOpen(false)}
-              className={cn(
-                "flex flex-col items-center justify-center gap-0.5 px-4 py-1.5 rounded-full transition-all active:scale-90",
-                pathname.startsWith("/ad-costs")
-                  ? "text-red-700 dark:text-red-300 font-semibold bg-red-500/15"
-                  : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white",
-              )}
+            <div
+              className="flex items-center justify-between px-1.5 pb-2 mb-2 border-b"
+              style={{ borderColor: "var(--border)" }}
             >
-              <Megaphone
-                size={18}
-                strokeWidth={pathname.startsWith("/ad-costs") ? 2.5 : 1.75}
-              />
-              <span className="text-[10px] font-medium leading-tight">
-                Iklan
+              <span
+                className="text-[11px] font-semibold uppercase tracking-wider"
+                style={{ color: "var(--muted)" }}
+              >
+                {isAdmin ? "Pintasan Master Data" : "Pintasan Menu"}
               </span>
-            </Link>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="p-1 rounded-full text-slate-400 hover:text-slate-200 transition-colors"
+                aria-label="Tutup menu"
+              >
+                <X size={15} />
+              </button>
+            </div>
 
             <div
-              className="w-[1px] h-6 my-auto"
-              style={{ backgroundColor: "var(--border)" }}
-            />
-
-            {/* 2. Menu Lengkap (Buka Sidebar Drawer) */}
-            <button
-              type="button"
-              onClick={() => {
-                setIsOpen(false);
-                openSidebarDrawer();
-              }}
-              className="flex flex-col items-center justify-center gap-0.5 px-4 py-1.5 rounded-full text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all active:scale-90"
+              className={cn(
+                "grid gap-1.5",
+                isAdmin ? "grid-cols-4" : "grid-cols-2",
+              )}
             >
-              <Menu size={18} strokeWidth={1.75} />
-              <span className="text-[10px] font-medium leading-tight whitespace-nowrap">
-                Lainnya
-              </span>
-            </button>
+              {quickItems.map((item) => {
+                const isActive =
+                  pathname === item.href ||
+                  (item.href !== "/" && pathname.startsWith(item.href + "/"));
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={hrefWithCurrentOrPersistentParams(
+                      item.href,
+                      pathname,
+                      searchParams,
+                    )}
+                    onClick={() => setIsOpen(false)}
+                    className={cn(
+                      "group flex flex-col items-center justify-center p-1.5 rounded-2xl transition-all duration-150 active:scale-90",
+                      isActive
+                        ? "bg-red-500/15 text-red-600 dark:text-red-400 font-semibold"
+                        : "hover:bg-[var(--hover)] text-slate-700 dark:text-slate-200",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "h-10 w-10 rounded-xl flex items-center justify-center mb-1 transition-transform group-hover:scale-105",
+                        isActive
+                          ? "bg-red-600 text-white shadow-md shadow-red-500/30"
+                          : "bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300",
+                      )}
+                    >
+                      <item.icon
+                        size={19}
+                        strokeWidth={isActive ? 2.5 : 1.75}
+                      />
+                    </div>
+                    <span className="text-[10px] leading-tight text-center truncate max-w-full font-medium">
+                      {item.label}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         </div>
 

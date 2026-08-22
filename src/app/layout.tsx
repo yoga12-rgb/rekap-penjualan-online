@@ -3,6 +3,7 @@ import "./globals.css";
 import { ThemeScript } from "@/components/ThemeScript";
 import { PwaRegister } from "@/components/PwaRegister";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
+import { SplashScreen } from "@/components/SplashScreen";
 
 export const metadata: Metadata = {
   title: "Rekap Penjualan Rajaklana",
@@ -13,53 +14,6 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "Rajaklana",
-    startupImage: [
-      {
-        url: "/splash/apple-splash-828-1792.png",
-        media:
-          "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)",
-      },
-      {
-        url: "/splash/apple-splash-1125-2436.png",
-        media:
-          "(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)",
-      },
-      {
-        url: "/splash/apple-splash-1170-2532.png",
-        media:
-          "(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)",
-      },
-      {
-        url: "/splash/apple-splash-1179-2556.png",
-        media:
-          "(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)",
-      },
-      {
-        url: "/splash/apple-splash-1242-2688.png",
-        media:
-          "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)",
-      },
-      {
-        url: "/splash/apple-splash-1290-2796.png",
-        media:
-          "(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)",
-      },
-      {
-        url: "/splash/apple-splash-750-1334.png",
-        media:
-          "(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)",
-      },
-      {
-        url: "/splash/apple-splash-2048-2732.png",
-        media:
-          "(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)",
-      },
-      {
-        url: "/splash/apple-splash-1668-2388.png",
-        media:
-          "(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)",
-      },
-    ],
   },
   icons: {
     icon: [
@@ -77,7 +31,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
-  themeColor: "#b91c1c"
+  themeColor: "#ffffff",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -85,8 +39,60 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="id" suppressHydrationWarning>
       <head>
         <ThemeScript />
+        {/* Apple PWA Native Splash Screens (iPhone XR, 11, 12, 13, 14, 15, 16, SE, iPad) */}
+        <link
+          rel="apple-touch-startup-image"
+          href="/splash/apple-splash-828-1792.png"
+          media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)"
+        />
+        <link
+          rel="apple-touch-startup-image"
+          href="/splash/apple-splash-828-1792.png"
+          media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
+        />
+        <link
+          rel="apple-touch-startup-image"
+          href="/splash/apple-splash-1125-2436.png"
+          media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)"
+        />
+        <link
+          rel="apple-touch-startup-image"
+          href="/splash/apple-splash-1170-2532.png"
+          media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)"
+        />
+        <link
+          rel="apple-touch-startup-image"
+          href="/splash/apple-splash-1179-2556.png"
+          media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)"
+        />
+        <link
+          rel="apple-touch-startup-image"
+          href="/splash/apple-splash-1242-2688.png"
+          media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)"
+        />
+        <link
+          rel="apple-touch-startup-image"
+          href="/splash/apple-splash-1290-2796.png"
+          media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)"
+        />
+        <link
+          rel="apple-touch-startup-image"
+          href="/splash/apple-splash-750-1334.png"
+          media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)"
+        />
+        <link
+          rel="apple-touch-startup-image"
+          href="/splash/apple-splash-2048-2732.png"
+          media="screen and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)"
+        />
+        <link
+          rel="apple-touch-startup-image"
+          href="/splash/apple-splash-1668-2388.png"
+          media="screen and (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2)"
+        />
       </head>
       <body className="min-h-screen antialiased">
+        <SplashScreen />
         {children}
         <PwaRegister />
         <OfflineIndicator />

@@ -74,9 +74,11 @@ function parseNumberInput(value: string) {
 function CurrencyInput({
   value,
   onChange,
+  id,
 }: {
   value: string;
   onChange: (value: string) => void;
+  id?: string;
 }) {
   return (
     <div
@@ -94,6 +96,7 @@ function CurrencyInput({
         Rp
       </span>
       <input
+        id={id}
         className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm tabular-nums outline-none"
         inputMode="numeric"
         value={value}
@@ -585,8 +588,9 @@ function AdCostForm({
       className="space-y-3"
     >
       <div>
-        <label className="label">Tanggal</label>
+        <label htmlFor="ad-cost-date" className="label">Tanggal</label>
         <input
+          id="ad-cost-date"
           className="input"
           type="date"
           name="cost_date"
@@ -595,10 +599,11 @@ function AdCostForm({
         />
       </div>
       <div>
-        <label className="label">Outlet</label>
+        <label htmlFor="ad-cost-outlet" className="label">Outlet</label>
         {role === "kasir" ? (
           <>
             <input
+              id="ad-cost-outlet"
               className="input"
               disabled
               value={
@@ -610,6 +615,7 @@ function AdCostForm({
           </>
         ) : (
           <select
+            id="ad-cost-outlet"
             className="input"
             name="outlet_id"
             defaultValue={editing?.outlet_id ?? ""}
@@ -625,8 +631,9 @@ function AdCostForm({
         )}
       </div>
       <div>
-        <label className="label">Merchant</label>
+        <label htmlFor="ad-cost-merchant" className="label">Merchant</label>
         <select
+          id="ad-cost-merchant"
           className="input"
           name="food_merchant_id"
           defaultValue={editing?.food_merchant_id ?? ""}
@@ -641,13 +648,14 @@ function AdCostForm({
         </select>
       </div>
       <div>
-        <label className="label">Biaya Iklan</label>
-        <CurrencyInput value={amount} onChange={setAmount} />
+        <label htmlFor="ad-cost-amount" className="label">Biaya Iklan</label>
+        <CurrencyInput id="ad-cost-amount" value={amount} onChange={setAmount} />
         <input type="hidden" name="amount" value={parseNumberInput(amount)} />
       </div>
       <div>
-        <label className="label">Catatan</label>
+        <label htmlFor="ad-cost-note" className="label">Catatan</label>
         <textarea
+          id="ad-cost-note"
           className="input min-h-20"
           name="note"
           defaultValue={editing?.note ?? ""}

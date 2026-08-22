@@ -288,6 +288,9 @@ export default function MatrixClient() {
           </div>
         ) : (
           <div className="overflow-auto max-h-[calc(100vh-280px)]">
+            <div className="sm:hidden px-3 py-1 text-[11px] bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-center font-medium">
+              ← Geser ke kanan untuk melihat rincian tanggal →
+            </div>
             <table className="w-full text-xs sm:text-sm text-left border-collapse">
               <thead>
                 <tr>

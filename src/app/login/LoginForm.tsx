@@ -34,10 +34,13 @@ export function LoginForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div>
-        <label className="label">Email</label>
+        <label htmlFor="login-email" className="label">
+          Email
+        </label>
         <div className="relative mt-1">
           <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
           <input
+            id="login-email"
             className="input pl-9"
             type="email"
             required
@@ -49,10 +52,13 @@ export function LoginForm() {
         </div>
       </div>
       <div>
-        <label className="label">Password</label>
+        <label htmlFor="login-password" className="label">
+          Password
+        </label>
         <div className="relative mt-1">
           <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
           <input
+            id="login-password"
             className="input px-9"
             type={showPassword ? "text" : "password"}
             required
@@ -72,7 +78,11 @@ export function LoginForm() {
           </button>
         </div>
       </div>
-      {err && <p className="text-sm text-red-600 break-words">{err}</p>}
+      {err && (
+        <p role="alert" aria-live="polite" className="text-sm text-red-600 break-words">
+          {err}
+        </p>
+      )}
       <button className="btn-primary w-full h-10" disabled={loading}>
         {loading ? "Memproses..." : "Masuk"}
       </button>

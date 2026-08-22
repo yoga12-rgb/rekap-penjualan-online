@@ -15,8 +15,131 @@ function priceKey(productId: string, merchantId: string) {
   return `${productId}:${merchantId}`;
 }
 
-function normalizePriceInput(value: string) {
-  return value.replace(/[^\d]/g, "");
+function onlyDigits(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function formatNumberInput(value: string | number) {
+  const digits = onlyDigits(String(value));
+  return digits ? Number(digits).toLocaleString("id-ID") : "";
+}
+
+function parseNumberInput(value: string) {
+  const digits = onlyDigits(value);
+  return digits ? Number(digits) : 0;
+}
+
+function CurrencyInput({
+  id,
+  value,
+  onChange,
+  required = false,
+}: {
+  id?: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+}) {
+  return (
+    <div
+      className="flex h-10 w-full overflow-hidden rounded-md border focus-within:border-brand focus-within:ring-2 focus-within:ring-red-100 dark:focus-within:ring-red-900/30"
+      style={{
+        backgroundColor: "var(--bg)",
+        borderColor: "var(--border)",
+        color: "var(--fg)",
+      }}
+    >
+      <span
+        className="flex items-center border-r px-3 text-sm font-medium shrink-0"
+        style={{ borderColor: "var(--border)", color: "var(--muted)" }}
+      >
+        Rp
+      </span>
+      <input
+        id={id}
+        className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm tabular-nums outline-none"
+        inputMode="numeric"
+        value={value}
+        onChange={(e) => onChange(formatNumberInput(e.target.value))}
+        required={required}
+      />
+    </div>
+  );
+}
+
+function ProductForm({
+  editing,
+  pending,
+  onSubmit,
+}: {
+  editing: Row | null;
+  pending: boolean;
+  onSubmit: (form: HTMLFormElement) => void;
+}) {
+  const [name, setName] = useState(editing?.name ?? "");
+  const [hpp, setHpp] = useState(() =>
+    editing?.hpp != null ? formatNumberInput(editing.hpp) : "",
+  );
+  const [basePrice, setBasePrice] = useState(() =>
+    editing?.base_price != null ? formatNumberInput(editing.base_price) : "",
+  );
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit(e.currentTarget);
+      }}
+      className="space-y-3"
+    >
+      <div>
+        <label htmlFor="product-name" className="label">
+          Nama Produk/Varian
+        </label>
+        <input
+          id="product-name"
+          name="name"
+          className="input"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+          autoFocus
+        />
+      </div>
+      <div>
+        <label htmlFor="product-hpp" className="label">
+          HPP (Modal Dasar)
+        </label>
+        <CurrencyInput
+          id="product-hpp"
+          value={hpp}
+          onChange={setHpp}
+          required
+        />
+        <input type="hidden" name="hpp" value={parseNumberInput(hpp)} />
+      </div>
+      <div>
+        <label htmlFor="product-base-price" className="label">
+          Harga Jual (Default)
+        </label>
+        <CurrencyInput
+          id="product-base-price"
+          value={basePrice}
+          onChange={setBasePrice}
+          required
+        />
+        <input type="hidden" name="base_price" value={parseNumberInput(basePrice)} />
+        <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+          Dipakai jika harga khusus merchant belum diisi.
+        </p>
+      </div>
+      <div className="flex justify-end">
+        <button className="btn-primary" disabled={pending}>
+          {pending ? "Menyimpan..." : "Simpan"}
+        </button>
+      </div>
+    </form>
+  );
 }
 
 export function ProductsClient({
@@ -70,7 +193,7 @@ export function ProductsClient({
 
   function setDraft(productId: string, merchantId: string, value: string) {
     const key = priceKey(productId, merchantId);
-    setDrafts((current) => ({ ...current, [key]: normalizePriceInput(value) }));
+    setDrafts((current) => ({ ...current, [key]: onlyDigits(value) }));
   }
 
   async function onSubmit(form: HTMLFormElement) {
@@ -153,6 +276,7 @@ export function ProductsClient({
                   return (
                     <td key={merchant.id} className="text-right align-top py-1.5">
                       <input
+                        aria-label={`Harga ${row.name} di ${merchant.name}`}
                         className="input text-right tabular-nums h-7 py-0.5 px-2 text-sm"
                         inputMode="numeric"
                         value={value}
@@ -192,26 +316,7 @@ export function ProductsClient({
       </div>
 
       <Modal open={open} onClose={() => setOpen(false)} title={editing ? "Edit Produk" : "Tambah Produk"}>
-        <form onSubmit={(e) => { e.preventDefault(); onSubmit(e.currentTarget); }} className="space-y-3">
-          <div>
-            <label className="label">Nama Produk/Varian</label>
-            <input name="name" className="input" defaultValue={editing?.name} required autoFocus />
-          </div>
-          <div>
-            <label className="label">HPP (Modal Dasar)</label>
-            <input name="hpp" type="number" min="0" className="input" defaultValue={editing?.hpp} required />
-          </div>
-          <div>
-            <label className="label">Harga Jual (Default)</label>
-            <input name="base_price" type="number" min="0" className="input" defaultValue={editing?.base_price} required />
-            <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
-              Dipakai jika harga khusus merchant belum diisi.
-            </p>
-          </div>
-          <div className="flex justify-end">
-            <button className="btn-primary" disabled={pending}>{pending ? "Menyimpan..." : "Simpan"}</button>
-          </div>
-        </form>
+        <ProductForm key={editing?.id ?? "create"} editing={editing} pending={pending} onSubmit={onSubmit} />
       </Modal>
 
       <ConfirmDialog

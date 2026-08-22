@@ -1,5 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -53,17 +54,35 @@ export function UsersClient({ rows, outlets }: { rows: Row[]; outlets: Outlet[] 
       </div>
       <div className="card overflow-auto">
         <table className="table">
-          <thead><tr><th>Nama</th><th>Email</th><th>Role</th><th>Outlet</th><th></th></tr></thead>
+          <thead><tr><th>Nama</th><th>Email</th><th>Role</th><th>Outlet</th><th className="text-right">Aksi</th></tr></thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id}>
-                <td>{r.full_name}</td>
-                <td>{r.email}</td>
-                <td><span className="badge">{r.role}</span></td>
-                <td>{r.role === "kasir" ? outletName(r.outlet_id) : "-"}</td>
-                <td className="text-right whitespace-nowrap">
-                  <button className="btn-ghost" onClick={() => openEdit(r)}>Edit</button>
-                  <button className="btn-ghost text-red-600" onClick={() => setDeleting(r)}>Hapus</button>
+                <td className="font-medium align-middle">{r.full_name}</td>
+                <td className="align-middle" style={{ color: "var(--muted)" }}>{r.email}</td>
+                <td className="align-middle"><span className="badge">{r.role}</span></td>
+                <td className="align-middle">{r.role === "kasir" ? outletName(r.outlet_id) : "-"}</td>
+                <td className="text-right whitespace-nowrap py-2 align-middle">
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      className="btn-ghost h-8 w-8 p-0"
+                      onClick={() => openEdit(r)}
+                      title={`Edit ${r.full_name ?? r.email}`}
+                      aria-label={`Edit ${r.full_name ?? r.email}`}
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-ghost text-red-600 h-8 w-8 p-0"
+                      onClick={() => setDeleting(r)}
+                      title={`Hapus ${r.full_name ?? r.email}`}
+                      aria-label={`Hapus ${r.full_name ?? r.email}`}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -83,35 +102,35 @@ export function UsersClient({ rows, outlets }: { rows: Row[]; outlets: Outlet[] 
           {!editing && (
             <>
               <div className="sm:col-span-2">
-                <label className="label">Email</label>
-                <input className="input" name="email" type="email" required />
+                <label htmlFor="user-email" className="label">Email</label>
+                <input id="user-email" className="input" name="email" type="email" required />
               </div>
               <div className="sm:col-span-2">
-                <label className="label">Password</label>
-                <input className="input" name="password" type="password" minLength={6} required />
+                <label htmlFor="user-password" className="label">Password</label>
+                <input id="user-password" className="input" name="password" type="password" minLength={6} required />
               </div>
             </>
           )}
           {editing && (
             <div className="sm:col-span-2">
-              <label className="label">Password Baru (opsional)</label>
-              <input className="input" name="password" type="password" minLength={6} placeholder="Kosongkan jika tidak diubah" />
+              <label htmlFor="user-new-password" className="label">Password Baru (opsional)</label>
+              <input id="user-new-password" className="input" name="password" type="password" minLength={6} placeholder="Kosongkan jika tidak diubah" />
             </div>
           )}
           <div className="sm:col-span-2">
-            <label className="label">Nama Lengkap</label>
-            <input className="input" name="full_name" defaultValue={editing?.full_name ?? ""} required />
+            <label htmlFor="user-full-name" className="label">Nama Lengkap</label>
+            <input id="user-full-name" className="input" name="full_name" defaultValue={editing?.full_name ?? ""} required />
           </div>
           <div>
-            <label className="label">Role</label>
-            <select className="input" name="role" defaultValue={editing?.role ?? "kasir"}>
+            <label htmlFor="user-role" className="label">Role</label>
+            <select id="user-role" className="input" name="role" defaultValue={editing?.role ?? "kasir"}>
               <option value="kasir">Kasir</option>
               <option value="super_admin">Super Admin</option>
             </select>
           </div>
           <div>
-            <label className="label">Outlet (untuk kasir)</label>
-            <select className="input" name="outlet_id" defaultValue={editing?.outlet_id ?? ""}>
+            <label htmlFor="user-outlet" className="label">Outlet (untuk kasir)</label>
+            <select id="user-outlet" className="input" name="outlet_id" defaultValue={editing?.outlet_id ?? ""}>
               <option value="">-- pilih --</option>
               {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>

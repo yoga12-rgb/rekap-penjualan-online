@@ -1,5 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -43,15 +44,35 @@ export function OutletsClient({ rows }: { rows: Row[] }) {
       </div>
       <div className="card overflow-auto">
         <table className="table">
-          <thead><tr><th>Nama</th><th>Dibuat</th><th></th></tr></thead>
+          <thead><tr><th>Nama</th><th>Dibuat</th><th className="text-right">Aksi</th></tr></thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id}>
-                <td>{r.name}</td>
-                <td>{new Date(r.created_at).toLocaleDateString("id-ID")}</td>
-                <td className="text-right whitespace-nowrap">
-                  <button className="btn-ghost" onClick={() => openEdit(r)}>Edit</button>
-                  <button className="btn-ghost text-red-600" onClick={() => setDeleting(r)}>Hapus</button>
+                <td className="font-medium align-middle">{r.name}</td>
+                <td className="align-middle" style={{ color: "var(--muted)" }}>
+                  {new Date(r.created_at).toLocaleDateString("id-ID")}
+                </td>
+                <td className="text-right whitespace-nowrap py-2 align-middle">
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      className="btn-ghost h-8 w-8 p-0"
+                      onClick={() => openEdit(r)}
+                      title={`Edit ${r.name}`}
+                      aria-label={`Edit ${r.name}`}
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-ghost text-red-600 h-8 w-8 p-0"
+                      onClick={() => setDeleting(r)}
+                      title={`Hapus ${r.name}`}
+                      aria-label={`Hapus ${r.name}`}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -68,8 +89,8 @@ export function OutletsClient({ rows }: { rows: Row[] }) {
       <Modal open={open} onClose={() => setOpen(false)} title={editing ? "Edit Outlet" : "Tambah Outlet"}>
         <form onSubmit={(e) => { e.preventDefault(); onSubmit(e.currentTarget); }} className="space-y-3">
           <div>
-            <label className="label">Nama Outlet</label>
-            <input className="input" name="name" defaultValue={editing?.name ?? ""} required />
+            <label htmlFor="outlet-name" className="label">Nama Outlet</label>
+            <input id="outlet-name" className="input" name="name" defaultValue={editing?.name ?? ""} required />
           </div>
           <div className="flex justify-end">
             <button className="btn-primary" disabled={pending}>{pending ? "Menyimpan..." : "Simpan"}</button>

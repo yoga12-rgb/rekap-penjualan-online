@@ -1313,10 +1313,12 @@ function CreateOrderForm({
                     <label
                       className="text-xs"
                       style={{ color: "var(--muted)" }}
+                      htmlFor={`qty-${it.key}`}
                     >
                       Qty
                     </label>
                     <input
+                      id={`qty-${it.key}`}
                       className="input"
                       type="number"
                       min={1}
@@ -1367,10 +1369,18 @@ function CreateOrderForm({
             {isFake && (
               <div className="min-w-0 rounded-md border border-red-200 bg-red-50 p-3 dark:border-red-900/60 dark:bg-red-950/30 space-y-3">
                 <div>
-                  <label className="mb-2 block text-sm font-bold text-red-800 dark:text-red-200">
+                  <label
+                    htmlFor="mobile-company-expense"
+                    className="mb-2 block text-sm font-bold text-red-800 dark:text-red-200"
+                  >
                     Pengeluaran Dana Perusahaan
                   </label>
-                  <CurrencyInput value={companyExpense} onChange={setCompanyExpense} required />
+                  <CurrencyInput
+                    id="mobile-company-expense"
+                    value={companyExpense}
+                    onChange={setCompanyExpense}
+                    required
+                  />
                 </div>
                 <div className="pt-2 border-t border-red-200 dark:border-red-900/40">
                   <div className="text-sm font-bold text-red-800 dark:text-red-200 mb-1">Total Biaya Hangus</div>
@@ -1419,10 +1429,18 @@ function CreateOrderForm({
             {isFake && (
               <div className="min-w-0 rounded-md border border-red-200 bg-red-50 p-3 dark:border-red-900/60 dark:bg-red-950/30 space-y-3">
                 <div>
-                  <label className="mb-2 block text-sm font-bold text-red-800 dark:text-red-200">
+                  <label
+                    htmlFor="desktop-company-expense"
+                    className="mb-2 block text-sm font-bold text-red-800 dark:text-red-200"
+                  >
                     Pengeluaran Dana Perusahaan
                   </label>
-                  <CurrencyInput value={companyExpense} onChange={setCompanyExpense} required />
+                  <CurrencyInput
+                    id="desktop-company-expense"
+                    value={companyExpense}
+                    onChange={setCompanyExpense}
+                    required
+                  />
                 </div>
                 <div className="pt-2 border-t border-red-200 dark:border-red-900/40">
                   <div className="text-sm font-bold text-red-800 dark:text-red-200 mb-1">Total Biaya Hangus</div>

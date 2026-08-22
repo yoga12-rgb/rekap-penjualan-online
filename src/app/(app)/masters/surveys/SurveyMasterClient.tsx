@@ -490,9 +490,12 @@ const SurveyMasterForm = memo(function SurveyMasterForm({
       }}
     >
       <div>
-        <label className="label">{isQuestion ? "Pertanyaan" : "Jawaban"}</label>
+        <label htmlFor="survey-content-text" className="label">
+          {isQuestion ? "Pertanyaan" : "Jawaban"}
+        </label>
         {isQuestion ? (
           <textarea
+            id="survey-content-text"
             className="input min-h-24"
             name="question_text"
             defaultValue={question?.question_text ?? ""}
@@ -501,6 +504,7 @@ const SurveyMasterForm = memo(function SurveyMasterForm({
           />
         ) : (
           <input
+            id="survey-content-text"
             className="input"
             name="label"
             defaultValue={answer?.label ?? ""}
@@ -511,8 +515,11 @@ const SurveyMasterForm = memo(function SurveyMasterForm({
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="label">Urutan</label>
+          <label htmlFor="survey-sort-order" className="label">
+            Urutan
+          </label>
           <input
+            id="survey-sort-order"
             className="input"
             name="sort_order"
             type="number"

@@ -48,14 +48,14 @@ export function ToastHost() {
 
   return (
     <div
-      className="fixed left-3 right-3 top-3 z-[100] flex flex-col gap-2 sm:left-auto sm:top-4 sm:right-4 sm:max-w-sm"
+      className="pointer-events-none fixed left-3 right-3 top-16 z-[100] flex flex-col gap-2 sm:left-auto sm:top-4 sm:right-4 sm:max-w-sm"
       role="status"
       aria-live="polite"
     >
       {items.map((i) => (
         <div
           key={i.id}
-          className={`flex items-start gap-2 rounded-md px-3 py-2 text-sm shadow-lg ${TONE[i.t]}`}
+          className={`pointer-events-auto flex items-start gap-2 rounded-md px-3 py-2 text-sm shadow-lg transition-all ${TONE[i.t]}`}
         >
           <span className="min-w-0 flex-1 break-words">{i.m}</span>
           <button
